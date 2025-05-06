@@ -10,16 +10,31 @@
         url: window.location.href
     });
 
+/*
+    content.js will listen to the following UI messages:
+    - FORM_UI_ADD_ERRLOG: Sends error logs from the UI to the background script.
+    - FORM_UI_SETUP_TESTING: Configures the testing environment by sending setup data to the background script.
+    - FORM_UI_START_TESTING: Triggers the start of the testing process by notifying the background script.
+*/
     window.addEventListener("message", function (event) {
-        if (event.data && event.data.type === "autotestlog") {
+        if (event.data && event.data.type === "FORM_UI_ADD_ERRLOG") {
             chrome.runtime.sendMessage(event.data);
-        } else if (event.data.type === "SETUP_TESTING") {
+        }
+        else if (event.data.type === "FORM_UI_SETUP_TESTING") {
             chrome.runtime.sendMessage({ type: "setupTesting", data: event.data.testingEnv });
-        } else if (event.data.type === "start_testing") {
+        }
+        else if (event.data.type === "FORM_UI_START_TESTING") {
             chrome.runtime.sendMessage({ type: "startTesting" });
         }
     });
 
+/*
+    content.js will listen to the following runtime messages:
+    - downloadLogs: Triggers the download of test logs by injecting and executing `endTesting.js`.
+    - startTesting: Starts the testing process by injecting and executing `startTesting.js`.
+    - loadSetupTestingScript: Loads and executes `setupTesting.js` to initialize the testing environment.
+    - setupLang: Sets the language for testing by injecting `setupLang.js` and posting a message with the language.
+*/ 
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.type === "downloadLogs") {
             const script = document.createElement("script");
@@ -33,7 +48,8 @@
             };
             document.documentElement.appendChild(script);
             return true;
-        } else if (message.type === "startTesting") {
+        } 
+        else if (message.type === "startTesting") {
             const script = document.createElement("script");
             script.src = chrome.runtime.getURL("startTesting.js");
             script.onload = () => {
@@ -46,7 +62,8 @@
             };
             document.documentElement.appendChild(script);
             return true;
-        } else if (message.type === "loadSetupTestingScript") {
+        } 
+        else if (message.type === "loadSetupTestingScript") {
             const script = document.createElement("script");
             script.src = chrome.runtime.getURL("setupTesting.js");
             script.onload = () => {
@@ -59,7 +76,8 @@
             };
             document.documentElement.appendChild(script);
             return true;
-        } else if (message.type === "setupLang") {
+        } 
+        else if (message.type === "setupLang") {
             const script = document.createElement("script");
             script.src = chrome.runtime.getURL("setupLang.js");
             script.onload = () => {

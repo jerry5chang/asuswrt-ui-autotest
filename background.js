@@ -82,89 +82,6 @@ function updateProgress() {
     chrome.runtime.sendMessage({ type: "progressUpdate", progress, currentLang, langQueue });
 }
 
-initializeUrlQueue();
-
-/*
-    Extension app will listen to the following messages:
-    - startTesting
-    - autotestlog
-    - downloadLogs
-    - resetUrlQueue
-    - resetAllLangUrlQueue
-    - setupTesting
-*/
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === "startTesting") {
-        if(!startTime) startTime = new Date();
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs.length > 0) {
-                activeTabId = tabs[0].id;
-                processNextUrl();
-                sendResponse({ status: "Navigation started" });
-            } else {
-                sendResponse({ status: "No active tab found" });
-            }
-        });
-        return true;
-    } else if (message.type === "autotestlog") {
-        if (message.log) {
-            if(originalQueueLength != 0 && currentLang !== "XX") {
-                logs.push({ url: message.url, log: message.log, lang: currentLang });
-            }
-            sendResponse({ status: "Error logged" });
-        } else {
-            sendResponse({ status: "Incomplete error message" });
-        }
-        return true;
-    } else if (message.type === "downloadLogs") {
-        downloadLogs();
-        sendResponse({ status: "success", message: "Logs are being downloaded." });
-        return true;
-    } else if (message.type === "resetUrlQueue") {
-        langQueue = ["UI"];
-
-        initializeUrlQueue();
-        sendResponse({ status: "success", message: "urlQueue has been reset" });
-        return true;
-    } else if (message.type === "resetAllLangUrlQueue") {
-        langQueue = [
-            "UI", 
-            "EN", 
-            "TW", 
-            "CN", 
-            "BR", 
-            "CZ", 
-            "DA", 
-            "DE", 
-            "ES", 
-            "FI", 
-            "FR", 
-            "HU", 
-            "IT", 
-            "JP", 
-            "KR", 
-            "MS", 
-            "NL", 
-            "NO", 
-            "PL", 
-            "RO", 
-            "RU", 
-            "SL", 
-            "SV", 
-            "TH", 
-            "TR", 
-            "UK"
-        ];
-
-        initializeUrlQueue();
-        sendResponse({ status: "success", message: "LangUrlQueue and urlQueue have been reset" });
-        return true;
-    } else if (message.type === "setupTesting") {
-        menuTree = message.data.menuList;
-        baseUrl = `${message.data.origin}/`;
-    }
-});
-
 function processNextUrl() {
     if (urlQueue.length === 0) {
         if( langQueue.length === 0) {
@@ -268,3 +185,91 @@ function downloadLogs() {
 
     resetParameters()
 }
+
+/*
+    background.js will listen to the following messages:
+    - startTesting: Starts the testing process, initializes `startTime`, sets `activeTabId`, and begins processing the URL queue.
+    - autotestlog: Logs errors during testing, storing them in `logs` with URL, log message, and language.
+    - downloadLogs: Generates and downloads a test report, including errors, 404s, and successful logs.
+    - resetUrlQueue: Resets the URL queue to only include "UI" and reinitializes the queue.
+    - resetAllLangUrlQueue: Resets the language queue to all supported languages and reinitializes the URL queue.
+    - setupTesting: Sets up the testing environment by configuring `menuTree` and `baseUrl`.
+*/
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === "startTesting") {
+        if(!startTime) startTime = new Date();
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs.length > 0) {
+                activeTabId = tabs[0].id;
+                processNextUrl();
+                sendResponse({ status: "Navigation started" });
+            } else {
+                sendResponse({ status: "No active tab found" });
+            }
+        });
+        return true;
+    }
+    else if (message.type === "autotestlog") {
+        if (message.log) {
+            if(originalQueueLength != 0 && currentLang !== "XX") {
+                logs.push({ url: message.url, log: message.log, lang: currentLang });
+            }
+            sendResponse({ status: "Error logged" });
+        } else {
+            sendResponse({ status: "Incomplete error message" });
+        }
+        return true;
+    }
+    else if (message.type === "downloadLogs") {
+        downloadLogs();
+        sendResponse({ status: "success", message: "Logs are being downloaded." });
+        return true;
+    }
+    else if (message.type === "resetUrlQueue") {
+        langQueue = ["UI"];
+
+        initializeUrlQueue();
+        sendResponse({ status: "success", message: "urlQueue has been reset" });
+        return true;
+    }
+    else if (message.type === "resetAllLangUrlQueue") {
+        langQueue = [
+            "UI", 
+            "EN", 
+            "TW", 
+            "CN", 
+            "BR", 
+            "CZ", 
+            "DA", 
+            "DE", 
+            "ES", 
+            "FI", 
+            "FR", 
+            "HU", 
+            "IT", 
+            "JP", 
+            "KR", 
+            "MS", 
+            "NL", 
+            "NO", 
+            "PL", 
+            "RO", 
+            "RU", 
+            "SL", 
+            "SV", 
+            "TH", 
+            "TR", 
+            "UK"
+        ];
+
+        initializeUrlQueue();
+        sendResponse({ status: "success", message: "LangUrlQueue and urlQueue have been reset" });
+        return true;
+    }
+    else if (message.type === "setupTesting") {
+        menuTree = message.data.menuList;
+        baseUrl = `${message.data.origin}/`;
+    }
+});
+
+initializeUrlQueue();

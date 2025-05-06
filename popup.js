@@ -93,6 +93,10 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+/*
+    popup.js will listen to the following messages:
+    - progressUpdate: Updates the progress bar with the current testing progress and language.
+*/
     chrome.runtime.onMessage.addListener((message) => {
         if (message.type === "progressUpdate") {
             const progressBar = document.getElementById("progressBar");

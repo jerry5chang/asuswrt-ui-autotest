@@ -4,7 +4,7 @@ window.addEventListener("message", function (event) {
             preferred_lang: event.data.lang,
             action_mode: "apply"
         }, function(){
-            window.postMessage({ type: "start_testing" }, "*");    
+            window.postMessage({ type: "FORM_UI_START_TESTING" }, "*");    
         })  
     }
 });
