@@ -1,0 +1,32 @@
+{
+    "manifest_version": 3,
+    "name": "AsusWRT UI AutoTST",
+    "version": "1.0",
+    "description": "依序導頁到 ASUSWRT UI 頁面",
+    "icons": {
+        "16": "icon.png",
+        "48": "icon.png",
+        "128": "icon.png"
+    },
+    "action": {
+        "default_popup": "popup.html",
+        "default_title": "ASUSWRT UI AutoTST"
+    },
+    "permissions": ["downloads", "tabs", "activeTab", "scripting"],
+    "host_permissions": ["<all_urls>"],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": ["http://*/*", "https://*/*"],
+            "js": ["content.js"]
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": ["setupLang.js", "setupTesting.js", "endTesting.js", "startTesting.js", "injected-error-handler.js"],
+            "matches": ["<all_urls>"]
+        }
+    ]
+}

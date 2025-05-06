@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ASUSWRT UI TEST</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            width: 300px;
+            box-sizing: border-box;
+        }
+        h1 {
+            font-size: 18px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+            color: #fff;
+            background-color: #006ce1;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            height: 40px;
+        }
+        button:hover {
+            background-color: #007bff;
+        }
+        #progressContainer {
+            width: 100%;
+            background-color: #f3f3f3;
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 10px 0;
+            height: 40px;
+        }
+        #progressBar {
+            width: 0;
+            height: 100%;
+            background-color: #4caf50;
+            text-align: center;
+            line-height: 40px;
+            color: #FFF;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: visible;
+        }
+    </style>
+</head>
+<body>
+    <h1>ASUSWRT UI TEST</h1>
+    <button id="startTesting">Single Language Testing</button>
+    <div id="progressContainer" style="display: none;">
+        <div id="progressBar">0%</div>
+    </div>
+    <button id="startTestingAllLang">All Language</button>
+    <button id="downloadLogs">Download logs</button>
+    <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+var menuTree = [];
+let urlQueue = [];
+let langQueue = [];
+let baseUrl = "";
+let logs = [];
+let activeTabId = null;
+let originalQueueLength = 0;
+let startTime = null;
+let endTime = null;
+let currentLang = "XX"
+
+function resetParameters() {
+    menuTree = [];
+    urlQueue = [];
+    langQueue = [];
+    baseUrl = "";
+    logs = [];
+    activeTabId = null;
+    originalQueueLength = 0;
+    startTime = null;
+    endTime = null; 
+}
+
+function initializeUrlQueue() {
+    if(langQueue.length !== 0) {
+        currentLang = langQueue.shift();
+
+        if (activeTabId !== null) {
+            chrome.tabs.sendMessage(activeTabId, { 
+                type: "setupLang", 
+                lang: currentLang 
+            });
+        }
+    }
+
+    urlQueue = [];
+    menuTree.forEach(menu => {
+        menu.tab.forEach(tab => {
+            if (
+                tab.url && tab.url.toUpperCase() !== "NULL" 
+                && tab.url !== "QIS_wizard.htm"
+                && tab.url !== "Main_Login.asp"
+                && tab.url !== "index.html"
+                && tab.url !== "Main_IPTStatus_Content.asp"
+                && tab.url !== "Guest_network_fbwifi.asp"
+                && tab.url !== "AiProtection_AdBlock.asp"
+                && tab.url !== "AiProtection_Key_Guard.asp"
+                && tab.url !== "YandexDNS.asp"
+                && tab.url !== "AdaptiveQoS_ROG.asp"
+                && tab.url !== "Main_Spectrum_Content.asp"
+                && tab.url !== "AdaptiveQoS_TrafficLimiter.asp"
+                && tab.url !== "GameBoost_Tencent.asp"
+                && tab.url !== "Advanced_TencentDownloadAcceleration.asp"
+                && tab.url !== "Mafileflexin_Login.asp"
+                && tab.url !== "fileflex.asp"
+                && tab.url !== "SMS_Send.asp"
+                && tab.url !== "SMS_Inbox.asp"
+                && tab.url !== "Advanced_DSL_Content.asp"
+                && tab.url !== "Advanced_VDSL_Content.asp"
+                && tab.url !== "Advanced_ADSL_Content.asp"
+                && tab.url !== "Main_AdslStatus_Content.asp"
+                && tab.url !== "Advanced_MobileBroadband_Content.asp"
+                && tab.url !== "Advanced_TOR_Content.asp"
+                && tab.url !== "Advanced_GRE_Content.asp"
+                && tab.url !== "Advanced_PerformanceTuning_Content.asp"
+                && tab.url !== "Advanced_SNMP_Content.asp"
+                && tab.url !== "Advanced_MultiSubnet_Content.asp"
+                && tab.url !== "Advanced_Notification_Content.asp"
+                && tab.url !== "Advanced_TR069_Content.asp"
+                && tab.url !== "Advanced_OAM_Content.asp"
+            ) {
+                urlQueue.push(tab.url);
+            }
+        });
+    });
+    originalQueueLength = urlQueue.length;
+}
+
+function updateProgress() {
+    const completed = originalQueueLength - urlQueue.length;
+    const progress = Math.round((completed / originalQueueLength) * 100);
+    chrome.runtime.sendMessage({ type: "progressUpdate", progress, currentLang, langQueue });
+}
+
+initializeUrlQueue();
+
+/*
+    Extension app will listen to the following messages:
+    - startTesting
+    - autotestlog
+    - downloadLogs
+    - resetUrlQueue
+    - resetAllLangUrlQueue
+    - setupTesting
+*/
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === "startTesting") {
+        if(!startTime) startTime = new Date();
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs.length > 0) {
+                activeTabId = tabs[0].id;
+                processNextUrl();
+                sendResponse({ status: "Navigation started" });
+            } else {
+                sendResponse({ status: "No active tab found" });
+            }
+        });
+        return true;
+    } else if (message.type === "autotestlog") {
+        if (message.log) {
+            if(originalQueueLength != 0 && currentLang !== "XX") {
+                logs.push({ url: message.url, log: message.log, lang: currentLang });
+            }
+            sendResponse({ status: "Error logged" });
+        } else {
+            sendResponse({ status: "Incomplete error message" });
+        }
+        return true;
+    } else if (message.type === "downloadLogs") {
+        downloadLogs();
+        sendResponse({ status: "success", message: "Logs are being downloaded." });
+        return true;
+    } else if (message.type === "resetUrlQueue") {
+        langQueue = ["UI"];
+
+        initializeUrlQueue();
+        sendResponse({ status: "success", message: "urlQueue 已重置" });
+        return true;
+    } else if (message.type === "resetAllLangUrlQueue") {
+        langQueue = [
+            "UI", 
+            "EN", 
+            "TW", 
+            "CN", 
+            "BR", 
+            "CZ", 
+            "DA", 
+            "DE", 
+            "ES", 
+            "FI", 
+            "FR", 
+            "HU", 
+            "IT", 
+            "JP", 
+            "KR", 
+            "MS", 
+            "NL", 
+            "NO", 
+            "PL", 
+            "RO", 
+            "RU", 
+            "SL", 
+            "SV", 
+            "TH", 
+            "TR", 
+            "UK"
+        ];
+
+        initializeUrlQueue();
+        sendResponse({ status: "success", message: "LangUrlQueue 與 urlQueue 已重置" });
+        return true;
+    } else if (message.type === "setupTesting") {
+        menuTree = message.data.menuList;
+        baseUrl = `${message.data.origin}/`;
+    }
+});
+
+function processNextUrl() {
+    if (urlQueue.length === 0) {
+        if( langQueue.length === 0) {
+            endTime = new Date();
+            updateProgress();
+            downloadLogs();
+            return;
+        }
+        else {
+            initializeUrlQueue();
+            return;
+        }
+    }
+
+    const nextUrl = baseUrl + urlQueue.shift();
+    updateProgress();
+
+    if (activeTabId !== null) {
+        fetch(nextUrl, { method: "HEAD" })
+            .then(response => {
+                if (response.ok) {
+                    chrome.tabs.update(activeTabId, { url: nextUrl }, () => {
+                        if (chrome.runtime.lastError) {
+                            urlQueue = [];
+                            return;
+                        }
+                        setTimeout(processNextUrl, 3000);
+                    });
+                } else {
+                    logs.push({ url: nextUrl, log: `404 Not Found`, lang: currentLang });
+                    setTimeout(processNextUrl, 3000);
+                }
+            })
+            .catch(error => {
+                logs.push({ url: nextUrl, log: `嘗試抓取 URL 時發生錯誤`, lang: currentLang });
+                setTimeout(processNextUrl, 3000);
+            });
+    } else {
+        console.error("無法更新標籤頁, 因為 activeTabId 為 null。");
+    }
+}
+
+function downloadLogs() {
+    if (activeTabId !== null) {
+        chrome.tabs.sendMessage(activeTabId, { type: "downloadLogs" }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error("無法與 Content script 通信:", chrome.runtime.lastError.message);
+            } else if (response && response.status === "success") {
+                console.log(response.message);
+            } else {
+                console.error("Content script 未回應或回應失敗。");
+            }
+        });
+    }
+
+    const passLogs = [];
+    const notFoundLogs = [];
+    const errorLogs = [];
+
+    logs.forEach(log => {
+        const url = new URL(log.url, baseUrl);
+
+        // Skip logs with [XX]
+        if(log.lang.includes("[XX]")) return;
+
+        if (log.log.includes("Page loaded successfully")) {
+            passLogs.push(`[${log.lang}] ${url.pathname}: ${log.log}`);
+        } else if (log.log.includes("404 Not Found")) {
+            notFoundLogs.push(`[${log.lang}] ${url.pathname}: ${log.log}`);
+        } else {
+            errorLogs.push(`[${log.lang}] ${url.pathname}: ${log.log}`);
+        }
+    });
+
+    const testDuration = startTime && endTime ? 
+        `Test Duration: ${((endTime - startTime) / 1000).toFixed(2)} seconds` : 
+        "Test Duration: Unable to calculate";
+
+    const reportContent = [
+        "=== TEST DURATION ===",
+        testDuration,
+        "",
+        "=== ERRORS ===",
+        ...errorLogs,
+        "",
+        "=== 404 NOT FOUND ===",
+        ...notFoundLogs,
+        "",
+        "=== PASS ===",
+        ...passLogs
+    ].join("\n");
+
+    const url = 'data:text/plain;charset=utf-8,' + encodeURIComponent(reportContent);
+    const timestamp = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Taipei" }).replace(/[-: ]/g, "").split(".")[0];
+
+    chrome.downloads.download({
+        url: url,
+        filename: `autotest_report_${timestamp}.txt`,
+        saveAs: false
+    });
+
+    resetParameters()
+}
