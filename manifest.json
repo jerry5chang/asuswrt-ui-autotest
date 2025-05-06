@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
-    "name": "AsusWRT UI AutoTST",
-    "version": "1.0",
+    "name": "ASUSWRT UI Autotest",
+    "version": "1.1",
     "description": "Sequentially navigate to ASUSWRT UI pages",
     "icons": {
         "16": "icon.png",
@@ -10,7 +10,7 @@
     },
     "action": {
         "default_popup": "popup.html",
-        "default_title": "ASUSWRT UI AutoTST"
+        "default_title": "ASUSWRT UI Autotest"
     },
     "permissions": ["downloads", "tabs", "activeTab", "scripting"],
     "host_permissions": ["<all_urls>"],
