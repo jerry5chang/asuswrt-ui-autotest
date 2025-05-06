@@ -19,9 +19,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         chrome.runtime.sendMessage({ type: "resetUrlQueue" }, (response) => {
             if (chrome.runtime.lastError) {
-                console.error("重置 urlQueue 失敗:", chrome.runtime.lastError.message);
+                console.error("Failed to reset urlQueue:", chrome.runtime.lastError.message);
             } else {
-                console.log("urlQueue 已重置:", response);
+                console.log("urlQueue has been reset:", response);
             }
         });
 
@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     () => {               
                         chrome.tabs.sendMessage(tabs[0].id, { type: "startTesting" }, (response) => {
                             if (chrome.runtime.lastError) {
-                                console.error("發送 startTesting 訊息失敗:", chrome.runtime.lastError.message);
+                                console.error("Failed to send startTesting message:", chrome.runtime.lastError.message);
                             } else {
                                 chrome.runtime.sendMessage({ type: "startTesting" }, (response) => {
                                     console.log("response:", response);
@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 );
             } else {
-                console.error("未找到活動的標籤頁，無法發送 startTesting 訊息。");
+                console.error("No active tab found, unable to send startTesting message.");
             }
         });
     });
@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     () => {               
                         chrome.tabs.sendMessage(tabs[0].id, { type: "startTesting" }, (response) => {
                             if (chrome.runtime.lastError) {
-                                console.error("發送 startTesting 訊息失敗:", chrome.runtime.lastError.message);
+                                console.error("Failed to send startTesting message:", chrome.runtime.lastError.message);
                             } else {
                                 chrome.runtime.sendMessage({ type: "startTesting" }, (response) => {
                                     console.log("response:", response);
@@ -76,7 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     }
                 );
             } else {
-                console.error("未找到活動的標籤頁，無法發送 startTesting 訊息。");
+                console.error("No active tab found, unable to send startTesting message.");
             }
         });
     });
@@ -84,11 +84,11 @@ document.addEventListener("DOMContentLoaded", () => {
     downloadLogsButton.addEventListener("click", () => {
         chrome.runtime.sendMessage({ type: "downloadLogs" }, (response) => {
             if (chrome.runtime.lastError) {
-                console.error("發送 downloadLogs 訊息失敗:", chrome.runtime.lastError.message);
+                console.error("Failed to send downloadLogs message:", chrome.runtime.lastError.message);
             } else if (response && response.status === "success") {
                 console.log("downloadLogs response:", response.message);
             } else {
-                console.error("未收到有效的 downloadLogs 回應。");
+                console.error("No valid response received for downloadLogs.");
             }
         });
     });
@@ -118,7 +118,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             );
         } else {
-            console.error("未找到活動的標籤頁，無法發送 startTesting 訊息。");
+            console.error("No active tab found, unable to send startTesting message.");
         }
     });
 });

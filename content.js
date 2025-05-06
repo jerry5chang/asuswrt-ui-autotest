@@ -29,7 +29,7 @@
                 sendResponse({ status: "success", message: "Testing completed!" });
             };
             script.onerror = () => {
-                sendResponse({ status: "error", message: "無法載入外部腳本。" });
+                sendResponse({ status: "error", message: "Unable to load external script." });
             };
             document.documentElement.appendChild(script);
             return true;
@@ -38,11 +38,11 @@
             script.src = chrome.runtime.getURL("startTesting.js");
             script.onload = () => {
                 script.remove();
-                sendResponse({ status: "success", message: "已執行 startTesting.js 啟動測試" });
+                sendResponse({ status: "success", message: "startTesting.js executed to start testing" });
             };
             script.onerror = () => {
-                console.error("無法載入外部腳本 startTesting.js");
-                sendResponse({ status: "error", message: "無法載入外部腳本。" });
+                console.error("Unable to load external script startTesting.js");
+                sendResponse({ status: "error", message: "Unable to load external script." });
             };
             document.documentElement.appendChild(script);
             return true;
@@ -51,11 +51,11 @@
             script.src = chrome.runtime.getURL("setupTesting.js");
             script.onload = () => {
                 script.remove();
-                sendResponse({ status: "success", message: "已執行 setupTesting.js 初始化測試環境" });
+                sendResponse({ status: "success", message: "setupTesting.js executed to initialize testing environment" });
             };
             script.onerror = () => {
-                console.error("無法載入外部腳本 startTesting.js");
-                sendResponse({ status: "error", message: "無法載入外部腳本。" });
+                console.error("Unable to load external script startTesting.js");
+                sendResponse({ status: "error", message: "Unable to load external script." });
             };
             document.documentElement.appendChild(script);
             return true;
@@ -64,11 +64,11 @@
             script.src = chrome.runtime.getURL("setupLang.js");
             script.onload = () => {
                 window.postMessage({ type: "SET_LANG", lang: message.lang }, "*");
-                sendResponse({ status: "success", message: `${message.script} 已注入` });
+                sendResponse({ status: "success", message: `${message.script} injected` });
             };
             script.onerror = () => {
-                console.error(`無法載入外部腳本 ${message.script}`);
-                sendResponse({ status: "error", message: `無法載入外部腳本 ${message.script}` });
+                console.error(`Unable to load external script ${message.script}`);
+                sendResponse({ status: "error", message: `Unable to load external script ${message.script}` });
             };
             document.documentElement.appendChild(script);
             return true;

@@ -124,7 +124,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         langQueue = ["UI"];
 
         initializeUrlQueue();
-        sendResponse({ status: "success", message: "urlQueue 已重置" });
+        sendResponse({ status: "success", message: "urlQueue has been reset" });
         return true;
     } else if (message.type === "resetAllLangUrlQueue") {
         langQueue = [
@@ -157,7 +157,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         ];
 
         initializeUrlQueue();
-        sendResponse({ status: "success", message: "LangUrlQueue 與 urlQueue 已重置" });
+        sendResponse({ status: "success", message: "LangUrlQueue and urlQueue have been reset" });
         return true;
     } else if (message.type === "setupTesting") {
         menuTree = message.data.menuList;
@@ -199,11 +199,11 @@ function processNextUrl() {
                 }
             })
             .catch(error => {
-                logs.push({ url: nextUrl, log: `嘗試抓取 URL 時發生錯誤`, lang: currentLang });
+                logs.push({ url: nextUrl, log: `Error while fetching URL`, lang: currentLang });
                 setTimeout(processNextUrl, 3000);
             });
     } else {
-        console.error("無法更新標籤頁, 因為 activeTabId 為 null。");
+        console.error("Unable to update tab because activeTabId is null.");
     }
 }
 
@@ -211,11 +211,11 @@ function downloadLogs() {
     if (activeTabId !== null) {
         chrome.tabs.sendMessage(activeTabId, { type: "downloadLogs" }, (response) => {
             if (chrome.runtime.lastError) {
-                console.error("無法與 Content script 通信:", chrome.runtime.lastError.message);
+                console.error("Unable to communicate with Content script:", chrome.runtime.lastError.message);
             } else if (response && response.status === "success") {
                 console.log(response.message);
             } else {
-                console.error("Content script 未回應或回應失敗。");
+                console.error("Content script did not respond or responded with failure.");
             }
         });
     }
@@ -241,7 +241,7 @@ function downloadLogs() {
 
     const testDuration = startTime && endTime ? 
         `Test Duration: ${((endTime - startTime) / 1000).toFixed(2)} seconds` : 
-        "Test Duration: Unable to calculate";
+        `Test Duration: Unable to calculate`;
 
     const reportContent = [
         "=== TEST DURATION ===",

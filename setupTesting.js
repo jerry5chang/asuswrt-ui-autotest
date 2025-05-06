@@ -1,15 +1,14 @@
 window.postMessage({ type: "SETUP_TESTING", testingEnv: {
-//    menuList: Session.get("menuList." + ui_lang),
-///*
-//    For testing purpose only
+/*
+    For testing purpose only
     menuList: [
         {
-            "menuName": "网络工具",
+            "menuName": "Network Tools",
             "index": "menu_NekworkTool",
             "tab": [
                 {
                     "url": "Main_Analysis_Content.asp",
-                    "tabName": "网络诊断"
+                    "tabName": "Network Diagnosis"
                 },
                 {
                     "url": "Main_Netstat_Content.asp",
@@ -17,11 +16,11 @@ window.postMessage({ type: "SETUP_TESTING", testingEnv: {
                 },
                 {
                     "url": "Main_WOL_Content.asp",
-                    "tabName": "通过网络（LAN）唤醒"
+                    "tabName": "Wake on LAN"
                 },
                 {
                     "url": "Advanced_Smart_Connect.asp",
-                    "tabName": "Smart Connect 规则"
+                    "tabName": "Smart Connect Rules"
                 },
                 {
                     "url": "NULL",
@@ -30,6 +29,7 @@ window.postMessage({ type: "SETUP_TESTING", testingEnv: {
             ]
         }
     ],
-//*/
+*/
+    menuList: Session.get("menuList." + ui_lang),
     origin: window.location.origin
 }}, "*");

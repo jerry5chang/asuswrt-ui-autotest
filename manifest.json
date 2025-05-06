@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "AsusWRT UI AutoTST",
     "version": "1.0",
-    "description": "依序導頁到 ASUSWRT UI 頁面",
+    "description": "Sequentially navigate to ASUSWRT UI pages",
     "icons": {
         "16": "icon.png",
         "48": "icon.png",
