@@ -175,7 +175,7 @@ function downloadLogs() {
 
         if (log.log.includes("page loaded successfully")) {
             if (!passPaths.has(url.pathname)) {
-                passLogs.push(`[${log.lang}] ${url.pathname}: ${log.log}`);
+                passLogs.push(`[${log.lang}] ${url.pathname.replace("/", "")}: ${log.log}`);
                 passPaths.add(url.pathname);
             }
             if (!passCounts[log.lang]) {
@@ -185,7 +185,7 @@ function downloadLogs() {
         } 
         else if (log.log.includes("not found")) {
             if (!notFoundPaths.has(url.pathname)) {
-                notFoundLogs.push(`[${log.lang}] ${url.pathname}: ${log.log}`);
+                notFoundLogs.push(`[${log.lang}] ${url.pathname.replace("/", "")}: ${log.log}`);
                 notFoundPaths.add(url.pathname);
             }
             if (!notFoundCounts[log.lang]) {
@@ -194,7 +194,7 @@ function downloadLogs() {
             notFoundCounts[log.lang] += 1;
         } 
         else {
-            errorLogs.push(`[${log.lang}] ${url.pathname}: ${log.log}`);
+            errorLogs.push(`[${log.lang}] ${url.pathname.replace("/", "")}: ${log.log}`);
         }
     });
 

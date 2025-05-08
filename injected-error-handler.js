@@ -1,11 +1,13 @@
+console.log("injected error handler script loaded");
+
 window.addEventListener("error", function (event) {
-    const url = location.pathname.includes(event.filename)
-        ? event.filename
-        : `${event.filename} in ${location.pathname}`;
+    const errorPage = event.filename.includes(location.pathname)
+        ? ""
+        : ` (${location.pathname.replace("/", "")})`;
 
     window.postMessage({
         type: "FORM_UI_ADD_ERRLOG",
-        log: `Error: ${event.message}`,
-        url: url
+        log: `Error: ${event.message}${errorPage}`,
+        url: event.filename
     }, "*");
 });
