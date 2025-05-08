@@ -269,7 +269,10 @@ function startNavigation(sendResponse) {
     - setupTesting: Sets up the testing environment by configuring `menuTree` and `baseUrl`.
 */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === "startTesting") {
+    if (message.type === "getMenuTreeLength") {
+        sendResponse({ menuTreeLength: menuTree.length, tabId: sender.tab?.id });
+    }
+    else if (message.type === "startTesting") {
         if (currentTestType && activeTabId !== sender.tab.id) {
             sendResponse({ status: "error", message: "A test is already running." });
             return true;

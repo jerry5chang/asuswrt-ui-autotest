@@ -1,13 +1,24 @@
 (function () {
-    const script = document.createElement("script");
-    script.src = chrome.runtime.getURL("injected-error-handler.js");
-    document.documentElement.appendChild(script);
-    script.onload = () => script.remove();
-
-    chrome.runtime.sendMessage({
-        type: `autotestlog`,
-        log: `page loaded successfully.`,
-        url: window.location.href
+    chrome.runtime.sendMessage({ type: "getMenuTreeLength" }, (response) => {
+        const menuTreeLength = response.menuTreeLength || 0;
+        if (menuTreeLength > 0) {
+            chrome.runtime.sendMessage({ type: "getTestEnvStatus" }, (tabResponse) => {
+                const activeTabId = tabResponse.activeTabId;
+                
+                if (activeTabId === response.tabId) {
+                    const script = document.createElement("script");
+                    script.src = chrome.runtime.getURL("injected-error-handler.js");
+                    document.documentElement.appendChild(script);
+                    script.onload = () => script.remove();
+                    
+                    chrome.runtime.sendMessage({
+                        type: `autotestlog`,
+                        log: `page loaded successfully.`,
+                        url: window.location.href
+                    });
+                }
+            });
+        }
     });
 
 /*
