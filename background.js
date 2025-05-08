@@ -87,6 +87,7 @@ function updateProgress() {
 }
 
 function processNextUrl() {
+/*
     console.log(JSON.stringify({
         menuTreeLength: menuTree.length,
         urlQueueLength: urlQueue.length,
@@ -99,9 +100,9 @@ function processNextUrl() {
         endTime,
         currentTestType
     }, null, 2));
-
+*/
     if (urlQueue.length === 0) {
-        if( langQueue.length === 0) {
+        if( langQueue.length === 0 ) {
             endTime = new Date();
             updateProgress();
             downloadLogs();
@@ -142,8 +143,12 @@ function processNextUrl() {
 }
 
 function downloadLogs() {
+    if (!activeTabId || !startTime || !baseUrl) {
+        return;
+    }
+    
     if (activeTabId !== null && startTime !== null) {
-        chrome.tabs.sendMessage(activeTabId, { type: "downloadLogs" }, (response) => {
+        chrome.tabs.sendMessage(activeTabId, { type: "endTesting" }, (response) => {
             if (chrome.runtime.lastError) {
                 console.error("Unable to communicate with Content script:", chrome.runtime.lastError.message);
             } else if (response && response.status === "success") {
@@ -235,16 +240,23 @@ function downloadLogs() {
 
 function startNavigation(sendResponse) {
     if (!startTime) startTime = new Date();
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs.length > 0) {
-            activeTabId = tabs[0].id;
-            processNextUrl();
-            sendResponse({ status: "success", message: "Navigation started" });
-        } else {
-            currentTestType = null;
-            sendResponse({ status: "error", message: "No active tab found" });
-        }
-    });
+
+    if (activeTabId !== null) {
+        processNextUrl();
+        sendResponse({ status: "success", message: "Navigation started" });
+    } 
+    else {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs.length > 0) {
+                activeTabId = tabs[0].id;
+                processNextUrl();
+                sendResponse({ status: "success", message: "Navigation started" });
+            } else {
+                currentTestType = null;
+                sendResponse({ status: "error", message: "No active tab found" });
+            }
+        });
+    }    
 }
 
 /*
@@ -298,6 +310,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         currentTestType = null;
         downloadLogs();
         sendResponse({ status: "success", message: "Logs are being downloaded." });
+        return true;
+    }
+    else if (message.type === "resetParameters") {
+        urlQueue = [];
+        langQueue = [];
+
+        sendResponse({ status: "success", message: "Parameters are reset" });
         return true;
     }
     else if (message.type === "resetUrlQueue") {

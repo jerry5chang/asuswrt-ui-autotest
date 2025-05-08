@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const downloadLogsButton = document.getElementById("downloadLogs");
     const progressContainer = document.getElementById("progressContainer");
     const progressBar = document.getElementById("progressBar");
+    const resetButton = document.getElementById("resetButton");
 
     progressContainer.style.display = "none";
 
@@ -39,10 +40,15 @@ document.addEventListener("DOMContentLoaded", () => {
                             }
                             disableButtonsIfProgressVisible();
                         } else {
-                            startButton.disabled = true;
-                            startAllLangButton.disabled = true;
-                            progressBar.textContent = "Test is running in another tab.";
-                            progressContainer.style.display = "";
+                            const alertMessage = document.getElementById("alertMessage");
+                            alertMessage.style.display = "block";
+
+                            // Remove all other elements
+                            startButton.style.display = "none";
+                            startAllLangButton.style.display = "none";
+                            downloadLogsButton.style.display = "none";
+                            progressContainer.style.display = "none";
+                            resetButton.style.display = "none";
                         }
                     } else {
                         progressContainer.style.display = "none";
@@ -135,6 +141,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.log("downloadLogs response:", response.message);
             } else {
                 console.error("No valid response received for downloadLogs.");
+            }
+        });
+    });
+
+    resetButton.addEventListener("click", () => {
+        chrome.runtime.sendMessage({ type: "resetParameters" }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error("Failed to send resetParameters message:", chrome.runtime.lastError.message);
+            } else if (response && response.status === "success") {
+                console.log("Reset successful:", response.message);
+            } else {
+                console.error("No valid response received for resetParameters.");
             }
         });
     });

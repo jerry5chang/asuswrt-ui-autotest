@@ -34,13 +34,13 @@
 
 /*
     content.js will listen to the following runtime messages:
-    - downloadLogs: Triggers the download of test logs by injecting and executing `endTesting.js`.
+    - endTesting: injecting and executing `endTesting.js`.
     - startTesting: Starts the testing process by injecting and executing `startTesting.js`.
     - loadSetupTestingScript: Loads and executes `setupTesting.js` to initialize the testing environment.
     - setupLang: Sets the language for testing by injecting `setupLang.js` and posting a message with the language.
 */ 
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        if (message.type === "downloadLogs") {
+        if (message.type === "endTesting") {
             const script = document.createElement("script");
             script.src = chrome.runtime.getURL("endTesting.js");
             script.onload = () => {
