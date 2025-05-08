@@ -3,6 +3,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const startAllLangButton = document.getElementById("startTestingAllLang");
     const downloadLogsButton = document.getElementById("downloadLogs");
     const progressContainer = document.getElementById("progressContainer");
+    const progressBar = document.getElementById("progressBar");
 
     progressContainer.style.display = "none";
 
@@ -12,8 +13,53 @@ document.addEventListener("DOMContentLoaded", () => {
         startAllLangButton.disabled = isProgressVisible;
     }
 
+    function updateProgress(progress, currentLang) {
+        progressBar.style.width = `${progress}%`;
+        progressBar.textContent = `[${currentLang}] ${progress}%`;
+        if (progress === 100) {
+            progressBar.textContent = `Done`;
+        }
+    }
+
+    function restoreUIState() {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs.length > 0) {
+                const currentTabId = tabs[0].id;
+                chrome.runtime.sendMessage({ type: "getTestEnvStatus" }, (response) => {
+                    if (response.isTesting) {
+                        if (response.activeTabId === currentTabId) {
+                            progressContainer.style.display = "";
+                            updateProgress(response.progress, response.currentLang);
+                            if (response.currentTestType === "startTesting") {
+                                startButton.style.display = "none";
+                                startAllLangButton.style.display = "";
+                            } else if (response.currentTestType === "startTestingAllLang") {
+                                startAllLangButton.style.display = "none";
+                                startButton.style.display = "";
+                            }
+                            disableButtonsIfProgressVisible();
+                        } else {
+                            startButton.disabled = true;
+                            startAllLangButton.disabled = true;
+                            progressBar.textContent = "Test is running in another tab.";
+                            progressContainer.style.display = "";
+                        }
+                    } else {
+                        progressContainer.style.display = "none";
+                        startButton.style.display = "";
+                        startAllLangButton.style.display = "";
+                        startButton.disabled = false;
+                        startAllLangButton.disabled = false;
+                    }
+                });
+            }
+        });
+    }
+
+    restoreUIState();
+
     startButton.addEventListener("click", () => {
-        document.getElementById("startTesting").style.display = "none";
+        startButton.style.display = "none";
         progressContainer.style.display = "block";
         disableButtonsIfProgressVisible();
 
@@ -51,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     startAllLangButton.addEventListener("click", () => {
-        document.getElementById("startTestingAllLang").style.display = "none";
+        startAllLangButton.style.display = "none";
         progressContainer.style.display = "block";
         disableButtonsIfProgressVisible();
 
@@ -68,7 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             if (chrome.runtime.lastError) {
                                 console.error("Failed to send startTesting message:", chrome.runtime.lastError.message);
                             } else {
-                                chrome.runtime.sendMessage({ type: "startTesting" }, (response) => {
+                                chrome.runtime.sendMessage({ type: "startTestingAllLang" }, (response) => {
                                     console.log("response:", response);
                                 });
                             }
@@ -99,14 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
 */
     chrome.runtime.onMessage.addListener((message) => {
         if (message.type === "progressUpdate") {
-            const progressBar = document.getElementById("progressBar");
-            progressBar.style.width = `${message.progress}%`;
-            progressBar.textContent = `[${message.currentLang}] ${message.progress}%`;
-
-            if (message.progress === 100) {
-                progressBar.textContent = `Done`;
-                disableButtonsIfProgressVisible();
-            }
+            updateProgress(message.progress, message.currentLang);
         }
     });
 

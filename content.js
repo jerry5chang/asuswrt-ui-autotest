@@ -28,7 +28,7 @@
             chrome.runtime.sendMessage({ type: "setupTesting", data: event.data.testingEnv });
         }
         else if (event.data.type === "FORM_UI_START_TESTING") {
-            chrome.runtime.sendMessage({ type: "startTesting" });
+            chrome.runtime.sendMessage({ type: "restartTesting" });
         }
     });
 

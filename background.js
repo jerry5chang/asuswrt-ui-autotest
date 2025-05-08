@@ -7,7 +7,8 @@ let activeTabId = null;
 let originalQueueLength = 0;
 let startTime = null;
 let endTime = null;
-let currentLang = "XX"
+let currentLang = "XX";
+let currentTestType = null;
 
 function resetParameters() {
     menuTree = [];
@@ -19,6 +20,7 @@ function resetParameters() {
     originalQueueLength = 0;
     startTime = null;
     endTime = null; 
+    currentTestType = null;
 }
 
 function initializeUrlQueue() {
@@ -74,6 +76,7 @@ function initializeUrlQueue() {
             }
         });
     });
+
     originalQueueLength = urlQueue.length;
 }
 
@@ -84,6 +87,19 @@ function updateProgress() {
 }
 
 function processNextUrl() {
+    console.log(JSON.stringify({
+        menuTreeLength: menuTree.length,
+        urlQueueLength: urlQueue.length,
+        langQueueLength: langQueue.length,
+        baseUrl,
+        logsLength: logs.length,
+        activeTabId,
+        originalQueueLength,
+        startTime,
+        endTime,
+        currentTestType
+    }, null, 2));
+
     if (urlQueue.length === 0) {
         if( langQueue.length === 0) {
             endTime = new Date();
@@ -126,7 +142,7 @@ function processNextUrl() {
 }
 
 function downloadLogs() {
-    if (activeTabId !== null) {
+    if (activeTabId !== null && startTime !== null) {
         chrome.tabs.sendMessage(activeTabId, { type: "downloadLogs" }, (response) => {
             if (chrome.runtime.lastError) {
                 console.error("Unable to communicate with Content script:", chrome.runtime.lastError.message);
@@ -217,6 +233,20 @@ function downloadLogs() {
     resetParameters();
 }
 
+function startNavigation(sendResponse) {
+    if (!startTime) startTime = new Date();
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs.length > 0) {
+            activeTabId = tabs[0].id;
+            processNextUrl();
+            sendResponse({ status: "success", message: "Navigation started" });
+        } else {
+            currentTestType = null;
+            sendResponse({ status: "error", message: "No active tab found" });
+        }
+    });
+}
+
 /*
     background.js will listen to the following messages:
     - startTesting: Starts the testing process, initializes `startTime`, sets `activeTabId`, and begins processing the URL queue.
@@ -228,18 +258,31 @@ function downloadLogs() {
 */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "startTesting") {
-        if(!startTime) startTime = new Date();
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (tabs.length > 0) {
-                activeTabId = tabs[0].id;
-                processNextUrl();
-                sendResponse({ status: "Navigation started" });
-            } else {
-                sendResponse({ status: "No active tab found" });
-            }
-        });
+        if (currentTestType && activeTabId !== sender.tab.id) {
+            sendResponse({ status: "error", message: "A test is already running." });
+            return true;
+        }
+        currentTestType = "startTesting";
+        startNavigation(sendResponse);
         return true;
     }
+    else if (message.type === "startTestingAllLang") {
+        if (currentTestType && activeTabId !== sender.tab.id) {
+            sendResponse({ status: "error", message: "A test is already running." });
+            return true;
+        }
+        currentTestType = "startTestingAllLang";
+        startNavigation(sendResponse);
+        return true;
+    }
+    else if (message.type === "restartTesting") {
+        if (currentTestType && activeTabId !== sender.tab.id) {
+            sendResponse({ status: "error", message: "A test is already running." });
+            return true;
+        }
+        startNavigation(sendResponse);
+        return true;
+    }    
     else if (message.type === "autotestlog") {
         if (message.log) {
             if(originalQueueLength != 0 && currentLang !== "XX") {
@@ -252,6 +295,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
     else if (message.type === "downloadLogs") {
+        currentTestType = null;
         downloadLogs();
         sendResponse({ status: "success", message: "Logs are being downloaded." });
         return true;
@@ -293,6 +337,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             "UK"
         ];
 
+        /*
+        For testing purpose only
+        langQueue = [ "UI", "EN", "TW", "CN" ];
+        */
+       
         initializeUrlQueue();
         sendResponse({ status: "success", message: "LangUrlQueue and urlQueue have been reset" });
         return true;
@@ -302,9 +351,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             menuTree = message.data.menuList;
             baseUrl = `${message.data.origin}/`;
         }
-        else{
-            
-        }
+    }
+    else if (message.type === "getTestEnvStatus") {
+        sendResponse({
+            isTesting: !!startTime,
+            activeTabId,
+            progress: originalQueueLength > 0 ? Math.round(((originalQueueLength - urlQueue.length) / originalQueueLength) * 100) : 0,
+            currentLang,
+            langQueue,
+            currentTestType
+        });
+        return true;
     }
 });
 
