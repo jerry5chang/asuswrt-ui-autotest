@@ -38,6 +38,7 @@ function initializeUrlQueue() {
         menu.tab.forEach(tab => {
             if (
                 tab.url && tab.url.toUpperCase() !== "NULL" 
+                && tab.url !== ""
                 && tab.url !== "QIS_wizard.htm"
                 && tab.url !== "Main_Login.asp"
                 && tab.url !== "index.html"
@@ -111,7 +112,7 @@ function processNextUrl() {
                         setTimeout(processNextUrl, 3000);
                     });
                 } else {
-                    logs.push({ url: nextUrl, log: `404 Not Found`, lang: currentLang });
+                    logs.push({ url: nextUrl, log: `not found`, lang: currentLang });
                     setTimeout(processNextUrl, 3000);
                 }
             })
@@ -138,23 +139,53 @@ function downloadLogs() {
     }
 
     const passLogs = [];
-    const notFoundLogs = [];
+    const passPaths = new Set();
+    const passCounts = {};
     const errorLogs = [];
+    const notFoundPaths = new Set();
+    const notFoundLogs = [];
+    const notFoundCounts = {};
 
     logs.forEach(log => {
         const url = new URL(log.url, baseUrl);
 
         // Skip logs with [XX]
-        if(log.lang.includes("[XX]")) return;
+        if (log.lang.includes("[XX]")) return;
 
-        if (log.log.includes("Page loaded successfully")) {
-            passLogs.push(`[${log.lang}] ${url.pathname}: ${log.log}`);
-        } else if (log.log.includes("404 Not Found")) {
-            notFoundLogs.push(`[${log.lang}] ${url.pathname}: ${log.log}`);
-        } else {
+        if (log.log.includes("page loaded successfully")) {
+            if (!passPaths.has(url.pathname)) {
+                passLogs.push(`[${log.lang}] ${url.pathname}: ${log.log}`);
+                passPaths.add(url.pathname);
+            }
+            if (!passCounts[log.lang]) {
+                passCounts[log.lang] = 0;
+            }
+            passCounts[log.lang] += 1;
+        } 
+        else if (log.log.includes("not found")) {
+            if (!notFoundPaths.has(url.pathname)) {
+                notFoundLogs.push(`[${log.lang}] ${url.pathname}: ${log.log}`);
+                notFoundPaths.add(url.pathname);
+            }
+            if (!notFoundCounts[log.lang]) {
+                notFoundCounts[log.lang] = 0;
+            }
+            notFoundCounts[log.lang] += 1;
+        } 
+        else {
             errorLogs.push(`[${log.lang}] ${url.pathname}: ${log.log}`);
         }
     });
+
+    const notFoundSummary = Object.entries(notFoundCounts).map(
+        ([lang, count]) => `[${lang}] ${count} page${count === 1 ? '' : 's'} not found`
+    );
+    notFoundLogs.push(...notFoundSummary);
+
+    const passSummary = Object.entries(passCounts).map(
+        ([lang, count]) => `[${lang}] ${count} page${count === 1 ? '' : 's'} loaded successfully`
+    );
+    passLogs.push(...passSummary);
 
     const testDuration = startTime && endTime ? 
         `Test Duration: ${((endTime - startTime) / 1000).toFixed(2)} seconds` : 
@@ -167,7 +198,7 @@ function downloadLogs() {
         "=== ERRORS ===",
         ...errorLogs,
         "",
-        "=== 404 NOT FOUND ===",
+        "=== NOT FOUND ===",
         ...notFoundLogs,
         "",
         "=== PASS ===",
@@ -183,7 +214,7 @@ function downloadLogs() {
         saveAs: false
     });
 
-    resetParameters()
+    resetParameters();
 }
 
 /*
@@ -267,8 +298,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
     else if (message.type === "setupTesting") {
-        menuTree = message.data.menuList;
-        baseUrl = `${message.data.origin}/`;
+        if(baseUrl == "" || menuTree.length == 0) {
+            menuTree = message.data.menuList;
+            baseUrl = `${message.data.origin}/`;
+        }
+        else{
+            
+        }
     }
 });
 

@@ -6,7 +6,7 @@
 
     chrome.runtime.sendMessage({
         type: `autotestlog`,
-        log: `Page loaded successfully.`,
+        log: `page loaded successfully.`,
         url: window.location.href
     });
 
@@ -18,7 +18,11 @@
 */
     window.addEventListener("message", function (event) {
         if (event.data && event.data.type === "FORM_UI_ADD_ERRLOG") {
-            chrome.runtime.sendMessage(event.data);
+            chrome.runtime.sendMessage({
+                type: `autotestlog`,
+                log: event.data.log,
+                url: event.data.url
+            })
         }
         else if (event.data.type === "FORM_UI_SETUP_TESTING") {
             chrome.runtime.sendMessage({ type: "setupTesting", data: event.data.testingEnv });
