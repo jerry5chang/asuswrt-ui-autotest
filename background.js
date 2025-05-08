@@ -126,16 +126,16 @@ function processNextUrl() {
                             urlQueue = [];
                             return;
                         }
-                        setTimeout(processNextUrl, 3000);
+                        setTimeout(processNextUrl, 2000);
                     });
                 } else {
                     logs.push({ url: nextUrl, log: `not found`, lang: currentLang });
-                    setTimeout(processNextUrl, 3000);
+                    setTimeout(processNextUrl, 2000);
                 }
             })
             .catch(error => {
                 logs.push({ url: nextUrl, log: `Error while fetching URL`, lang: currentLang });
-                setTimeout(processNextUrl, 3000);
+                setTimeout(processNextUrl, 2000);
             });
     } else {
         console.error("Unable to update tab because activeTabId is null.");
@@ -162,11 +162,15 @@ function downloadLogs() {
     const passLogs = [];
     const passPaths = new Set();
     const passCounts = {};
-    const errorLogs = [];
+
     const notFoundPaths = new Set();
     const notFoundLogs = [];
     const notFoundCounts = {};
 
+    const errorPaths = new Set();
+    const errorLogs = [];
+    const errorCounts = {};
+    
     logs.forEach(log => {
         const url = new URL(log.url, baseUrl);
 
@@ -194,19 +198,32 @@ function downloadLogs() {
             notFoundCounts[log.lang] += 1;
         } 
         else {
-            errorLogs.push(`[${log.lang}] ${url.pathname.replace("/", "")}: ${log.log}`);
+            if (!errorPaths.has(log.log)) {
+                errorLogs.push(`[${log.lang}] ${url.pathname.replace("/", "")}: ${log.log}`);
+                errorPaths.add(log.log);
+            }
+            if (!errorCounts[log.lang]) {
+                errorCounts[log.lang] = 0;
+            }
+            errorCounts[log.lang] += 1;
+
         }
     });
 
     const notFoundSummary = Object.entries(notFoundCounts).map(
-        ([lang, count]) => `[${lang}] ${count} page${count === 1 ? '' : 's'} not found`
+        ([lang, count]) => `[${lang}] ${count} page${count === 1 ? '' : 's'} not found.`
     );
     notFoundLogs.push(...notFoundSummary);
 
     const passSummary = Object.entries(passCounts).map(
-        ([lang, count]) => `[${lang}] ${count} page${count === 1 ? '' : 's'} loaded successfully`
+        ([lang, count]) => `[${lang}] ${count} page${count === 1 ? '' : 's'} loaded successfully.`
     );
     passLogs.push(...passSummary);
+
+    const errorSummary = Object.entries(errorCounts).map(
+        ([lang, count]) => `[${lang}] ${count} page${count === 1 ? '' : 's'} got error.`
+    );
+    errorLogs.push(...errorSummary);
 
     const testDuration = startTime && endTime ? 
         `Test Duration: ${((endTime - startTime) / 1000).toFixed(2)} seconds` : 

@@ -1,5 +1,3 @@
-console.log("injected error handler script loaded");
-
 window.addEventListener("error", function (event) {
     const errorPage = event.filename.includes(location.pathname)
         ? ""
