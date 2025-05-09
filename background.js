@@ -69,6 +69,7 @@ function initializeUrlQueue() {
                 && tab.url !== "Advanced_Notification_Content.asp"
                 && tab.url !== "Advanced_TR069_Content.asp"
                 && tab.url !== "Advanced_OAM_Content.asp"
+                && tab.url !== "Main_IPTStatus_Content.asp"
             ) {
                 urlQueue.push(tab.url);
             }
@@ -124,16 +125,16 @@ function processNextUrl() {
                             urlQueue = [];
                             return;
                         }
-                        setTimeout(processNextUrl, 3000);
+                        setTimeout(processNextUrl, 2000);
                     });
                 } else {
                     logs.push({ url: nextUrl, log: `not found`, lang: currentLang });
-                    setTimeout(processNextUrl, 3000);
+                    setTimeout(processNextUrl, 2000);
                 }
             })
             .catch(error => {
                 logs.push({ url: nextUrl, log: `Error while fetching URL`, lang: currentLang });
-                setTimeout(processNextUrl, 3000);
+                setTimeout(processNextUrl, 2000);
             });
     } else {
         console.error("Unable to update tab because activeTabId is null.");
@@ -308,6 +309,9 @@ function startNavigation(sendResponse) {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === "getMenuTreeLength") {
         sendResponse({ menuTreeLength: menuTree.length, tabId: sender.tab?.id });
+    }
+    else if (message.type === "isTesting") {
+        sendResponse({ isTesting: (currentTestType && activeTabId === sender.tab.id) ? true : false });
     }
     else if (message.type === "startTesting") {
         if (currentTestType && activeTabId !== sender.tab.id) {

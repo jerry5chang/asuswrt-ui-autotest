@@ -1,33 +1,19 @@
 (function () {
-    chrome.runtime.sendMessage({ type: "getTestEnvStatus" }, (statusResponse) => {
-        if (chrome.runtime.lastError || !statusResponse) {
-            console.error("Failed to get test environment status:", chrome.runtime.lastError?.message);
-            return;
+    chrome.runtime.sendMessage({ type: "isTesting" }, (menuResponse) => {
+        const isTesting = menuResponse.isTesting;
+
+        if (isTesting) {
+            const script = document.createElement("script");
+            script.src = chrome.runtime.getURL("injected-error-handler.js");
+            document.documentElement.appendChild(script);
+            script.onload = () => script.remove();
+
+            chrome.runtime.sendMessage({
+                type: `autotestlog`,
+                log: `page loaded successfully.`,
+                url: window.location.href
+            });
         }
-
-        const activeTabId = statusResponse.activeTabId;
-
-        chrome.runtime.sendMessage({ type: "getMenuTreeLength" }, (menuResponse) => {
-            if (chrome.runtime.lastError || !menuResponse) {
-                console.error("Failed to get menu tree length:", chrome.runtime.lastError?.message);
-                return;
-            }
-
-            const menuTreeLength = menuResponse.menuTreeLength;
-
-            if (activeTabId === menuResponse.tabId && menuTreeLength > 0) {
-                const script = document.createElement("script");
-                script.src = chrome.runtime.getURL("injected-error-handler.js");
-                document.documentElement.appendChild(script);
-                script.onload = () => script.remove();
-
-                chrome.runtime.sendMessage({
-                    type: `autotestlog`,
-                    log: `page loaded successfully.`,
-                    url: window.location.href
-                });
-            }
-        });
     });
 
 /*
