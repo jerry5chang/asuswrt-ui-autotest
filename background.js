@@ -41,8 +41,10 @@ function initializeUrlQueue() {
             if (
                 tab.url && tab.url.toUpperCase() !== "NULL" 
                 && tab.url !== ""
+                && tab.url !== "QIS_wizard.htm"
                 && tab.url !== "Main_Login.asp"
                 && tab.url !== "index.html"
+                && tab.url !== "Main_IPTStatus_Content.asp"
                 && tab.url !== "Guest_network_fbwifi.asp"
                 && tab.url !== "AiProtection_AdBlock.asp"
                 && tab.url !== "AiProtection_Key_Guard.asp"
@@ -124,16 +126,16 @@ function processNextUrl() {
                             urlQueue = [];
                             return;
                         }
-                        setTimeout(processNextUrl, 3000);
+                        setTimeout(processNextUrl, 2000);
                     });
                 } else {
                     logs.push({ url: nextUrl, log: `not found`, lang: currentLang });
-                    setTimeout(processNextUrl, 3000);
+                    setTimeout(processNextUrl, 2000);
                 }
             })
             .catch(error => {
                 logs.push({ url: nextUrl, log: `Error while fetching URL`, lang: currentLang });
-                setTimeout(processNextUrl, 3000);
+                setTimeout(processNextUrl, 2000);
             });
     } else {
         console.error("Unable to update tab because activeTabId is null.");
@@ -168,11 +170,7 @@ function downloadLogs() {
     const errorPaths = new Set();
     const errorLogs = [];
     const errorCounts = {};
-
-    const uilogPaths = new Set();
-    const uilogLogs = [];
-    const uilogCounts = {};
-
+    
     logs.forEach(log => {
         const url = new URL(log.url, baseUrl);
 
@@ -198,16 +196,6 @@ function downloadLogs() {
                 notFoundCounts[log.lang] = 0;
             }
             notFoundCounts[log.lang] += 1;
-        } 
-        else if (log.log.includes("UILOG")) {
-            if (!uilogPaths.has(url.pathname)) {
-                uilogLogs.push(`[${log.lang}] ${url.pathname.replace("/", "")}: ${log.log}`);
-                uilogPaths.add(url.pathname);
-            }
-            if (!uilogCounts[log.lang]) {
-                uilogCounts[log.lang] = 0;
-            }
-            uilogCounts[log.lang] += 1;
         } 
         else {
             if (!errorPaths.has(log.log)) {
@@ -237,11 +225,6 @@ function downloadLogs() {
     );
     errorLogs.push(...errorSummary);
 
-    const uilogSummary = Object.entries(uilogCounts).map(
-        ([lang, count]) => `[${lang}] ${count} page${count === 1 ? '' : 's'} got the same ui log.`
-    );
-    uilogLogs.push(...uilogSummary);
-
     const testDuration = startTime && endTime ? 
         `Test Duration: ${((endTime - startTime) / 1000).toFixed(2)} seconds` : 
         `Test Duration: Unable to calculate`;
@@ -257,10 +240,7 @@ function downloadLogs() {
         ...notFoundLogs,
         "",
         "=== PASS ===",
-        ...passLogs,
-        "",
-        "=== UI LOG ===",
-        ...uilogLogs
+        ...passLogs
     ].join("\n");
 
     const url = 'data:text/plain;charset=utf-8,' + encodeURIComponent(reportContent);
