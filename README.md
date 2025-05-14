@@ -51,5 +51,9 @@
   - `FORM_UI_ADD_ERRLOG`: Sends error logs from the UI to `content.js`.
 
 #### `ToDo`
-  - Reopen the extension app to display the currently running progress bar. (V)
-  - Fix the issue where the activeTabId of the window is lost. (V)
+  - Reopen the extension app to display the currently running progress bar. (v1.2)
+  - Fix the issue where the activeTabId of the window is lost. (v1.2)
+  - intergate ui logs (v1.3)
+  - support UI4
+  - support ui SPEC check
+  
