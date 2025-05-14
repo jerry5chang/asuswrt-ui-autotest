@@ -10,6 +10,14 @@ let endTime = null;
 let currentLang = "XX";
 let currentTestType = null;
 
+let specCheckList = {
+    "AiCloud": ["cloud_main.asp"],
+    "AiDisk": ["aidisk.asp"],
+    "VLAN": ["Advanced_VLAN_Switch_Content.asp"],
+    "WTFast": ["Advanced_WTFast_Content.asp"],
+    "Multi-Function-BTN": ["Advanced_MultiFuncBtn.asp"]
+}
+
 function resetParameters() {
     menuTree = [];
     urlQueue = [];
@@ -69,6 +77,7 @@ function initializeUrlQueue() {
                 && tab.url !== "Advanced_Notification_Content.asp"
                 && tab.url !== "Advanced_TR069_Content.asp"
                 && tab.url !== "Advanced_OAM_Content.asp"
+                && tab.url !== "Advanced_Smart_Home_IFTTT.asp"
                 && tab.url !== "Main_IPTStatus_Content.asp"
             ) {
                 urlQueue.push(tab.url);
@@ -158,13 +167,17 @@ function downloadLogs() {
         });
     }
 
-    const passLogs = [];
     const passPaths = new Set();
+    const passLogs = [];
     const passCounts = {};
 
     const notFoundPaths = new Set();
     const notFoundLogs = [];
     const notFoundCounts = {};
+
+    const specPaths = new Set();
+    const specLogs = [];
+    const specCounts = {};
 
     const errorPaths = new Set();
     const errorLogs = [];
@@ -181,6 +194,20 @@ function downloadLogs() {
         if (log.lang.includes("[XX]")) return;
 
         if (log.log.includes("page loaded successfully")) {
+            for (const [key, paths] of Object.entries(specCheckList)) {
+                if (paths.includes(url.pathname.replace("/", ""))) {
+                    if (!specPaths.has(url.pathname)) {
+                        specLogs.push(`[${log.lang}] Support ${key}`);
+                        specPaths.add(url.pathname);
+                    }
+                    if (!specCounts[log.lang]) {
+                        specCounts[log.lang] = 0;
+                    }
+                    specCounts[log.lang] += 1;
+                    break;
+                }
+            }
+
             if (!passPaths.has(url.pathname)) {
                 passLogs.push(`[${log.lang}] ${url.pathname.replace("/", "")}: ${log.log}`);
                 passPaths.add(url.pathname);
@@ -191,6 +218,20 @@ function downloadLogs() {
             passCounts[log.lang] += 1;
         } 
         else if (log.log.includes("not found")) {
+            for (const [key, paths] of Object.entries(specCheckList)) {
+                if (paths.includes(url.pathname.replace("/", ""))) {
+                    if (!specPaths.has(url.pathname)) {
+                        specLogs.push(`[${log.lang}] Not Support ${key}`);
+                        specPaths.add(url.pathname);
+                    }
+                    if (!specCounts[log.lang]) {
+                        specCounts[log.lang] = 0;
+                    }
+                    specCounts[log.lang] += 1;
+                    break;
+                }
+            }
+
             if (!notFoundPaths.has(url.pathname)) {
                 notFoundLogs.push(`[${log.lang}] ${url.pathname.replace("/", "")}: ${log.log}`);
                 notFoundPaths.add(url.pathname);
@@ -243,6 +284,11 @@ function downloadLogs() {
     );
     uilogLogs.push(...uilogSummary);
 
+    const specSummary = Object.entries(specCounts).map(
+        ([lang, count]) => `[${lang}] ${count} page${count === 1 ? '' : 's'} matched spec check.`
+    );
+    specLogs.push(...specSummary);
+
     const testDuration = startTime && endTime ? 
         `Test Duration: ${((endTime - startTime) / 1000).toFixed(2)} seconds` : 
         `Test Duration: Unable to calculate`;
@@ -254,6 +300,9 @@ function downloadLogs() {
         "=== ERRORS ===",
         ...errorLogs,
         "",
+        "=== SPEC CHECK ===",
+        ...specLogs,
+        "",
         "=== NOT FOUND ===",
         ...notFoundLogs,
         "",
@@ -261,7 +310,7 @@ function downloadLogs() {
         ...passLogs,
         "",
         "=== UI LOG ===",
-        ...uilogLogs
+        ...uilogLogs,
     ].join("\n");
 
     const url = 'data:text/plain;charset=utf-8,' + encodeURIComponent(reportContent);
