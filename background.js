@@ -1,4 +1,5 @@
 var menuTree = [];
+var menuExclude = {};
 let urlQueue = [];
 let langQueue = [];
 let baseUrl = "";
@@ -20,6 +21,7 @@ let specCheckList = {
 
 function resetParameters() {
     menuTree = [];
+    menuExclude = {};
     urlQueue = [];
     langQueue = [];
     baseUrl = "";
@@ -32,7 +34,7 @@ function resetParameters() {
 }
 
 function initializeUrlQueue() {
-    if(langQueue.length !== 0) {
+    if (langQueue.length !== 0) {
         currentLang = langQueue.shift();
 
         if (activeTabId !== null) {
@@ -45,44 +47,29 @@ function initializeUrlQueue() {
 
     urlQueue = [];
     menuTree.forEach(menu => {
+        if (menuExclude.menus && menuExclude.menus.includes(menu.index)) {
+            return;
+        }
         menu.tab.forEach(tab => {
             if (
                 tab.url && tab.url.toUpperCase() !== "NULL" 
+                && !menuExclude.tabs.includes(tab.url) 
                 && tab.url !== ""
                 && tab.url !== "Main_Login.asp"
                 && tab.url !== "index.html"
-                && tab.url !== "Guest_network_fbwifi.asp"
-                && tab.url !== "AiProtection_AdBlock.asp"
-                && tab.url !== "AiProtection_Key_Guard.asp"
-                && tab.url !== "YandexDNS.asp"
-                && tab.url !== "AdaptiveQoS_ROG.asp"
-                && tab.url !== "Main_Spectrum_Content.asp"
-                && tab.url !== "AdaptiveQoS_TrafficLimiter.asp"
-                && tab.url !== "GameBoost_Tencent.asp"
+                && tab.url !== "AdaptiveQoS_Adaptive.asp"
                 && tab.url !== "Advanced_TencentDownloadAcceleration.asp"
-                && tab.url !== "Mafileflexin_Login.asp"
-                && tab.url !== "fileflex.asp"
-                && tab.url !== "SMS_Send.asp"
-                && tab.url !== "SMS_Inbox.asp"
-                && tab.url !== "Advanced_DSL_Content.asp"
-                && tab.url !== "Advanced_VDSL_Content.asp"
-                && tab.url !== "Advanced_ADSL_Content.asp"
-                && tab.url !== "Main_AdslStatus_Content.asp"
-                && tab.url !== "Advanced_MobileBroadband_Content.asp"
-                && tab.url !== "Advanced_TOR_Content.asp"
-                && tab.url !== "Advanced_GRE_Content.asp"
-                && tab.url !== "Advanced_PerformanceTuning_Content.asp"
-                && tab.url !== "Advanced_SNMP_Content.asp"
-                && tab.url !== "Advanced_MultiSubnet_Content.asp"
-                && tab.url !== "Advanced_Notification_Content.asp"
-                && tab.url !== "Advanced_TR069_Content.asp"
-                && tab.url !== "Advanced_OAM_Content.asp"
-                && tab.url !== "Advanced_Smart_Home_IFTTT.asp"
                 && tab.url !== "Main_IPTStatus_Content.asp"
             ) {
                 urlQueue.push(tab.url);
             }
         });
+    });
+
+    Object.values(specCheckList).flat().forEach(specUrl => {
+        if (!urlQueue.includes(specUrl)) {
+            urlQueue.push(specUrl);
+        }
     });
 
     originalQueueLength = urlQueue.length;
@@ -95,20 +82,6 @@ function updateProgress() {
 }
 
 function processNextUrl() {
-/*
-    console.log(JSON.stringify({
-        menuTreeLength: menuTree.length,
-        urlQueueLength: urlQueue.length,
-        langQueueLength: langQueue.length,
-        baseUrl,
-        logsLength: logs.length,
-        activeTabId,
-        originalQueueLength,
-        startTime,
-        endTime,
-        currentTestType
-    }, null, 2));
-*/
     if (urlQueue.length === 0) {
         if( langQueue.length === 0 ) {
             endTime = new Date();
@@ -190,7 +163,6 @@ function downloadLogs() {
     logs.forEach(log => {
         const url = new URL(log.url, baseUrl);
 
-        // Skip logs with [XX]
         if (log.lang.includes("[XX]")) return;
 
         if (log.log.includes("page loaded successfully")) {
@@ -230,6 +202,11 @@ function downloadLogs() {
                     specCounts[log.lang] += 1;
                     break;
                 }
+            }
+
+            const isInSpecCheckList = Object.values(specCheckList).flat().includes(url.pathname.replace("/", ""));
+            if (isInSpecCheckList) {
+                return;
             }
 
             if (!notFoundPaths.has(url.pathname)) {
@@ -461,6 +438,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     else if (message.type === "setupTesting") {
         if(baseUrl == "" || menuTree.length == 0) {
             menuTree = message.data.menuList;
+            menuExclude = message.data.menuExclude;
             baseUrl = `${message.data.origin}/`;
         }
     }
