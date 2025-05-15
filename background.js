@@ -10,6 +10,10 @@ let startTime = null;
 let endTime = null;
 let currentLang = "XX";
 let currentTestType = null;
+let waitPageLoadTime = 2000;
+let theme = "";
+let modelName = "";
+let modelVersion = "";
 
 let specCheckList = {
     "AiCloud": ["cloud_main.asp"],
@@ -31,6 +35,9 @@ function resetParameters() {
     startTime = null;
     endTime = null; 
     currentTestType = null;
+    modelName = "";
+    modelVersion = "";
+    theme = "";
 }
 
 function initializeUrlQueue() {
@@ -107,16 +114,16 @@ function processNextUrl() {
                             urlQueue = [];
                             return;
                         }
-                        setTimeout(processNextUrl, 2000);
+                        setTimeout(processNextUrl, waitPageLoadTime);
                     });
                 } else {
                     logs.push({ url: nextUrl, log: `not found`, lang: currentLang });
-                    setTimeout(processNextUrl, 2000);
+                    setTimeout(processNextUrl, waitPageLoadTime);
                 }
             })
             .catch(error => {
                 logs.push({ url: nextUrl, log: `Error while fetching URL`, lang: currentLang });
-                setTimeout(processNextUrl, 2000);
+                setTimeout(processNextUrl, waitPageLoadTime);
             });
     } else {
         console.error("Unable to update tab because activeTabId is null.");
@@ -271,7 +278,9 @@ function downloadLogs() {
         `Test Duration: Unable to calculate`;
 
     const reportContent = [
-        "=== TEST DURATION ===",
+        "=== TEST ===",
+        `Model Name: ${modelName}`,
+        `Model Version: ${modelVersion}`,
         testDuration,
         "",
         "=== ERRORS ===",
@@ -439,6 +448,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if(baseUrl == "" || menuTree.length == 0) {
             menuTree = message.data.menuList;
             menuExclude = message.data.menuExclude;
+            waitPageLoadTime = message.data.waitPageLoadTime || 2000;
+            theme = message.data.theme || "ui3";
+            modelName = message.data.modelName || "";
+            modelVersion = message.data.modelVersion || "";
             baseUrl = `${message.data.origin}/`;
         }
     }

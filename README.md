@@ -54,6 +54,7 @@
   - Reopen the extension app to display the currently running progress bar. (v1.2)
   - Fix the issue where the activeTabId of the window is lost. (v1.2)
   - intergate ui logs (v1.3)
-  - support UI4
-  - support ui SPEC check
+  - support UI4 (v1.4)
+  - support 3004 - UI3 (v1.4)
+  - support ui SPEC check (v1.4)
   
