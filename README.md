@@ -57,4 +57,4 @@
   - support UI4 (v1.4)
   - support 3004 - UI3 (v1.4)
   - support ui SPEC check (v1.4)
-  
+  - adds a framework that allows each page to be tested with its own `test-XXX.js` file. (v1.5)

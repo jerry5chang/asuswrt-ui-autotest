@@ -26,7 +26,16 @@
     ],
     "web_accessible_resources": [
         {
-            "resources": ["setupLang.js", "setupTesting.js", "endTesting.js", "startTesting.js", "injected-error-handler.js"],
+            "resources": [
+                "setupLang.js", 
+                "setupTesting.js", 
+                "endTesting.js", 
+                "startTesting.js", 
+                "injected-error-handler.js",
+                "test/test-Advanced_VLAN_Switch_Content.js",
+                "test/test-trafficmonitor.js",
+                "test/test-QIS_wizard.js"
+            ],
             "matches": ["<all_urls>"]
         }
     ]

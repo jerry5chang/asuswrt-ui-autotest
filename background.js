@@ -15,6 +15,12 @@ let theme = "";
 let modelName = "";
 let modelVersion = "";
 
+let testCaseList = {
+    "QIS_wizard.htm": "test-QIS_wizard.js",
+    "index.html?page=trafficmonitor": "test-trafficmonitor.js",
+    "Advanced_VLAN_Switch_Content.asp": "test-Advanced_VLAN_Switch_Content.js"
+}
+
 let specCheckList = {
     "AiCloud": ["cloud_main.asp"],
     "AiDisk": ["aidisk.asp"],
@@ -52,7 +58,7 @@ function initializeUrlQueue() {
         }
     }
 
-    urlQueue = [];
+    urlQueue = [""];
     menuTree.forEach(menu => {
         if (menuExclude.menus && menuExclude.menus.includes(menu.index)) {
             return;
@@ -114,7 +120,20 @@ function processNextUrl() {
                             urlQueue = [];
                             return;
                         }
-                        setTimeout(processNextUrl, waitPageLoadTime);
+                        const urlPath = nextUrl.replace(baseUrl, "");
+
+                        if (testCaseList[urlPath]) {
+                            chrome.tabs.sendMessage(
+                                activeTabId, { 
+                                    type: "injectTestCase",
+                                    testcase: testCaseList[urlPath]
+                                }, (response) => {
+                                    setTimeout(processNextUrl, waitPageLoadTime);
+                                }
+                            );
+                        } else {
+                            setTimeout(processNextUrl, waitPageLoadTime);
+                        }
                     });
                 } else {
                     logs.push({ url: nextUrl, log: `not found`, lang: currentLang });
@@ -226,9 +245,9 @@ function downloadLogs() {
             notFoundCounts[log.lang] += 1;
         } 
         else if (log.log.includes("UILOG")) {
-            if (!uilogPaths.has(url.pathname)) {
+            if (!uilogPaths.has(log.log)) {
                 uilogLogs.push(`[${log.lang}] ${url.pathname.replace("/", "")}: ${log.log}`);
-                uilogPaths.add(url.pathname);
+                uilogPaths.add(log.log);
             }
             if (!uilogCounts[log.lang]) {
                 uilogCounts[log.lang] = 0;
@@ -278,7 +297,6 @@ function downloadLogs() {
         `Test Duration: Unable to calculate`;
 
     const reportContent = [
-        "=== TEST ===",
         `Model Name: ${modelName}`,
         `Model Version: ${modelVersion}`,
         testDuration,

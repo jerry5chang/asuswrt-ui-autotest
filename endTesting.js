@@ -1,4 +1,3 @@
-document.getElementById('settingsWindow').contentWindow.Session.set("lastPage", "");
-window.localStorage.setItem("page", "dashboard");
+window.localStorage.clear();
 console.log("End Testing!");
-location.href = "/";
+top.location.href = "/Advanced_LAN_Content.asp";

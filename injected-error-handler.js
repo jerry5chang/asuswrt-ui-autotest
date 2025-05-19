@@ -1,5 +1,4 @@
 (function () {
-    // Error handling logic
     window.addEventListener("error", function (event) {
         const errorPage = event.filename.includes(location.pathname)
             ? ""
@@ -12,23 +11,19 @@
         }, "*");
     });
 
-    // Override setTimeout and setInterval to reduce delay times
     const originalSetTimeout = window.setTimeout;
     const originalSetInterval = window.setInterval;
 
     window.setTimeout = function (callback, delay, ...args) {
-        // Reduce delay to a fraction of the original time (e.g., 50%)
-        const reducedDelay = Math.max(delay * 0.5, 0); // Ensure delay is not negative
+        const reducedDelay = Math.max(delay * 0.5, 0);
         return originalSetTimeout(callback, reducedDelay, ...args);
     };
 
     window.setInterval = function (callback, delay, ...args) {
-        // Reduce delay to a fraction of the original time (e.g., 50%)
-        const reducedDelay = Math.max(delay * 0.5, 0); // Ensure delay is not negative
+        const reducedDelay = Math.max(delay * 0.5, 0);
         return originalSetInterval(callback, reducedDelay, ...args);
     };
 
-    // Capture httpApi.log calls
     const originalHttpApiLog = window.httpApi?.log;
     if (originalHttpApiLog) {
         window.httpApi.log = function (firstParam, secondParam, ...args) {
@@ -36,7 +31,6 @@
                 firstParam == "ajaxStatusXML"
             ) return true;
 
-            // Post message with captured log details
             window.postMessage({
                 type: "FORM_UI_ADD_ERRLOG",
                 log: `UILOG: ${firstParam} ${secondParam}`,
@@ -46,4 +40,14 @@
             return true
         };
     }
+
+    window.addEventListener("message", function(event) {
+        if (event.data && event.data.type === "IFRAME_ERROR") {
+            window.postMessage({
+                type: "FORM_UI_ADD_ERRLOG",
+                log: `Error: ${event.data.message}`,
+                url: event.data.filename
+            }, "*");
+        }
+    });
 })();

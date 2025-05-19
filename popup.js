@@ -82,18 +82,44 @@ document.addEventListener("DOMContentLoaded", () => {
                 chrome.scripting.executeScript(
                     {
                         target: { tabId: tabs[0].id },
-                        files: ["content.js"]
-                    },
-                    () => {               
-                        chrome.tabs.sendMessage(tabs[0].id, { type: "startTesting" }, (response) => {
-                            if (chrome.runtime.lastError) {
-                                console.error("Failed to send startTesting message:", chrome.runtime.lastError.message);
-                            } else {
-                                chrome.runtime.sendMessage({ type: "startTesting" }, (response) => {
-                                    console.log("response:", response);
-                                });
+                        func: () => {
+                            if (!window.__CONTENT_JS_INJECTED__) {
+                                window.__CONTENT_JS_INJECTED__ = true;
+                                return false;
                             }
-                        });
+                            return true;
+                        }
+                    },
+                    (results) => {
+                        if (results && results[0] && results[0].result === false) {
+                            chrome.scripting.executeScript(
+                                {
+                                    target: { tabId: tabs[0].id },
+                                    files: ["content.js"]
+                                },
+                                () => {               
+                                    chrome.tabs.sendMessage(tabs[0].id, { type: "startTesting" }, (response) => {
+                                        if (chrome.runtime.lastError) {
+                                            console.error("Failed to send startTesting message:", chrome.runtime.lastError.message);
+                                        } else {
+                                            chrome.runtime.sendMessage({ type: "startTesting" }, (response) => {
+                                                console.log("response:", response);
+                                            });
+                                        }
+                                    });
+                                }
+                            );
+                        } else {
+                            chrome.tabs.sendMessage(tabs[0].id, { type: "startTesting" }, (response) => {
+                                if (chrome.runtime.lastError) {
+                                    console.error("Failed to send startTesting message:", chrome.runtime.lastError.message);
+                                } else {
+                                    chrome.runtime.sendMessage({ type: "startTesting" }, (response) => {
+                                        console.log("response:", response);
+                                    });
+                                }
+                            });
+                        }
                     }
                 );
             } else {
@@ -113,22 +139,48 @@ document.addEventListener("DOMContentLoaded", () => {
                 chrome.scripting.executeScript(
                     {
                         target: { tabId: tabs[0].id },
-                        files: ["content.js"]
-                    },
-                    () => {               
-                        chrome.tabs.sendMessage(tabs[0].id, { type: "startTesting" }, (response) => {
-                            if (chrome.runtime.lastError) {
-                                console.error("Failed to send startTesting message:", chrome.runtime.lastError.message);
-                            } else {
-                                chrome.runtime.sendMessage({ type: "startTestingAllLang" }, (response) => {
-                                    console.log("response:", response);
-                                });
+                        func: () => {
+                            if (!window.__CONTENT_JS_INJECTED__) {
+                                window.__CONTENT_JS_INJECTED__ = true;
+                                return false;
                             }
-                        });
+                            return true;
+                        }
+                    },
+                    (results) => {
+                        if (results && results[0] && results[0].result === false) {
+                            chrome.scripting.executeScript(
+                                {
+                                    target: { tabId: tabs[0].id },
+                                    files: ["content.js"]
+                                },
+                                () => {
+                                    chrome.tabs.sendMessage(tabs[0].id, { type: "startTesting" }, (response) => {
+                                        if (chrome.runtime.lastError) {
+                                            console.error("Failed to send startTesting message:", chrome.runtime.lastError.message);
+                                        } else {
+                                            chrome.runtime.sendMessage({ type: "startTesting" }, (response) => {
+                                                console.log("response:", response);
+                                            });
+                                        }
+                                    });
+                                }
+                            );
+                        } else {
+                            chrome.tabs.sendMessage(tabs[0].id, { type: "startTesting" }, (response) => {
+                                if (chrome.runtime.lastError) {
+                                    console.error("Failed to send startTesting message:", chrome.runtime.lastError.message);
+                                } else {
+                                    chrome.runtime.sendMessage({ type: "startTesting" }, (response) => {
+                                        console.log("response:", response);
+                                    });
+                                }
+                            });
+                        }
                     }
                 );
             } else {
-                console.error("No active tab found, unable to send startTesting message.");
+                console.error("No active tab found, unable to send startTestingAllLang message.");
             }
         });
     });
@@ -172,12 +224,30 @@ document.addEventListener("DOMContentLoaded", () => {
             chrome.scripting.executeScript(
                 {
                     target: { tabId: tabs[0].id },
-                    files: ["content.js"]
-                },
-                () => {
+                    func: () => {
+                        if (!window.__CONTENT_JS_INJECTED__) {
+                            window.__CONTENT_JS_INJECTED__ = true;
+                            return false;
+                    }
+                    return true;
+                }
+            },
+            (results) => {
+                if (results && results[0] && results[0].result === false) {
+                    chrome.scripting.executeScript(
+                        {
+                            target: { tabId: tabs[0].id },
+                            files: ["content.js"]
+                        },
+                        () => {
+                            chrome.tabs.sendMessage(tabs[0].id, { type: "loadSetupTestingScript" }, (response) => {});
+                        }
+                    );
+                } else {
                     chrome.tabs.sendMessage(tabs[0].id, { type: "loadSetupTestingScript" }, (response) => {});
                 }
-            );
+            }
+        );
         } else {
             console.error("No active tab found, unable to send startTesting message.");
         }

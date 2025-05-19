@@ -1,6 +1,8 @@
 (function () {
+    console.log("Content script loaded");
+    
     chrome.runtime.sendMessage({ type: "isTesting" }, (menuResponse) => {
-        const isTesting = menuResponse.isTesting;
+        let isTesting = menuResponse.isTesting;
 
         if (isTesting) {
             const script = document.createElement("script");
@@ -99,6 +101,18 @@
             };
             script.onerror = () => {
                 console.error(`Unable to load external script ${message.script}`);
+                sendResponse({ status: "error", message: `Unable to load external script ${message.script}` });
+            };
+            document.documentElement.appendChild(script);
+            return true;
+        }
+        else if (message.type === "injectTestCase") {
+            const script = document.createElement("script");
+            script.src = chrome.runtime.getURL(`test/${message.testcase}`);
+            script.onload = () => {
+                sendResponse({ status: "success", message: `${message.testcase} injected` });
+            };
+            script.onerror = () => {
                 sendResponse({ status: "error", message: `Unable to load external script ${message.script}` });
             };
             document.documentElement.appendChild(script);

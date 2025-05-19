@@ -22,6 +22,10 @@ try{
 
             window.postMessage({ type: "FORM_UI_SETUP_TESTING", testingEnv: {
                 menuList: mergedMenu,
+                /*
+                For testing purpose only
+                menuList: [{ menuName: "Network Tools", index: "menu_NekworkTool", tab: [{ url: "Main_Analysis_Content.asp", tabName: "Network Diagnosis" }, { url: "Advanced_Notification_Content.asp", tabName: "Notification" }, { url: "Main_Netstat_Content.asp", tabName: "Netstat" }, { url: "Main_WOL_Content-NOTFOUND.asp", tabName: "Wake on LAN" }, { url: "Advanced_Smart_Connect.asp", tabName: "Smart Connect Rules" }, { url: "NULL", tabName: "__INHERIT__" }] }],
+                */
                 menuExclude: settingsFrame.Session.get("menuExclude"),
                 origin: window.location.origin,
                 waitPageLoadTime: 3000,
@@ -47,6 +51,4 @@ try{
         }}, "*");
     }
 }
-catch(e){
-    console.log("Error in setupTesting.js:", e);
-}
+catch(e){}
