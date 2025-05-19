@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "ASUSWRT UI Autotest",
-    "version": "1.4",
+    "version": "1.5",
     "description": "Sequentially navigate to ASUSWRT UI pages",
     "icons": {
         "16": "icon.png",
