@@ -14,6 +14,8 @@ let waitPageLoadTime = 2000;
 let theme = "";
 let modelName = "";
 let modelVersion = "";
+let allLangList = [];
+let devMode = false;
 
 let testCaseList = {
     "QIS_wizard.htm": "test-QIS_wizard.js",
@@ -21,7 +23,11 @@ let testCaseList = {
     "Advanced_VLAN_Switch_Content.asp": "test-Advanced_VLAN_Switch_Content.js"
 }
 
-let specCheckList = {
+let specCheckList = devMode ? {
+    // DEV-ENV
+    "AiCloud": ["cloud_main.asp"],
+    "AiDisk": ["aidisk.asp"]
+} : {
     "AiCloud": ["cloud_main.asp"],
     "AiDisk": ["aidisk.asp"],
     "VLAN": ["Advanced_VLAN_Switch_Content.asp"],
@@ -44,6 +50,7 @@ function resetParameters() {
     modelName = "";
     modelVersion = "";
     theme = "";
+    devMode = false;
 }
 
 function initializeUrlQueue() {
@@ -155,15 +162,7 @@ function downloadLogs() {
     }
     
     if (activeTabId !== null && startTime !== null) {
-        chrome.tabs.sendMessage(activeTabId, { type: "endTesting" }, (response) => {
-            if (chrome.runtime.lastError) {
-                console.error("Unable to communicate with Content script:", chrome.runtime.lastError.message);
-            } else if (response && response.status === "success") {
-                console.log(response.message);
-            } else {
-                console.error("Content script did not respond or responded with failure.");
-            }
-        });
+        chrome.tabs.sendMessage(activeTabId, { type: "endTesting" }, (response) => {});
     }
 
     const passPaths = new Set();
@@ -189,7 +188,10 @@ function downloadLogs() {
     logs.forEach(log => {
         const url = new URL(log.url, baseUrl);
 
-        if (log.lang.includes("[XX]")) return;
+        if (
+            log.lang.includes("[XX]")
+            || url.pathname === "/"
+        ) return;
 
         if (log.log.includes("page loaded successfully")) {
             for (const [key, paths] of Object.entries(specCheckList)) {
@@ -366,6 +368,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     else if (message.type === "isTesting") {
         sendResponse({ isTesting: (currentTestType && activeTabId === sender.tab.id) ? true : false });
     }
+    else if (message.type === "isDev") {
+        sendResponse({ isDev: devMode});
+    }
     else if (message.type === "startTesting") {
         if (currentTestType && activeTabId !== sender.tab.id) {
             sendResponse({ status: "error", message: "A test is already running." });
@@ -424,39 +429,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return true;
     }
     else if (message.type === "resetAllLangUrlQueue") {
-        langQueue = [
-            "UI", 
-            "EN", 
-            "TW", 
-            "CN", 
-            "BR", 
-            "CZ", 
-            "DA", 
-            "DE", 
-            "ES", 
-            "FI", 
-            "FR", 
-            "HU", 
-            "IT", 
-            "JP", 
-            "KR", 
-            "MS", 
-            "NL", 
-            "NO", 
-            "PL", 
-            "RO", 
-            "RU", 
-            "SL", 
-            "SV", 
-            "TH", 
-            "TR", 
-            "UK"
-        ];
-
-        /*
-        For testing purpose only
-        langQueue = [ "UI", "EN", "TW", "CN" ];
-        */
+        langQueue = allLangList;
        
         initializeUrlQueue();
         sendResponse({ status: "success", message: "LangUrlQueue and urlQueue have been reset" });
@@ -471,6 +444,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             modelName = message.data.modelName || "";
             modelVersion = message.data.modelVersion || "";
             baseUrl = `${message.data.origin}/`;
+            allLangList = message.data.allLangList || ["UI"];
         }
     }
     else if (message.type === "getTestEnvStatus") {

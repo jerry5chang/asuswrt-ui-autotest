@@ -1,12 +1,8 @@
 (function () {
-    console.log("Content script loaded");
-    
-    chrome.runtime.sendMessage({ type: "isTesting" }, (menuResponse) => {
-        let isTesting = menuResponse.isTesting;
-
-        if (isTesting) {
+    chrome.runtime.sendMessage({ type: "isTesting" }, (response) => {
+        if (response.isTesting) {
             const script = document.createElement("script");
-            script.src = chrome.runtime.getURL("injected-error-handler.js");
+            script.src = chrome.runtime.getURL("inject/injected-error-handler.js");
             document.documentElement.appendChild(script);
             script.onload = () => script.remove();
 
@@ -53,7 +49,7 @@
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.type === "endTesting") {
             const script = document.createElement("script");
-            script.src = chrome.runtime.getURL("endTesting.js");
+            script.src = chrome.runtime.getURL("inject/endTesting.js");
             script.onload = () => {
                 script.remove();
                 sendResponse({ status: "success", message: "Testing completed!" });
@@ -66,7 +62,7 @@
         } 
         else if (message.type === "startTesting") {
             const script = document.createElement("script");
-            script.src = chrome.runtime.getURL("startTesting.js");
+            script.src = chrome.runtime.getURL("inject/startTesting.js");
             script.onload = () => {
                 script.remove();
                 sendResponse({ status: "success", message: "startTesting.js executed to start testing" });
@@ -79,22 +75,24 @@
             return true;
         } 
         else if (message.type === "loadSetupTestingScript") {
-            const script = document.createElement("script");
-            script.src = chrome.runtime.getURL("setupTesting.js");
-            script.onload = () => {
-                script.remove();
-                sendResponse({ status: "success", message: "setupTesting.js executed to initialize testing environment" });
-            };
-            script.onerror = () => {
-                console.error("Unable to load external script startTesting.js");
-                sendResponse({ status: "error", message: "Unable to load external script." });
-            };
-            document.documentElement.appendChild(script);
+            chrome.runtime.sendMessage({ type: "isDev" }, (response) => {
+                const script = document.createElement("script");
+                script.src = chrome.runtime.getURL(`inject/setupTesting${response.isDev?"-dev":""}.js`);
+                script.onload = () => {
+                    script.remove();
+                    sendResponse({ status: "success", message: `setupTesting${response.isDev?"-dev":""}.js executed to initialize testing environment` });
+                };
+                script.onerror = () => {
+                    console.error(`Unable to load external script setupTesting${response.isDev?"-dev":""}.js`);
+                    sendResponse({ status: "error", message: "Unable to load external script." });
+                };
+                document.documentElement.appendChild(script);
+            });
             return true;
         } 
         else if (message.type === "setupLang") {
             const script = document.createElement("script");
-            script.src = chrome.runtime.getURL("setupLang.js");
+            script.src = chrome.runtime.getURL("inject/setupLang.js");
             script.onload = () => {
                 window.postMessage({ type: "SET_LANG", lang: message.lang }, "*");
                 sendResponse({ status: "success", message: `${message.script} injected` });
