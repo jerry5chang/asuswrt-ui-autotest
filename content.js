@@ -37,6 +37,9 @@
         else if (event.data.type === "FORM_UI_START_TESTING") {
             chrome.runtime.sendMessage({ type: "restartTesting" });
         }
+        else if (event.data.type === "FAIL_TO_GET_MENULIST") {
+            chrome.runtime.sendMessage({ type: "closePopupWindow" });
+        }
     });
 
 /*

@@ -462,6 +462,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         });
         return true;
     }
+    else if (message.type === "closePopupWindow") {
+        chrome.runtime.sendMessage({ type: "reloadPopupWindow" });
+    }
 });
 
 initializeUrlQueue();

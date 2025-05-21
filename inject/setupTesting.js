@@ -8,6 +8,7 @@ try{
         if(currPage != "settings") {
             window.localStorage.setItem("page", "settings");
             location.href = "/index.html?current_theme=white";
+            window.postMessage({ type: "FAIL_TO_GET_MENULIST" }, "*");
         }
         else {
             var settingsFrame = document.getElementById('settingsWindow').contentWindow;

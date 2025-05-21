@@ -227,6 +227,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (message.type === "progressUpdate") {
             updateProgress(message.progress, message.currentLang, message.langQueue.length || 0);
         }
+        else if (message.type === "reloadPopupWindow") {
+            location.reload();
+        }
     });
 
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
