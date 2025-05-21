@@ -10,6 +10,7 @@ let startTime = null;
 let endTime = null;
 let currentLang = "XX";
 let currentTestType = null;
+let uiTestType = null;
 let waitPageLoadTime = 2000;
 let theme = "";
 let modelName = "";
@@ -47,6 +48,7 @@ function resetParameters() {
     startTime = null;
     endTime = null; 
     currentTestType = null;
+    uiTestType = null;
     modelName = "";
     modelVersion = "";
     theme = "";
@@ -423,6 +425,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     else if (message.type === "resetUrlQueue") {
         langQueue = ["UI"];
+        uiTestType = "startTesting";
 
         initializeUrlQueue();
         sendResponse({ status: "success", message: "urlQueue has been reset" });
@@ -430,7 +433,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     else if (message.type === "resetAllLangUrlQueue") {
         langQueue = allLangList;
-       
+        uiTestType = "startTestingAllLang";
+
         initializeUrlQueue();
         sendResponse({ status: "success", message: "LangUrlQueue and urlQueue have been reset" });
         return true;
@@ -454,7 +458,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             progress: originalQueueLength > 0 ? Math.round(((originalQueueLength - urlQueue.length) / originalQueueLength) * 100) : 0,
             currentLang,
             langQueue,
-            currentTestType
+            currentTestType: uiTestType
         });
         return true;
     }
