@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "ASUSWRT UI Autotest",
-    "version": "1.7",
+    "version": "2.0",
     "description": "Sequentially navigate to ASUSWRT UI pages",
     "icons": {
         "16": "resource/icon.png",
@@ -15,7 +15,8 @@
     "permissions": ["downloads", "tabs", "activeTab", "scripting"],
     "host_permissions": ["<all_urls>"],
     "background": {
-        "service_worker": "background.js"
+        "service_worker": "background.js",
+        "type": "module"
     },
     "content_scripts": [
         {
@@ -35,7 +36,8 @@
                 "inject/injected-error-handler.js",
                 "test/test-Advanced_VLAN_Switch_Content.js",
                 "test/test-trafficmonitor.js",
-                "test/test-QIS_wizard.js"
+                "test/test-QIS_wizard.js",
+                "test/test-API.js"
             ],
             "matches": ["<all_urls>"]
         }

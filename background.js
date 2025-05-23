@@ -1,3 +1,5 @@
+import { CONFIG } from './config/config.js';
+
 var menuTree = [];
 var menuExclude = {};
 let urlQueue = [];
@@ -11,30 +13,16 @@ let endTime = null;
 let currentLang = "XX";
 let currentTestType = null;
 let uiTestType = null;
-let waitPageLoadTime = 2000;
 let theme = "";
 let modelName = "";
 let modelVersion = "";
 let allLangList = [];
-let devMode = false;
 
-let testCaseList = {
-    "QIS_wizard.htm": "test-QIS_wizard.js",
-    "index.html?page=trafficmonitor": "test-trafficmonitor.js",
-    "Advanced_VLAN_Switch_Content.asp": "test-Advanced_VLAN_Switch_Content.js"
-}
-
-let specCheckList = devMode ? {
-    // DEV-ENV
-    "AiCloud": ["cloud_main.asp"],
-    "AiDisk": ["aidisk.asp"]
-} : {
-    "AiCloud": ["cloud_main.asp"],
-    "AiDisk": ["aidisk.asp"],
-    "VLAN": ["Advanced_VLAN_Switch_Content.asp"],
-    "WTFast": ["Advanced_WTFast_Content.asp"],
-    "Multi-Function-BTN": ["Advanced_MultiFuncBtn.asp"]
-}
+let waitPageLoadTime = CONFIG.waitPageLoadTime;
+let devMode = CONFIG.devMode;
+let testCaseList = CONFIG.testCaseList;
+let specCheckList = CONFIG.specCheckList;
+let falseAlarm = CONFIG.falseAlarm;
 
 function resetParameters() {
     menuTree = [];
@@ -52,7 +40,6 @@ function resetParameters() {
     modelName = "";
     modelVersion = "";
     theme = "";
-    devMode = false;
 }
 
 function initializeUrlQueue() {
@@ -131,15 +118,30 @@ function processNextUrl() {
                         }
                         const urlPath = nextUrl.replace(baseUrl, "");
 
-                        if (testCaseList[urlPath]) {
-                            chrome.tabs.sendMessage(
-                                activeTabId, { 
-                                    type: "injectTestCase",
-                                    testcase: testCaseList[urlPath]
-                                }, (response) => {
-                                    setTimeout(processNextUrl, waitPageLoadTime);
+                        if (testCaseList[urlPath] && currentLang === "UI") {
+                            const testCases = testCaseList[urlPath];
+
+                            async function sendTestCasesSequentially() {
+                                for (let idx = 0; idx < testCases.length; idx++) {
+                                    await new Promise((resolve) => {
+                                        chrome.tabs.sendMessage(
+                                            activeTabId,
+                                            {
+                                                type: "injectTestCase",
+                                                testcase: testCases[idx]
+                                            },
+                                            (response) => {
+                                                setTimeout(() => {
+                                                    resolve();
+                                                }, 100);
+                                            }
+                                        );
+                                    });
                                 }
-                            );
+                                setTimeout(processNextUrl, waitPageLoadTime);
+                            }
+
+                            sendTestCasesSequentially();
                         } else {
                             setTimeout(processNextUrl, waitPageLoadTime);
                         }
@@ -182,6 +184,10 @@ function downloadLogs() {
     const errorPaths = new Set();
     const errorLogs = [];
     const errorCounts = {};
+
+    const apilogPaths = new Set();
+    const apilogLogs = [];
+    const apilogCounts = {};
 
     const uilogPaths = new Set();
     const uilogLogs = [];
@@ -258,8 +264,25 @@ function downloadLogs() {
             }
             uilogCounts[log.lang] += 1;
         } 
+        else if (url.pathname.includes("test-API")) {
+            if (!apilogPaths.has(log.log)) {
+                apilogLogs.push(`[API] ${log.log}`);
+                apilogPaths.add(log.log);
+            }
+            if (!apilogCounts[log.lang]) {
+                apilogCounts[log.lang] = 0;
+            }
+            apilogCounts[log.lang] += 1;
+        } 
         else {
             if (!errorPaths.has(log.log)) {
+                if (falseAlarm.some(pattern => 
+                    log.log.includes(pattern.log) && 
+                    url.pathname.includes(pattern.pathname)
+                )) {
+                    return;
+                }
+
                 errorLogs.push(`[${log.lang}] ${url.pathname.replace("/", "")}: ${log.log}`);
                 errorPaths.add(log.log);
             }
@@ -291,10 +314,19 @@ function downloadLogs() {
     );
     uilogLogs.push(...uilogSummary);
 
+    /*
+    const apilogSummary = Object.entries(apilogCounts).map(
+        ([lang, count]) => `[${lang}] ${count} page${count === 1 ? '' : 's'} got the same api log.`
+    );
+    apilogLogs.push(...apilogSummary);
+    */
+
+    /*
     const specSummary = Object.entries(specCounts).map(
-        ([lang, count]) => `[${lang}] ${count} page${count === 1 ? '' : 's'} matched spec check.`
+        ([lang, count]) => `[${lang}] ${count} SPEC checked.`
     );
     specLogs.push(...specSummary);
+    */
 
     const testDuration = startTime && endTime ? 
         `Test Duration: ${((endTime - startTime) / 1000).toFixed(2)} seconds` : 
@@ -310,6 +342,9 @@ function downloadLogs() {
         "",
         "=== SPEC CHECK ===",
         ...specLogs,
+        "",
+        "=== WEBAPI TESTING ===",
+        ...apilogLogs,
         "",
         "=== NOT FOUND ===",
         ...notFoundLogs,
@@ -354,24 +389,27 @@ function startNavigation(sendResponse) {
     }    
 }
 
-/*
-    background.js will listen to the following messages:
-    - startTesting: Starts the testing process, initializes `startTime`, sets `activeTabId`, and begins processing the URL queue.
-    - autotestlog: Logs errors during testing, storing them in `logs` with URL, log message, and language.
-    - downloadLogs: Generates and downloads a test report, including errors, 404s, and successful logs.
-    - resetUrlQueue: Resets the URL queue to only include "UI" and reinitializes the queue.
-    - resetAllLangUrlQueue: Resets the language queue to all supported languages and reinitializes the URL queue.
-    - setupTesting: Sets up the testing environment by configuring `menuTree` and `baseUrl`.
-*/
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === "getMenuTreeLength") {
+    if (message.type === "autotestlog") {
+        if (message.log) {
+            if(originalQueueLength != 0 && currentLang !== "XX") {
+                logs.push({ url: message.url, log: message.log, lang: currentLang });
+            }
+        }
+        sendResponse({ status: "Message received" });
+        return true;
+    }
+    else if (message.type === "getMenuTreeLength") {
         sendResponse({ menuTreeLength: menuTree.length, tabId: sender.tab?.id });
+        return true;
     }
     else if (message.type === "isTesting") {
         sendResponse({ isTesting: (currentTestType && activeTabId === sender.tab.id) ? true : false });
+        return true;
     }
     else if (message.type === "isDev") {
         sendResponse({ isDev: devMode});
+        return true;
     }
     else if (message.type === "startTesting") {
         if (currentTestType && activeTabId !== sender.tab.id) {
@@ -397,17 +435,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             return true;
         }
         startNavigation(sendResponse);
-        return true;
-    }    
-    else if (message.type === "autotestlog") {
-        if (message.log) {
-            if(originalQueueLength != 0 && currentLang !== "XX") {
-                logs.push({ url: message.url, log: message.log, lang: currentLang });
-            }
-            sendResponse({ status: "Error logged" });
-        } else {
-            sendResponse({ status: "Incomplete error message" });
-        }
         return true;
     }
     else if (message.type === "downloadLogs") {
@@ -450,6 +477,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             baseUrl = `${message.data.origin}/`;
             allLangList = message.data.allLangList || ["UI"];
         }
+        sendResponse({ status: "Message received" });
+        return true;
     }
     else if (message.type === "getTestEnvStatus") {
         sendResponse({
@@ -464,6 +493,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     else if (message.type === "closePopupWindow") {
         chrome.runtime.sendMessage({ type: "reloadPopupWindow" });
+        sendResponse({ status: "Message received" });
+        return true;
     }
 });
 

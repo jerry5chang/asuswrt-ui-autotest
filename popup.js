@@ -196,27 +196,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     downloadLogsButton.addEventListener("click", () => {
-        chrome.runtime.sendMessage({ type: "downloadLogs" }, (response) => {
-            if (chrome.runtime.lastError) {
-                console.error("Failed to send downloadLogs message:", chrome.runtime.lastError.message);
-            } else if (response && response.status === "success") {
-                console.log("downloadLogs response:", response.message);
-            } else {
-                console.error("No valid response received for downloadLogs.");
-            }
-        });
+        chrome.runtime.sendMessage({ type: "downloadLogs" });
     });
 
     resetButton.addEventListener("click", () => {
-        chrome.runtime.sendMessage({ type: "resetParameters" }, (response) => {
-            if (chrome.runtime.lastError) {
-                console.error("Failed to send resetParameters message:", chrome.runtime.lastError.message);
-            } else if (response && response.status === "success") {
-                console.log("Reset successful:", response.message);
-            } else {
-                console.error("No valid response received for resetParameters.");
-            }
-        });
+        chrome.runtime.sendMessage({ type: "resetParameters" });
     });
 
 /*

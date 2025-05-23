@@ -60,3 +60,4 @@
   - adds a framework that allows each page to be tested with its own `test-XXX.js` file. (v1.5)
   - Adjusted file structure (v1.6)
   - Support development mode (v1.6)
+  - Support API test. (v2.0)
