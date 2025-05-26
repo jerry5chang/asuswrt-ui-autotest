@@ -27,5 +27,6 @@ export const CONFIG = {
     
     falseAlarm: [
         { pathname: "js/asus_notice.js", log: "Error: Uncaught ReferenceError: httpApi is not defined" },
+        { pathname: "tm.svg", log: "Error: Uncaught TypeError: Cannot read properties of null (reading 'getItem')" },
     ]
 };
