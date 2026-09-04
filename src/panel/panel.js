@@ -10,7 +10,7 @@
  */
 
 import { MSG, RISKY_ACTIONS, RUN, SEV_ORDER, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
-import { SUITES, GROUPS, SUITE_BY_ID, pagesInScope } from '../suites/registry.js';
+import { SUITES, GROUPS, RUNNABLE_SUITES, SUITE_BY_ID, pagesInScope } from '../suites/registry.js';
 import { BUILDERS, reportFilename, ruleSource, suggestedRules } from '../lib/report.js';
 import { estimateRemaining, estimateRun, formatDuration } from '../lib/estimate.js';
 import {
@@ -409,6 +409,9 @@ function renderSuites() {
 
     for (const group of GROUPS) {
         const inGroup = SUITES.filter((s) => s.group === group);
+        // Drafts are shown but cannot be ticked, so the group's checkbox and
+        // its count speak only for the items that can actually run.
+        const runnable = inGroup.filter((s) => !s.draft);
         const box = el('div', 'subgroup');
 
         // The group heading is itself a checkbox: it ticks or clears the whole
@@ -438,15 +441,17 @@ function renderSuites() {
         groupBox.type = 'checkbox';
         const count = el('span', 'gcount');
 
+        groupBox.disabled = runnable.length === 0;
+
         const syncGroup = () => {
-            const on = inGroup.filter((suite) => sel.suiteIds.has(suite.id)).length;
-            groupBox.checked = on === inGroup.length;
-            groupBox.indeterminate = on > 0 && on < inGroup.length;
-            count.textContent = `${on}/${inGroup.length}`;
+            const on = runnable.filter((suite) => sel.suiteIds.has(suite.id)).length;
+            groupBox.checked = runnable.length > 0 && on === runnable.length;
+            groupBox.indeterminate = on > 0 && on < runnable.length;
+            count.textContent = `${on}/${runnable.length}`;
         };
 
         groupBox.addEventListener('change', () => {
-            for (const suite of inGroup) {
+            for (const suite of runnable) {
                 if (groupBox.checked) sel.suiteIds.add(suite.id);
                 else sel.suiteIds.delete(suite.id);
             }
@@ -459,9 +464,16 @@ function renderSuites() {
         box.append(head);
 
         for (const suite of inGroup) {
-            const label = el('label', 'check');
+            const label = el('label', `check${suite.draft ? ' is-draft' : ''}`);
             const input = el('input');
             input.type = 'checkbox';
+            if (suite.draft) {
+                // Written, but never produced a verdict worth reporting on a
+                // real DUT. Shown so it is not lost, disabled so it cannot
+                // reach a report.
+                sel.suiteIds.delete(suite.id);
+                input.disabled = true;
+            }
             input.checked = sel.suiteIds.has(suite.id);
             input.addEventListener('change', () => {
                 if (input.checked) sel.suiteIds.add(suite.id);
@@ -471,10 +483,10 @@ function renderSuites() {
                 persist();
             });
             const text = el('span', 'grow');
-            text.append(
-                el('span', 'name', suiteText(suite, 'name')),
-                el('span', 'desc', suiteText(suite, 'desc'))
-            );
+            const name = el('span', 'name');
+            name.append(document.createTextNode(suiteText(suite, 'name')));
+            if (suite.draft) name.append(el('span', 'tag', t('suites.draft')));
+            text.append(name, el('span', 'desc', suiteText(suite, 'desc')));
             label.append(input, text);
             box.append(label);
         }
@@ -486,7 +498,7 @@ function renderSuites() {
 }
 
 function updateSuiteCount() {
-    $('#suiteCount').textContent = `${sel.suiteIds.size}/${SUITES.length}`;
+    $('#suiteCount').textContent = `${sel.suiteIds.size}/${RUNNABLE_SUITES.length}`;
     updatePageCount();
     renderEstimate();
 }
@@ -496,7 +508,8 @@ function initPresets() {
         chip.addEventListener('click', () => {
             const key = chip.dataset.preset;
             if (key === 'none') sel.suiteIds = new Set();
-            else if (key === 'full' || PRESETS[key] === null) sel.suiteIds = new Set(SUITES.map((s) => s.id));
+            else if (key === 'full' || PRESETS[key] === null)
+                sel.suiteIds = new Set(RUNNABLE_SUITES.map((s) => s.id));
             else sel.suiteIds = new Set(PRESETS[key] || []);
             renderSuites();
             persist();

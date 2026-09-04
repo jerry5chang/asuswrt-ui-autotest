@@ -158,7 +158,21 @@ export const SUITES = [
         defaultOn: true,
     },
 
-    /* -------------------------------------------------------- Page tests */
+    /* -------------------------------------------------------- Page tests
+     * All four are marked `draft`: they were sketched, and the DUT showed that
+     * none of them reaches a verdict you could trust.
+     *   - qis-wizard      failed on a healthy DUT: "no QIS panes found".
+     *                     QIS_V3 does not lay its steps out as this expects.
+     *   - traffic-monitor could only report "canvas pixels not readable", so
+     *                     the one thing it checks never actually gets checked.
+     *   - vlan-switch     never ran: no model probed so far ships
+     *                     Advanced_VLAN_Switch_Content.asp in its menu.
+     *   - apply-button    never ran; it is the worked example of the Safe Mode
+     *                     pattern rather than a checked test.
+     * Draft items are disabled in the panel and dropped by the runner, so a
+     * report can never contain a verdict from one. Clear the flag when the
+     * item earns it on a real DUT.
+     */
     {
         id: 'pages.qis-wizard',
         name: 'QIS wizard',
@@ -169,7 +183,8 @@ export const SUITES = [
         pages: ['QIS_wizard.htm'],
         file: 'src/suites/page/qis-wizard.js',
         cost: { shape: 'perPage', ms: 350 },
-        defaultOn: true,
+        defaultOn: false,
+        draft: true,
     },
     {
         id: 'pages.vlan-switch',
@@ -181,7 +196,8 @@ export const SUITES = [
         pages: ['Advanced_VLAN_Switch_Content.asp'],
         file: 'src/suites/page/vlan-switch.js',
         cost: { shape: 'perPage', ms: 250 },
-        defaultOn: true,
+        defaultOn: false,
+        draft: true,
     },
     {
         id: 'pages.traffic-monitor',
@@ -193,7 +209,8 @@ export const SUITES = [
         pages: ['Main_TrafficMonitor_realtime.asp', 'index.html?page=trafficmonitor'],
         file: 'src/suites/page/traffic-monitor.js',
         cost: { shape: 'perPage', ms: 550 },
-        defaultOn: true,
+        defaultOn: false,
+        draft: true,
     },
     {
         id: 'pages.apply-button',
@@ -208,6 +225,7 @@ export const SUITES = [
         file: 'src/suites/page/apply-button.js',
         cost: { shape: 'perPage', ms: 1200 },
         defaultOn: false,
+        draft: true,
     },
 
     /* -------------------------------------------------------------- EAA
@@ -255,6 +273,13 @@ export const SUITE_BY_ID = Object.fromEntries(SUITES.map((s) => [s.id, s]));
 export const GROUPS = [...new Set(SUITES.map((s) => s.group))];
 
 export const DEFAULT_SUITE_IDS = SUITES.filter((s) => s.defaultOn).map((s) => s.id);
+
+/**
+ * Everything except the drafts -- the items that can actually be run. The
+ * panel counts and "All" work off this, so ticking everything cannot select
+ * something that has never produced a verdict on a real DUT.
+ */
+export const RUNNABLE_SUITES = SUITES.filter((s) => !s.draft);
 
 /** Suites of a given `where`, filtered to the selected ids. */
 export function selected(ids, where) {

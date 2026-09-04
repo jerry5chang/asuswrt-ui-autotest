@@ -247,17 +247,23 @@ window.__AUT__.suite('eaa.client-dialog', async function (t) {
             last.focus();
             await t.pressKey('Tab');
             await t.sleep(80);
-            t.check(document.activeElement === first, 'Tab past the last component wraps to the first', {
-                focused: describe(document.activeElement),
-                expected: describe(first),
-            });
+            t.check(
+                document.activeElement === first,
+                'Tab past the last component wraps to the first (the page’s own trap saw the ' +
+                    'key; the browser did not)',
+                {
+                    focused: describe(document.activeElement),
+                    expected: describe(first),
+                }
+            );
 
             first.focus();
             await t.pressKey('Tab', { shift: true });
             await t.sleep(80);
             t.check(
                 document.activeElement === last,
-                'Shift+Tab before the first component wraps to the last',
+                'Shift+Tab before the first component wraps to the last (the page’s own trap ' +
+                    'saw the key; the browser did not)',
                 { focused: describe(document.activeElement), expected: describe(last) }
             );
         }

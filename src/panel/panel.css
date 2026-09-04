@@ -420,6 +420,23 @@ label.item > input,
     align-self: center;
 }
 .check .name { font-weight: 550; }
+
+/* An item that exists in source but has never produced a verdict worth
+   reporting: visible, so it is not forgotten, and unavailable, so it cannot
+   put an unverified result in front of anyone. */
+.check.is-draft { cursor: default; }
+.check.is-draft .name { color: var(--mut); }
+
+.tag {
+    margin-left: 7px;
+    padding: 1px 5px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    font-size: var(--fs-micro);
+    font-weight: 500;
+    color: var(--mut);
+    vertical-align: 1px;
+}
 .check .desc { display: block; color: var(--mut); font-size: var(--fs-tiny); }
 
 .hint { color: var(--mut); font-size: var(--fs-tiny); margin: 6px 0 0; }

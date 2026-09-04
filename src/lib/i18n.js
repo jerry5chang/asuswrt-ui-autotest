@@ -75,6 +75,7 @@ const MESSAGES = {
             'and when a session expires mid-run, for which the option above must be on.',
 
         'suites.title': 'Test items',
+        'suites.draft': 'not verified',
         'preset.all': 'All',
         'preset.smoke': 'Smoke',
         'preset.api': 'API only',
@@ -275,6 +276,7 @@ const MESSAGES = {
             '需要開啟上面那個選項。',
 
         'suites.title': '測項',
+        'suites.draft': '尚未驗證',
         'preset.all': '全選',
         'preset.smoke': '基本',
         'preset.api': '只測 API',
@@ -469,6 +471,7 @@ const MESSAGES = {
             '需要开启上面那个选项。',
 
         'suites.title': '测试项',
+        'suites.draft': '尚未验证',
         'preset.all': '全选',
         'preset.smoke': '基本',
         'preset.api': '仅测 API',

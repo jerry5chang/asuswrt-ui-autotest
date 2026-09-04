@@ -100,7 +100,18 @@ export function navigateAndWait(tabId, url, timeoutMs) {
 export async function startRun({ tabId, selection, settings, env }) {
     control = { stop: false, pause: false };
 
-    const selectedIds = new Set(selection.suiteIds || []);
+    /*
+     * Draft items never run, however they got into the selection -- a stored
+     * selection from an older build, or a hand-made message. The panel
+     * disables them; this is what makes it true.
+     */
+    selection = {
+        ...selection,
+        suiteIds: (selection.suiteIds || []).filter(
+            (id) => SUITE_BY_ID[id] && !SUITE_BY_ID[id].draft
+        ),
+    };
+    const selectedIds = new Set(selection.suiteIds);
     const origin = env.origin;
 
     // Which pages to sweep.

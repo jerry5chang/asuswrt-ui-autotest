@@ -727,13 +727,33 @@ async function testReport() {
 async function testRegistry() {
     section('registry and settings');
 
-    const { SUITES, SUITE_BY_ID, appliesToPage } = await import('../src/suites/registry.js');
+    const { SUITES, SUITE_BY_ID, RUNNABLE_SUITES, DEFAULT_SUITE_IDS, appliesToPage } =
+        await import('../src/suites/registry.js');
 
     check('every suite has a unique id', new Set(SUITES.map((s) => s.id)).size === SUITES.length);
     check('every page suite points at a file that exists',
         SUITES.filter((s) => s.where === 'page').every((s) => s.file && fs.existsSync(s.file)));
     check('every suite declares a where and a scope',
         SUITES.every((s) => ['driver', 'page', 'instrument'].includes(s.where) && ['run', 'each-page', 'pages'].includes(s.scope)));
+
+    /*
+     * The four Page tests items were written and never reached a verdict worth
+     * reporting: QIS failed on a healthy DUT, the traffic chart could only say
+     * "pixels not readable", and the other two never ran at all. They stay in
+     * source, marked draft, and must not be selectable.
+     */
+    const DRAFTS = ['pages.qis-wizard', 'pages.vlan-switch', 'pages.traffic-monitor',
+        'pages.apply-button'];
+    check('the unverified page tests are marked draft',
+        DRAFTS.every((id) => SUITE_BY_ID[id] && SUITE_BY_ID[id].draft), DRAFTS.join(', '));
+    check('a draft is not runnable', RUNNABLE_SUITES.every((s) => !s.draft));
+    check('...and never on by default',
+        DRAFTS.every((id) => !DEFAULT_SUITE_IDS.includes(id)));
+    check('the runner drops a draft that reaches it anyway',
+        /!SUITE_BY_ID\[id\]\.draft/.test(fs.readFileSync('src/background/runner.js', 'utf8')));
+    check('the panel disables a draft rather than hiding it',
+        /if \(suite\.draft\) \{[\s\S]{0,400}?input\.disabled = true/.test(
+            fs.readFileSync('src/panel/panel.js', 'utf8')));
 
     const qis = SUITE_BY_ID['pages.qis-wizard'];
     check('page-scoped suite matches its own page', appliesToPage(qis, 'QIS_wizard.htm'));
