@@ -7,6 +7,6 @@
     "scripts": {
         "test": "node tools/selftest.mjs",
         "test:dut": "node tools/selftest.mjs http://192.168.8.1 admin",
-        "package": "zip -r asuswrt-ui-autotest-3.0.zip manifest.json src resource -x '*.DS_Store'"
+        "package": "python3 tools/package.py"
     }
 }
