@@ -97,10 +97,6 @@ const MESSAGES = {
         'opts.safeMode': 'Safe Mode',
         'opts.safeModeDesc': 'intercept reboot / restart / restore requests instead of sending them',
         'opts.stopOnError': 'Stop at the first error',
-        'opts.devMode': 'Maintainer mode',
-        'opts.devModeDesc':
-            'show the Ignore / Restore buttons on report rows, for curating the known-issue '
-            + 'list. Off for everyone else: the list still applies, they just cannot change it.',
         'opts.realKeys': 'Real key presses',
         'opts.realKeysDesc':
             'attach the debugger for pages whose tests need a key the browser acts on, so Tab '
@@ -122,11 +118,6 @@ const MESSAGES = {
         'adv.hint':
             'The feature-to-page SPEC map lives in source and is maintained in development. ' +
             'What is here is the ignore list and what Safe Mode holds back.',
-        'adv.staged': 'Staged here, not yet shipped',
-        'adv.noStaged': 'Nothing staged. Ignore a finding in the report to add one.',
-        'adv.anyPage': '(any page)',
-        'adv.copy': 'Copy for the maintainer',
-        'adv.copied': '{count} rule(s) copied — paste them in to ship them.',
         'adv.risky.destructive': 'Destructive',
         'adv.risky.disconnect': 'Disconnects',
         'adv.shipped':
@@ -161,17 +152,6 @@ const MESSAGES = {
         'report.allSuites': 'All suites',
         'report.filter': 'Filter message / page…',
         'report.apiCalls': 'Recorded API calls',
-        'report.ignore': 'Ignore',
-        'report.ignoreTitle':
-            'Add a rule that suppresses this finding, reported as skip from now on. Review or '
-            + 'remove it under Options → Advanced lists → Known issues.',
-        'report.ignored': 'Added to known issues ({count} in the list).',
-        'report.restore': 'Restore',
-        'report.restoreTitle': 'Remove the rule hiding this, so it is reported again.',
-        'report.restored': 'Rule removed; this is reported again.',
-        'report.restoreShipped':
-            'This one ships with the extension, so it stays. Change DEFAULT_KNOWN_ISSUES in '
-            + 'source to drop it for everyone.',
         'report.noApis': 'No API calls recorded.',
         'report.nothingToExport': 'Nothing to export yet — run a test first.',
 
@@ -320,10 +300,6 @@ const MESSAGES = {
         'opts.safeMode': '安全模式',
         'opts.safeModeDesc': '攔下 reboot / restart / restore 等請求，不真的送出',
         'opts.stopOnError': '遇到第一個錯誤就停止',
-        'opts.devMode': '維護者模式',
-        'opts.devModeDesc':
-            '在報告列上顯示「忽略／取消忽略」按鈕，用來整理已知問題清單。' +
-            '其他人關著：清單照樣生效，只是不能改。',
         'opts.realKeys': '真實按鍵',
         'opts.realKeysDesc':
             '對需要「瀏覽器真的會反應的按鍵」的測項附加 debugger，讓 Tab 真的移動焦點。' +
@@ -343,11 +319,6 @@ const MESSAGES = {
         'adv.title': '進階清單',
         'adv.hint':
             '功能 → 頁面的 SPEC 對應放在原始碼、開發階段維護。這裡是忽略清單和安全模式要攔的東西。',
-        'adv.staged': '暫存在這台，還沒發行',
-        'adv.noStaged': '沒有暫存項目。在報告裡按「忽略」就會加進來。',
-        'adv.anyPage': '（任何頁面）',
-        'adv.copy': '複製給維護者',
-        'adv.copied': '已複製 {count} 條 —— 貼給我就能發行。',
         'adv.risky.destructive': '破壞性',
         'adv.risky.disconnect': '會斷線',
         'adv.shipped':
@@ -382,15 +353,6 @@ const MESSAGES = {
         'report.allSuites': '所有測項',
         'report.filter': '篩選訊息／頁面…',
         'report.apiCalls': '已記錄的 API 呼叫',
-        'report.ignore': '忽略',
-        'report.ignoreTitle':
-            '加一條規則把這筆結果壓成 skip。之後可在「選項 → 進階清單 → 已知問題」檢視或移除。',
-        'report.ignored': '已加入已知問題（清單共 {count} 條）。',
-        'report.restore': '取消忽略',
-        'report.restoreTitle': '移除壓住這筆的規則，讓它重新被回報。',
-        'report.restored': '規則已移除，這筆會重新被回報。',
-        'report.restoreShipped':
-            '這條是隨套件發行的，會保留。要對所有人取消，得改原始碼的 DEFAULT_KNOWN_ISSUES。',
         'report.noApis': '沒有記錄到 API 呼叫。',
         'report.nothingToExport': '還沒有可匯出的內容 —— 請先跑一次測試。',
 
@@ -538,10 +500,6 @@ const MESSAGES = {
         'opts.safeMode': '安全模式',
         'opts.safeModeDesc': '拦截 reboot / restart / restore 等请求，不真正发出',
         'opts.stopOnError': '遇到第一个错误就停止',
-        'opts.devMode': '维护者模式',
-        'opts.devModeDesc':
-            '在报告行上显示「忽略／取消忽略」按钮，用来整理已知问题清单。' +
-            '其他人关着：清单照样生效，只是不能改。',
         'opts.realKeys': '真实按键',
         'opts.realKeysDesc':
             '对需要「浏览器真的会响应的按键」的测试项附加 debugger，让 Tab 真的移动焦点。' +
@@ -561,11 +519,6 @@ const MESSAGES = {
         'adv.title': '高级清单',
         'adv.hint':
             '功能 → 页面的 SPEC 映射放在源码、开发阶段维护。这里是忽略清单和安全模式要拦的东西。',
-        'adv.staged': '暂存在这台，还没发行',
-        'adv.noStaged': '没有暂存项目。在报告里点「忽略」就会加进来。',
-        'adv.anyPage': '（任何页面）',
-        'adv.copy': '复制给维护者',
-        'adv.copied': '已复制 {count} 条 —— 贴给我就能发行。',
         'adv.risky.destructive': '破坏性',
         'adv.risky.disconnect': '会断线',
         'adv.shipped':
@@ -600,15 +553,6 @@ const MESSAGES = {
         'report.allSuites': '所有测试项',
         'report.filter': '筛选消息／页面…',
         'report.apiCalls': '已记录的 API 调用',
-        'report.ignore': '忽略',
-        'report.ignoreTitle':
-            '加一条规则把这条结果压成 skip。之后可在「选项 → 高级清单 → 已知问题」查看或移除。',
-        'report.ignored': '已加入已知问题（清单共 {count} 条）。',
-        'report.restore': '取消忽略',
-        'report.restoreTitle': '移除压住这条的规则，让它重新被报告。',
-        'report.restored': '规则已移除，这条会重新被报告。',
-        'report.restoreShipped':
-            '这条是随扩展发行的，会保留。要对所有人取消，得改源码的 DEFAULT_KNOWN_ISSUES。',
         'report.noApis': '没有记录到 API 调用。',
         'report.nothingToExport': '还没有可导出的内容 —— 请先运行一次测试。',
 

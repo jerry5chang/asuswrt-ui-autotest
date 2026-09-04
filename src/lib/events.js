@@ -19,23 +19,9 @@ export const EVENT_MAP = {
     apiBlocked: { suite: 'api.recorder', severity: SEV.BLOCKED },
 };
 
-/**
- * Every rule in force: the list shipped with the extension, plus whatever was
- * added on this machine. A union rather than an override, so updating the
- * extension always delivers its new rules -- a stored copy of the whole list
- * would shadow them permanently.
- */
-export function activeIgnoreRules(settings = {}) {
-    return [...(settings.knownIssues || []), ...(settings.ignoredExtra || [])].filter(
-        // Unticking one in the panel disables it without losing it, so it can
-        // be put back. Shipped rules carry no flag and are always on.
-        (rule) => rule && rule.enabled !== false
-    );
-}
-
 /** Is this event a known false alarm? */
 export function knownIssue(settings, event) {
-    return activeIgnoreRules(settings).some((k) => {
+    return (settings.knownIssues || []).some((k) => {
         if (!k.match) return false;
         const where = k.where;
         const whereOk =
@@ -45,16 +31,6 @@ export function knownIssue(settings, event) {
             ((event.detail && event.detail.src) || '').includes(where);
         return whereOk && event.message.includes(k.match);
     });
-}
-
-/** Rules from `settings` that would suppress this already-recorded row. */
-export function rulesMatching(settings, row) {
-    if (!row) return [];
-    // Rows the run already suppressed carry the prefix; strip it to match.
-    const message = String(row.message || '').replace(/^known issue: /, '');
-    return activeIgnoreRules(settings).filter((rule) =>
-        knownIssue({ knownIssues: [rule] }, { ...row, message })
-    );
 }
 
 /**

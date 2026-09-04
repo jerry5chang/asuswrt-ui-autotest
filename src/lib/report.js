@@ -12,6 +12,7 @@
 import { SEV, SEV_ORDER, SEV_LABEL } from './const.js';
 import { SUITE_BY_ID } from '../suites/registry.js';
 import { formatDuration } from './estimate.js';
+import { ignoreRuleFor } from './events.js';
 
 /** Shared costs, named for a reader rather than by collector key. */
 const COST_LABELS = {
@@ -29,6 +30,36 @@ const COST_LABELS = {
  * the per-item ones: navigating and settling is usually the bulk of a sweep,
  * which is why adding another passive check costs nothing.
  */
+/**
+ * The filter rule each finding would need, ready to paste into
+ * DEFAULT_KNOWN_ISSUES.
+ *
+ * The workflow this serves: read the report, decide which findings are false
+ * alarms, add those rules in source so the next release filters them for
+ * everyone. Deriving the rule by hand means digging the asset path out of the
+ * detail and guessing what to match on, so the report does it.
+ *
+ * Deduplicated, because one cause repeated across pages is one rule.
+ */
+function suggestedRules(run) {
+    const SUPPRESSIBLE = new Set([SEV.ERROR, SEV.FAIL, SEV.WARN]);
+    const seen = new Map();
+
+    for (const row of run.results || []) {
+        if (!SUPPRESSIBLE.has(row.severity)) continue;
+        const rule = ignoreRuleFor(row);
+        if (!rule) continue;
+        const key = `${rule.where}|${rule.match}`;
+        if (!seen.has(key)) seen.set(key, { rule, severity: row.severity, pages: new Set() });
+        seen.get(key).pages.add(row.page || '-');
+    }
+
+    return [...seen.values()].map((entry) => ({
+        ...entry,
+        pages: [...entry.pages],
+    }));
+}
+
 function timingRows(run) {
     const timings = run.timings || {};
     const rows = Object.entries(timings)
@@ -127,6 +158,11 @@ export function buildJson(run) {
             results: run.results,
             apis: run.apis,
             timings: run.timings || {},
+            /* Paste the ones you judge false alarms into DEFAULT_KNOWN_ISSUES. */
+            suggestedIgnoreRules: suggestedRules(run).map(({ rule, severity, pages }) => ({
+                ...rule,
+                wouldSuppress: { severity, pages },
+            })),
             notes: run.notes,
         },
         null,
@@ -177,6 +213,25 @@ export function buildMarkdown(run) {
             );
         }
         lines.push('');
+    }
+
+    const suggested = suggestedRules(run);
+    if (suggested.length) {
+        lines.push(
+            `## Filter rules for these findings (${suggested.length})`,
+            '',
+            'Paste the ones you judge false alarms into `DEFAULT_KNOWN_ISSUES`',
+            'in `src/lib/const.js`; the next release filters them for everyone.',
+            '',
+            '```js',
+            ...suggested.map(
+                ({ rule, pages }) =>
+                    `    { where: '${rule.where}', match: '${rule.match.replace(/'/g, "\\'")}' },` +
+                    `  // ${pages.length} page(s): ${pages.slice(0, 3).join(', ')}`
+            ),
+            '```',
+            ''
+        );
     }
 
     const timing = timingRows(run);
@@ -248,6 +303,18 @@ export function buildTxt(run) {
         out.push('', `=== ${title} (${rows.length}) ===`, ...rows);
     }
 
+    const suggested = suggestedRules(run);
+    if (suggested.length) {
+        out.push('', `=== FILTER RULES FOR THESE FINDINGS (${suggested.length}) ===`);
+        out.push('Paste the false alarms into DEFAULT_KNOWN_ISSUES in src/lib/const.js.');
+        for (const { rule, pages } of suggested) {
+            out.push(
+                `    { where: '${rule.where}', match: '${rule.match.replace(/'/g, "\\'")}' },` +
+                    `  // ${pages.length} page(s)`
+            );
+        }
+    }
+
     const timing = timingRows(run);
     if (timing.rows.length) {
         out.push('', `=== WHERE THE TIME WENT (${formatDuration(timing.total)}) ===`);
@@ -289,7 +356,28 @@ export function buildHtml(run) {
       <td>${esc(suiteName(r.suite))}</td>
       <td class="mono">${esc(r.page || '-')}</td>
       <td>${esc(r.lang || '-')}</td>
-      <td>${esc(r.message)}${r.detail ? `<details><summary>detail</summary><pre>${esc(JSON.stringify(r.detail, null, 2))}</pre></details>` : ''}</td>
+      <td>${esc(r.message)}${
+                (() => {
+                    const rule = [SEV.ERROR, SEV.FAIL, SEV.WARN].includes(r.severity)
+                        ? ignoreRuleFor(r)
+                        : null;
+                    const parts = [];
+                    if (rule) {
+                        parts.push(
+                            `<div class="rule">filter rule: <code>{ where: '${esc(rule.where)}', ` +
+                                `match: '${esc(rule.match)}' }</code></div>`
+                        );
+                    }
+                    if (r.detail) {
+                        parts.push(
+                            `<details><summary>detail</summary><pre>${esc(
+                                JSON.stringify(r.detail, null, 2)
+                            )}</pre></details>`
+                        );
+                    }
+                    return parts.join('');
+                })()
+            }</td>
     </tr>`
         )
         .join('\n');

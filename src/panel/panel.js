@@ -12,7 +12,6 @@
 import { MSG, RISKY_ACTIONS, RUN, SEV_ORDER, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
 import { SUITES, GROUPS, SUITE_BY_ID, pagesInScope } from '../suites/registry.js';
 import { BUILDERS, reportFilename } from '../lib/report.js';
-import { activeIgnoreRules, ignoreRuleFor, knownIssue, rulesMatching } from '../lib/events.js';
 import { estimateRemaining, estimateRun, formatDuration } from '../lib/estimate.js';
 import {
     LOCALES,
@@ -271,7 +270,6 @@ const SETTING_FIELDS = {
     autoLogin: 'checked',
     safeMode: 'checked',
     stopOnError: 'checked',
-    devMode: 'checked',
     realKeys: 'checked',
     verboseConsole: 'checked',
     pageSettleMs: 'value',
@@ -285,14 +283,13 @@ function renderSettings() {
         const node = $('#' + id);
         if (node) node[prop] = snap.settings[id];
     }
-    renderIgnoreList();
     renderRiskyList();
 
     // These rules are what silences findings, so say how many are in force
     // without having to open the section.
     const shipped = (snap.settings.knownIssues || []).length;
-    const staged = (snap.settings.ignoredExtra || []).length;
-    $('#advCount').textContent = t('adv.rules', { count: shipped + staged });
+    $('#advCount').textContent = t('adv.rules', { count: shipped });
+    $('#advShipped').textContent = t('adv.shipped', { count: shipped });
 }
 
 /* ------------------------------------------------------- advanced lists */
@@ -301,51 +298,6 @@ async function saveList(patch) {
     snap = await send(MSG.SAVE_SETTINGS, { settings: patch });
     renderSettings();
     renderReport();
-}
-
-/**
- * Rules staged on this machine, one per row.
- *
- * Reports have to be comparable between people, so what actually filters is
- * the list shipped in source, identical for everyone and tied to the tool
- * version. These are the maintainer's staging area: they apply here, so the
- * effect is visible while curating, and Copy hands them over to be folded
- * into DEFAULT_KNOWN_ISSUES. With maintainer mode off nobody has any.
- *
- * Unticking disables a rule rather than deleting it, so it can be put back.
- */
-function renderIgnoreList() {
-    const host = $('#ignoreList');
-    host.textContent = '';
-
-    $('#advShipped').textContent = t('adv.shipped', {
-        count: (snap.settings.knownIssues || []).length,
-    });
-
-    const staged = snap.settings.ignoredExtra || [];
-    $('#ignoreCopy').hidden = staged.length === 0;
-
-    if (!staged.length) {
-        host.append(el('p', 'empty', t('adv.noStaged')));
-        return;
-    }
-
-    staged.forEach((rule, index) => {
-        const label = el('label', 'check');
-        const box = el('input');
-        box.type = 'checkbox';
-        box.checked = rule.enabled !== false;
-        box.addEventListener('change', () => {
-            saveList({
-                ignoredExtra: staged.map((r, i) => (i === index ? { ...r, enabled: box.checked } : r)),
-            });
-        });
-        const text = el('span', 'grow');
-        text.append(el('span', 'name mono', rule.where || t('adv.anyPage')));
-        text.append(el('span', 'desc', rule.match));
-        label.append(box, text);
-        host.append(label);
-    });
 }
 
 /**
@@ -384,15 +336,6 @@ function initAdvancedLists() {
     );
     $('#riskyNone').addEventListener('click', () => saveList({ riskyActions: [] }));
 
-    // Shaped exactly as DEFAULT_KNOWN_ISSUES expects, so it pastes straight
-    // in; a disabled rule is left out.
-    $('#ignoreCopy').addEventListener('click', async () => {
-        const staged = (snap.settings.ignoredExtra || [])
-            .filter((r) => r.enabled !== false)
-            .map(({ where, match }) => ({ where, match }));
-        await navigator.clipboard.writeText(JSON.stringify(staged, null, 4));
-        flash('#runError', t('adv.copied', { count: staged.length }), 'ok');
-    });
 }
 
 function collectSettings() {
@@ -789,67 +732,6 @@ function renderCards(host, counts) {
     }
 }
 
-/**
- * Add a rule that suppresses this finding from now on, and re-render so it
- * disappears immediately. The list is the same one Advanced lists edits, so a
- * rule added here can be reviewed or removed there.
- */
-async function ignoreFinding(row) {
-    const rule = ignoreRuleFor(row);
-    if (!rule) return;
-
-    // Added to the local list, never to the shipped one: a stored copy of the
-    // shipped list would shadow it and block future updates.
-    const extra = [...(snap.settings.ignoredExtra || [])];
-    if (!extra.some((k) => k.where === rule.where && k.match === rule.match)) extra.push(rule);
-
-    snap = await send(MSG.SAVE_SETTINGS, { settings: { ignoredExtra: extra } });
-    renderReport();
-    flash('#runError', t('report.ignored', { count: activeIgnoreRules(snap.settings).length }), 'ok');
-}
-
-/** Take a rule back out, so the finding is reported again. */
-async function restoreFinding(row) {
-    const drop = rulesMatching(snap.settings, row);
-    if (!drop.length) return;
-
-    const extra = (snap.settings.ignoredExtra || []).filter((k) => !drop.includes(k));
-    const removed = (snap.settings.ignoredExtra || []).length - extra.length;
-
-    if (removed) {
-        snap = await send(MSG.SAVE_SETTINGS, { settings: { ignoredExtra: extra } });
-        renderReport();
-        flash('#runError', t('report.restored'), 'ok');
-    }
-
-    // Anything left matching came with the extension, and is changed in source
-    // rather than here -- otherwise a local edit would shadow future updates.
-    if (drop.length > removed) flash('#runError', t('report.restoreShipped'), 'warn');
-}
-
-/** Findings worth offering to suppress: the ones that read as defects. */
-const SUPPRESSIBLE = new Set(['error', 'fail', 'warn']);
-
-/**
- * Re-apply the known-issue list to results a run already classified.
- *
- * The runner filters as it records, so a rule added afterwards would not
- * affect anything already in the report -- press Ignore and the row you were
- * looking at stays a failure until the next run, which reads as the button
- * having done nothing. Reclassifying for display fixes that; the stored run is
- * untouched, and the next run reaches the same verdict on its own.
- */
-function withKnownIssues(rows) {
-    const rules = (snap.settings && snap.settings.knownIssues) || [];
-    if (!rules.length) return rows;
-
-    return rows.map((row) => {
-        if (!SUPPRESSIBLE.has(row.severity)) return row;
-        if (!knownIssue({ knownIssues: rules }, row)) return row;
-        return { ...row, severity: 'skip', message: `known issue: ${row.message}`, suppressed: true };
-    });
-}
-
 function renderResultList(host, rows, current) {
     host.textContent = '';
 
@@ -878,30 +760,6 @@ function renderResultList(host, rows, current) {
 
         // Only in the Report tab: during a run the list is a feed, and a
         // button that reflows it while results stream in is a nuisance.
-        // Curating the list is a maintainer action; a colleague sees the
-        // rules applied but no buttons to change them.
-        if (host.id === 'reportRows' && snap.settings.devMode) {
-            if (r.suppressed) {
-                const restore = el('button', 'ignore', t('report.restore'));
-                restore.type = 'button';
-                restore.title = t('report.restoreTitle');
-                restore.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    restoreFinding(r);
-                });
-                item.append(restore);
-            } else if (SUPPRESSIBLE.has(r.severity) && ignoreRuleFor(r)) {
-                const ignore = el('button', 'ignore accent', t('report.ignore'));
-                ignore.type = 'button';
-                ignore.title = t('report.ignoreTitle');
-                ignore.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    ignoreFinding(r);
-                });
-                item.append(ignore);
-            }
-        }
-
         host.append(item);
     }
 }
@@ -922,9 +780,7 @@ function renderReport() {
     if (!reportCache) return;
     const run = reportCache;
 
-    // Everything the Report tab shows is counted after the known-issue list is
-    // applied, so the cards and the rows cannot disagree.
-    reportRows = withKnownIssues(run.results || []);
+    reportRows = run.results || [];
     const counts = {};
     for (const row of reportRows) counts[row.severity] = (counts[row.severity] || 0) + 1;
 

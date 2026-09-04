@@ -351,31 +351,6 @@ async function testEvents() {
         }));
     check('a finding with no message yields no rule', ignoreRuleFor({ message: '' }) === null);
 
-    /*
-     * Ignoring has to change the report you are looking at. The runner filters
-     * as it records, so a rule added afterwards affects nothing already
-     * recorded -- the row would stay a failure and the button would read as
-     * having done nothing. rulesMatching is what lets the panel reclassify,
-     * and undo it.
-     */
-    const { rulesMatching } = await import('../src/lib/events.js');
-    const recorded = {
-        suite: 'core.resource-error',
-        severity: 'fail',
-        message: 'link failed to load: http://192.168.8.1/mobile.customize/customize.css',
-        detail: { src: 'http://192.168.8.1/mobile.customize/customize.css' },
-        page: 'QIS_wizard.htm',
-    };
-    check('a rule is found for a row it suppresses',
-        rulesMatching({ knownIssues: [rule] }, recorded).length === 1);
-    check('...and for the same row once already prefixed, so it can be undone',
-        rulesMatching({ knownIssues: [rule] }, { ...recorded, message: `known issue: ${recorded.message}` })
-            .length === 1);
-    check('...but not for an unrelated row',
-        rulesMatching({ knownIssues: [rule] }, { ...recorded, message: 'something else', detail: {} })
-            .length === 0);
-    check('no rules, no matches', rulesMatching({}, recorded).length === 0);
-
     check('known-issue matching can key off a resource src',
         knownIssue({ knownIssues: [{ where: 'www.asus.com', match: 'failed to load' }] },
             { kind: 'resource', message: 'external script failed to load: x', detail: { src: 'https://www.asus.com/x' } }));
@@ -693,6 +668,37 @@ async function testReport() {
     check('TXT does not double-report the 404 under PASS',
         !txtSection(txt, 'PASS').includes('Advanced_VLAN_Switch_Content.asp'));
     check('TXT flags the intercepted call', txt.includes('[INTERCEPTED]'));
+
+    /*
+     * The workflow the report has to serve: read it, decide which findings are
+     * false alarms, paste those rules into source. Deriving where/match by
+     * hand means digging the asset path out of the detail, so the report does
+     * it -- and one cause repeated across pages is one rule, not five.
+     */
+    const withDupes = {
+        ...run,
+        results: [
+            { suite: 'core.resource-error', severity: 'fail', page: 'a.asp', lang: 'TW',
+              message: 'link failed to load: http://d/x/y.css', detail: { src: 'http://d/x/y.css' } },
+            { suite: 'core.resource-error', severity: 'fail', page: 'b.asp', lang: 'TW',
+              message: 'link failed to load: http://d/x/y.css', detail: { src: 'http://d/x/y.css' } },
+            { suite: 'x', severity: 'pass', page: 'a.asp', lang: 'TW', message: 'fine' },
+        ],
+    };
+    const suggested = JSON.parse(BUILDERS.json.build(withDupes)).suggestedIgnoreRules;
+    check('the report suggests a filter rule per finding', suggested.length === 1,
+        JSON.stringify(suggested));
+    check('...deduplicated, listing the pages it would cover',
+        suggested[0].wouldSuppress.pages.join() === 'a.asp,b.asp', JSON.stringify(suggested[0]));
+    check('...shaped as DEFAULT_KNOWN_ISSUES expects',
+        suggested[0].where === 'x/y.css' && suggested[0].match === 'link failed to load:');
+    check('...and nothing is suggested for a pass',
+        !suggested.some((r) => r.wouldSuppress.severity === 'pass'));
+    check('TXT carries the rules too, ready to paste',
+        /FILTER RULES FOR THESE FINDINGS/.test(BUILDERS.txt.build(withDupes)) &&
+            /where: 'x\/y\.css'/.test(BUILDERS.txt.build(withDupes)));
+    check('HTML shows the rule beside the finding it came from',
+        /filter rule: <code>/.test(BUILDERS.html.build(withDupes)));
 
     check('filename carries model and timestamp', /^autotest_ZenWiFi_BT8_\d{8}_\d{6}\.html$/.test(reportFilename(run, 'html')),
         reportFilename(run, 'html'));
@@ -1632,9 +1638,10 @@ async function testSettingsStore() {
         JSON.stringify(stub.local.get('settings').riskyActions) === '[]',
         JSON.stringify(stub.local.get('settings')));
 
-    // The shipped ignore list is source-only, so it cannot be shadowed even
-    // by a caller that tries.
-    await saveSettings({ knownIssues: [] });
+    // The shipped lists are source-only, so they cannot be shadowed even by a
+    // caller that tries -- which is what keeps every report comparable.
+    await saveSettings({ knownIssues: [], specMap: {} });
+    check('the SPEC map refuses to be stored', !('specMap' in stub.local.get('settings')));
     check('the shipped ignore list refuses to be stored',
         !('knownIssues' in stub.local.get('settings')),
         JSON.stringify(Object.keys(stub.local.get('settings'))));
@@ -1650,36 +1657,6 @@ async function testSettingsStore() {
      * show it again" is not true. chrome.storage.local does; the check is that
      * a curated list is stored as an override and read back intact.
      */
-    await saveSettings({ ignoredExtra: [{ where: 'a/b.css', match: 'failed to load' }] });
-    check('a locally ignored finding is persisted',
-        stub.local.get('settings').ignoredExtra.length === 1,
-        JSON.stringify(stub.local.get('settings')));
-    check('...and read back intact',
-        (await getSettings()).ignoredExtra[0].where === 'a/b.css');
-    check('maintainer mode is off by default, so a colleague cannot edit the list',
-        DEFAULT_SETTINGS.devMode === false);
-
-    /*
-     * The point of splitting the two lists: a local addition must not stop the
-     * shipped list growing. Storing one merged array meant an extension update
-     * could never add a rule for anyone who had pressed Ignore.
-     */
-    const { activeIgnoreRules } = await import('../src/lib/events.js');
-    const shippedNow = (await getSettings()).knownIssues.length;
-    check('a local addition does not replace the shipped list',
-        activeIgnoreRules(await getSettings()).length === shippedNow + 1);
-    check('...and the shipped list is not written to storage at all',
-        !('knownIssues' in stub.local.get('settings')),
-        JSON.stringify(Object.keys(stub.local.get('settings'))));
-
-    // Simulate the extension shipping another rule.
-    const grown = { ...DEFAULT_SETTINGS, knownIssues: [...DEFAULT_SETTINGS.knownIssues, { where: 'new', match: 'x' }] };
-    const afterUpdate = { ...grown, ...stub.local.get('settings') };
-    check('an update delivers its new rule even to someone who has pressed Ignore',
-        activeIgnoreRules(afterUpdate).some((r) => r.where === 'new') &&
-            activeIgnoreRules(afterUpdate).some((r) => r.where === 'a/b.css'),
-        JSON.stringify(activeIgnoreRules(afterUpdate).map((r) => r.where)));
-
     delete globalThis.chrome;
 }
 

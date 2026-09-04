@@ -140,12 +140,6 @@ export const DEFAULT_SETTINGS = {
     verboseConsole: false,
     /** Allow chrome.debugger attach for suites that need real key presses. */
     realKeys: true,
-    /**
-     * Maintainer actions -- ignoring a finding, restoring it. Off by default,
-     * so a colleague running the tool sees the curated list applied but no
-     * buttons to change it.
-     */
-    devMode: false,
     autoLogin: false,
     username: 'admin',
     password: '',
@@ -156,8 +150,6 @@ export const DEFAULT_SETTINGS = {
      * rule for anyone who had ever pressed Ignore.
      */
     knownIssues: DEFAULT_KNOWN_ISSUES,
-    /** Rules added on this machine. Unioned with the shipped list, never replacing it. */
-    ignoredExtra: [],
     specMap: DEFAULT_SPEC_MAP,
     returnPage: 'Advanced_LAN_Content.asp',
 };
