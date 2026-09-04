@@ -712,6 +712,15 @@ async function testRegistry() {
 
     // The header is held still by being outside the scrolling box, not by
     // position: sticky, which drifted as the scroll started.
+    /*
+     * The group content inset outranks any child's own padding, so using the
+     * two-value shorthand there silently zeroes the child's vertical padding.
+     * It did, and the run log's text sat flush against its own edges.
+     */
+    check('the group inset does not zero its children\'s vertical padding',
+        !/\.group > \*:not\(summary\) \{[^}]*padding:\s*0/.test(css),
+        (css.match(/\.group > \*:not\(summary\) \{[^}]*\}/) || [''])[0]);
+
     check('nothing relies on position: sticky', !/position:\s*sticky/.test(css),
         (css.match(/[^{}]+\{[^}]*position:\s*sticky/g) || []).join(' | '));
     check('the body is a non-scrolling flex column',

@@ -204,8 +204,22 @@ main {
 
 .group[open] > summary::before { transform: rotate(90deg); }
 .group > summary::-webkit-details-marker { display: none; }
-.group > *:not(summary) { padding: 0 11px; }
-.group > *:not(summary):last-child { padding-bottom: 11px; }
+/*
+ * Inset the group's content from its edges -- horizontally only. The shorthand
+ * `padding: 0 11px` outranks a child's own padding (0,1,1 beats 0,1,0) and so
+ * zeroed it vertically: the run log's text ended up flush against the top and
+ * bottom of its own box.
+ *
+ * The bottom gap is a margin rather than padding for the same reason: on a
+ * child with a border, padding puts the space *inside* that border instead of
+ * between the child and the group edge.
+ */
+.group > *:not(summary) {
+    padding-left: 11px;
+    padding-right: 11px;
+}
+
+.group > *:not(summary):last-child { margin-bottom: 11px; }
 
 .subgroup { margin: 0 0 10px; }
 /* Group heading: a chevron that collapses the group, a checkbox that ticks
@@ -539,7 +553,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 
 .log {
     margin: 0;
-    padding: 9px;
+    padding: 9px 0;
     max-height: 220px;
     overflow: auto;
     background: var(--bg);
