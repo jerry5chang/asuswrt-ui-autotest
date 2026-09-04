@@ -37,7 +37,6 @@
      * destructive request could slip through.
      */
     AUT.cfg = {
-        timeScale: 1,
         safeMode: true,
         riskyActions: [
             'restore', 'resetdefault', 'restart_defaultsetting', 'erase_nvram',
@@ -178,18 +177,6 @@
                 }
             } catch (e) { /* never let instrumentation break the page */ }
             return original.apply(console, arguments);
-        };
-    });
-
-    /* ------------------------------------------------------ timer scale */
-
-    ['setTimeout', 'setInterval'].forEach(function (name) {
-        var original = window[name];
-        window[name] = function (fn, delay) {
-            var scale = AUT.cfg.timeScale;
-            var scaled = typeof delay === 'number' && scale && scale !== 1 ? Math.max(delay * scale, 0) : delay;
-            var args = Array.prototype.slice.call(arguments, 2);
-            return original.apply(window, [fn, scaled].concat(args));
         };
     });
 

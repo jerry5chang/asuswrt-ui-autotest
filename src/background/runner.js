@@ -123,7 +123,6 @@ export async function startRun({ tabId, selection, settings, env }) {
     };
 
     const instrumentCfg = {
-        timeScale: settings.timeScale,
         safeMode: settings.safeMode,
         riskyActions: settings.riskyActions,
         verbose: !!settings.verboseConsole,
@@ -441,13 +440,11 @@ export async function startRun({ tabId, selection, settings, env }) {
 
         await unregisterInstrument();
 
-        if (settings.returnPage) {
-            await clock
-                .time('returnNav', 1, () =>
-                    navigateAndWait(tabId, `${origin}/${settings.returnPage}`, 10000)
-                )
-                .catch(() => {});
-        }
+        // Back to the origin root: it is where the UI starts, so it is valid on
+        // every model and needs no setting to keep in step with the firmware.
+        await clock
+            .time('returnNav', 1, () => navigateAndWait(tabId, `${origin}/`, 10000))
+            .catch(() => {});
 
         // Feeds the next run's estimate.
         await mergeTimings(clock.totals()).catch(() => {});
@@ -504,7 +501,7 @@ export async function probe(tabId, settings) {
         if (login.ok) {
             const tab = await chrome.tabs.get(tabId);
             const origin = new URL(tab.url).origin;
-            await navigateAndWait(tabId, `${origin}/${settings.returnPage}`, 20000);
+            await navigateAndWait(tabId, `${origin}/`, 20000);
             await sleep(2500);
             env = await probeEnv(tabId);
         } else {

@@ -155,10 +155,8 @@ export function estimateRun({ suiteIds, pages = [], langs = [], settings = {}, t
 
     /* --- teardown -------------------------------------------------------- */
 
-    if (settings.returnPage) {
-        const c = sharedCoefficient('returnNav', timings);
-        add('returnNav', c.ms, { measured: c.measured });
-    }
+    const back = sharedCoefficient('returnNav', timings);
+    add('returnNav', back.ms, { measured: back.measured });
 
     return {
         totalMs: Math.round(total),

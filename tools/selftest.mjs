@@ -139,7 +139,10 @@ function testInstrument() {
 
     check('installs window.__AUT__', !!AUT && AUT.installed);
     check('Safe Mode defaults to on', AUT.cfg.safeMode === true);
-    check('timer scale defaults to 1 (page left alone)', AUT.cfg.timeScale === 1);
+    // v2.x halved every timer to finish sooner, which can provoke the races it
+    // then reports. Not configurable and not installed: the page's own timers
+    // are left exactly as they are.
+    check('the page\'s own timers are left alone', sandbox.setTimeout === setTimeout);
 
     // A harmless read.
     const benign = AUT.inspect('xhr:GET', '/appGet.cgi?hook=uptime()', '');
@@ -444,7 +447,7 @@ async function testEstimate() {
 
     const { estimateRun, formatDuration, estimateRemaining, SEED } = await import('../src/lib/estimate.js');
     const { SUITES } = await import('../src/suites/registry.js');
-    const settings = { pageSettleMs: 2000, returnPage: 'Advanced_LAN_Content.asp' };
+    const settings = { pageSettleMs: 2000 };
 
     const pages = Array.from({ length: 75 }, (_, i) => `page${i}.asp`);
     const ms = (opts) => estimateRun({ settings, pages, ...opts }).totalMs;
@@ -778,6 +781,13 @@ async function testRegistry() {
     check('the group inset does not zero its children\'s vertical padding',
         !/\.group > \*:not\(summary\) \{[^}]*padding:\s*0/.test(css),
         (css.match(/\.group > \*:not\(summary\) \{[^}]*\}/) || [''])[0]);
+
+    // Two weights, deliberately: an item boundary and a group boundary must not
+    // look the same, or a long checklist reads as one undifferentiated wall.
+    check('items within a group are separated by a hairline',
+        /\.subgroup > \.check \+ \.check \{[^}]*border-top:\s*1px solid var\(--line-soft\)/.test(css));
+    check('...and one group from the next by a stronger line',
+        /\.subgroup \+ \.subgroup \{[^}]*border-top:\s*1px solid var\(--line\)/.test(css));
 
     check('nothing relies on position: sticky', !/position:\s*sticky/.test(css),
         (css.match(/[^{}]+\{[^}]*position:\s*sticky/g) || []).join(' | '));

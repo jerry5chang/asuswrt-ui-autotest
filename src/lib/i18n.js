@@ -108,23 +108,10 @@ const MESSAGES = {
             + 'DevTools on that tab to see exactly where a suite stopped',
         'opts.settle': 'Settle after load (ms)',
         'opts.timeout': 'Page timeout (ms)',
-        'opts.timeScale': 'Timer scale',
-        'opts.timeScaleHint':
-            'Below 1 speeds the UI’s own setTimeout / setInterval up. v2.x hard-coded 0.5, ' +
-            'which can itself provoke races — 1.0 leaves the page alone.',
-        'opts.returnPage': 'Return to page',
 
-        'adv.title': 'Advanced lists',
-        'adv.hint':
-            'The feature-to-page SPEC map lives in source and is maintained in development. ' +
-            'What is here is the ignore list and what Safe Mode holds back.',
         'adv.risky.destructive': 'Destructive',
         'adv.risky.disconnect': 'Disconnects',
-        'adv.shipped':
-            '{count} ship with the extension and do the filtering, so every report matches. '
-            + 'They are maintained in source and not editable here.',
         'adv.riskyActions': 'Risky action_script values (Safe Mode)',
-        'adv.rules': '{count} rules',
 
         'run.start': 'Start',
         'run.pause': 'Pause',
@@ -310,22 +297,10 @@ const MESSAGES = {
             '就能看到測項究竟停在哪一步',
         'opts.settle': '載入後等待（毫秒）',
         'opts.timeout': '單頁逾時（毫秒）',
-        'opts.timeScale': '計時器倍率',
-        'opts.timeScaleHint':
-            '小於 1 會加速頁面自己的 setTimeout / setInterval。v2.x 固定用 0.5，' +
-            '那本身就可能製造出競態；1.0 表示不動頁面。',
-        'opts.returnPage': '結束後回到頁面',
 
-        'adv.title': '進階清單',
-        'adv.hint':
-            '功能 → 頁面的 SPEC 對應放在原始碼、開發階段維護。這裡是忽略清單和安全模式要攔的東西。',
         'adv.risky.destructive': '破壞性',
         'adv.risky.disconnect': '會斷線',
-        'adv.shipped':
-            '有 {count} 條隨套件發行、負責實際過濾，所以每個人的報告一致。' +
-            '它們在原始碼裡維護，這裡不能改。',
         'adv.riskyActions': '危險的 action_script 清單（安全模式）',
-        'adv.rules': '{count} 條規則',
 
         'run.start': '開始',
         'run.pause': '暫停',
@@ -510,22 +485,10 @@ const MESSAGES = {
             '就能看到测试项究竟停在哪一步',
         'opts.settle': '加载后等待（毫秒）',
         'opts.timeout': '单页超时（毫秒）',
-        'opts.timeScale': '定时器倍率',
-        'opts.timeScaleHint':
-            '小于 1 会加速页面自身的 setTimeout / setInterval。v2.x 固定用 0.5，' +
-            '这本身就可能造成竞态；1.0 表示不改动页面。',
-        'opts.returnPage': '结束后返回页面',
 
-        'adv.title': '高级清单',
-        'adv.hint':
-            '功能 → 页面的 SPEC 映射放在源码、开发阶段维护。这里是忽略清单和安全模式要拦的东西。',
         'adv.risky.destructive': '破坏性',
         'adv.risky.disconnect': '会断线',
-        'adv.shipped':
-            '有 {count} 条随扩展发行、负责实际过滤，所以每个人的报告一致。' +
-            '它们在源码里维护，这里不能改。',
         'adv.riskyActions': '危险的 action_script 清单（安全模式）',
-        'adv.rules': '{count} 条规则',
 
         'run.start': '开始',
         'run.pause': '暂停',

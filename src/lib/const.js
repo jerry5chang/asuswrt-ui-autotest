@@ -133,7 +133,6 @@ export const DEFAULT_SETTINGS = {
     theme: '',
     pageSettleMs: 2000,
     pageTimeoutMs: 20000,
-    timeScale: 1.0,
     safeMode: true,
     stopOnError: false,
     /** Echo every assertion to the DUT page's console, for diagnosis. */
@@ -151,7 +150,6 @@ export const DEFAULT_SETTINGS = {
      */
     knownIssues: DEFAULT_KNOWN_ISSUES,
     specMap: DEFAULT_SPEC_MAP,
-    returnPage: 'Advanced_LAN_Content.asp',
 };
 
 export const PRESETS = {

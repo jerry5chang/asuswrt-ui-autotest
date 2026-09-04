@@ -274,8 +274,6 @@ const SETTING_FIELDS = {
     verboseConsole: 'checked',
     pageSettleMs: 'value',
     pageTimeoutMs: 'value',
-    timeScale: 'value',
-    returnPage: 'value',
 };
 
 function renderSettings() {
@@ -284,12 +282,6 @@ function renderSettings() {
         if (node) node[prop] = snap.settings[id];
     }
     renderRiskyList();
-
-    // These rules are what silences findings, so say how many are in force
-    // without having to open the section.
-    const shipped = (snap.settings.knownIssues || []).length;
-    $('#advCount').textContent = t('adv.rules', { count: shipped });
-    $('#advShipped').textContent = t('adv.shipped', { count: shipped });
 }
 
 /* ------------------------------------------------------- advanced lists */
@@ -312,6 +304,9 @@ function renderRiskyList() {
     const host = $('#riskyList');
     host.textContent = '';
     const on = new Set(snap.settings.riskyActions || []);
+
+    const all = Object.values(RISKY_ACTIONS).flat();
+    $('#advCount').textContent = `${all.filter((a) => on.has(a)).length}/${all.length}`;
 
     for (const [group, actions] of Object.entries(RISKY_ACTIONS)) {
         const box = el('div', 'subgroup');
@@ -372,14 +367,6 @@ function renderRiskyList() {
     }
 }
 
-function initAdvancedLists() {
-    $('#riskyAll').addEventListener('click', () =>
-        saveList({ riskyActions: Object.values(RISKY_ACTIONS).flat() })
-    );
-    $('#riskyNone').addEventListener('click', () => saveList({ riskyActions: [] }));
-
-}
-
 function collectSettings() {
     const out = {};
     for (const [id, prop] of Object.entries(SETTING_FIELDS)) {
@@ -389,7 +376,6 @@ function collectSettings() {
     }
     out.pageSettleMs = Number(out.pageSettleMs) || 0;
     out.pageTimeoutMs = Number(out.pageTimeoutMs) || 20000;
-    out.timeScale = Number(out.timeScale) || 1;
     return out;
 }
 
@@ -1057,6 +1043,5 @@ initPresets();
 initPageControls();
 initLangControls();
 initActions();
-initAdvancedLists();
 initExport();
 refresh();

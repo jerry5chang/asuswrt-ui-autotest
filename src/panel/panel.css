@@ -7,6 +7,7 @@
     --fg: #1b1f24;
     --mut: #626b76;
     --line: #dde1e6;
+    --line-soft: #ebeef1;
     --accent: #006ce1;
     --accent-fg: #ffffff;
     --error: #c0233b;
@@ -46,6 +47,7 @@
         --fg: #e5e9ed;
         --mut: #98a2ae;
         --line: #2d343c;
+        --line-soft: #242a31;
         --accent: #4c9dff;
         --accent-fg: #0b1016;
         --error: #ff7a8c;
@@ -64,6 +66,7 @@
     --fg: #e5e9ed;
     --mut: #98a2ae;
     --line: #2d343c;
+    --line-soft: #242a31;
     --accent: #4c9dff;
     --accent-fg: #0b1016;
     --error: #ff7a8c;
@@ -284,7 +287,32 @@ main {
     flex: 0 0 auto;
 }
 
-.subgroup > .check { padding-left: 24px; }
+/*
+ * Two weights of separator, because the two boundaries mean different things.
+ * Between the items of one group, a hairline in --line-soft: enough to read a
+ * long list as rows, not enough to chop the group up. Between one group and
+ * the next, the full --line: a group boundary must never look like just
+ * another row.
+ *
+ * The rows carry padding rather than margin here, so the line lands at the
+ * edge of the row it separates instead of floating in a collapsed gap.
+ */
+.subgroup > .check {
+    margin: 0;
+    padding: 7px 0 7px 24px;
+}
+
+.subgroup > .check + .check { border-top: 1px solid var(--line-soft); }
+
+.subgroup + .subgroup { border-top: 1px solid var(--line); }
+.subgroup + .subgroup > .grouphead { margin-top: 12px; }
+
+/* Ungrouped checklists -- the options -- get the same hairline between rows. */
+.group > .check + .check {
+    margin-top: 0;
+    padding-top: 7px;
+    border-top: 1px solid var(--line-soft);
+}
 /* Folding hides everything under the heading, whatever it is. */
 .subgroup.is-collapsed > *:not(.grouphead) { display: none; }
 
@@ -584,14 +612,6 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 
 /* ------------------------------------------------------- JSON list editors */
 
-.lbl {
-    display: block;
-    margin: 10px 0 4px;
-    font-size: var(--fs-tiny);
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    color: var(--mut);
-}
 
 textarea.json {
     width: 100%;

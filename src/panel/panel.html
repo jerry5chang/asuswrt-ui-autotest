@@ -145,30 +145,14 @@
                 <label for="pageTimeoutMs" data-i18n="opts.timeout"></label>
                 <input id="pageTimeoutMs" type="number" min="2000" step="1000">
             </div>
-            <div class="field">
-                <label for="timeScale" data-i18n="opts.timeScale"></label>
-                <input id="timeScale" type="number" min="0.1" max="2" step="0.1">
-            </div>
-            <p class="hint" data-i18n="opts.timeScaleHint"></p>
-            <div class="field">
-                <label for="returnPage" data-i18n="opts.returnPage"></label>
-                <input id="returnPage" type="text" spellcheck="false">
-            </div>
         </details>
 
+        <!-- Same shape as the test items: the group heading is the section,
+             with its own groups directly under it. -->
         <details class="group" data-when="probed">
-            <summary><span data-i18n="adv.title">Advanced lists</span>
+            <summary><span data-i18n="adv.riskyActions">Risky action_script</span>
                 <span id="advCount" class="badge"></span></summary>
-            <p class="hint" data-i18n="adv.hint"></p>
-
-            <p id="advShipped" class="hint"></p>
-
-            <label class="lbl" data-i18n="adv.riskyActions"></label>
-            <div class="row">
-                <button id="riskyAll" class="btn ghost xs" data-i18n="common.selectAll">All</button>
-                <button id="riskyNone" class="btn ghost xs" data-i18n="common.selectNone">None</button>
-            </div>
-            <div id="riskyList" class="scroller"></div>
+            <div id="riskyList"></div>
         </details>
     </section>
 
