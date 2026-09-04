@@ -201,6 +201,19 @@ export const SUITES = [
         file: 'src/suites/page/eaa-skip-link.js',
         defaultOn: true,
     },
+    {
+        id: 'eaa.client-dialog',
+        name: 'Client dialog keyboard operation',
+        group: 'EAA',
+        description:
+            'Network Map: opening a client must move focus into the dialog, Tab must reach ' +
+            'every component without escaping, and Escape must close it (WCAG 2.1.2 / 2.4.3).',
+        where: 'page',
+        scope: 'pages',
+        pages: ['index.asp'],
+        file: 'src/suites/page/eaa-client-dialog.js',
+        defaultOn: true,
+    },
 ];
 
 export const SUITE_BY_ID = Object.fromEntries(SUITES.map((s) => [s.id, s]));

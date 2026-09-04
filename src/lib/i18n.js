@@ -197,6 +197,10 @@ const MESSAGES = {
         'suite.eaa.skip-link.desc':
             'Tab reveals the bypass link, and activating it moves focus past the banner and ' +
             'menus into the page content (WCAG 2.4.1).',
+        'suite.eaa.client-dialog.name': 'Client dialog keyboard operation',
+        'suite.eaa.client-dialog.desc':
+            'Network Map: opening a client must move focus into the dialog, Tab must reach ' +
+            'every component without escaping, and Escape must close it (WCAG 2.1.2 / 2.4.3).',
     },
 
     'zh-TW': {
@@ -370,6 +374,10 @@ const MESSAGES = {
         'suite.eaa.skip-link.desc':
             '按 Tab 會叫出這個略過導覽的連結，點下去要讓焦點越過橫幅與選單、' +
             '進入頁面主要內容（WCAG 2.4.1）。',
+        'suite.eaa.client-dialog.name': 'Client 對話框鍵盤操作',
+        'suite.eaa.client-dialog.desc':
+            '網路地圖：點開某個 client 後，焦點要進到對話框內，Tab 要能依序走到每個元件' +
+            '且不會跑出對話框，ESC 要能關閉（WCAG 2.1.2／2.4.3）。',
     },
 
     'zh-CN': {
@@ -543,6 +551,10 @@ const MESSAGES = {
         'suite.eaa.skip-link.desc':
             '按 Tab 会唤出这个跳过导航的链接，点击后应让焦点越过横幅与菜单、' +
             '进入页面主要内容（WCAG 2.4.1）。',
+        'suite.eaa.client-dialog.name': 'Client 对话框键盘操作',
+        'suite.eaa.client-dialog.desc':
+            '网络地图：点开某个 client 后，焦点要进到对话框内，Tab 要能依序走到每个元件' +
+            '且不会跑出对话框，ESC 要能关闭（WCAG 2.1.2／2.4.3）。',
     },
 };
 

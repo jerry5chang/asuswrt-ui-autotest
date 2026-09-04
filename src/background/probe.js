@@ -20,8 +20,13 @@ export async function probeEnv(tabId) {
 
 /* eslint-disable */
 function probeFn() {
+    /*
+     * Never swept: they end the session or hijack the run. `index.html` is the
+     * UI4 shell (its real pages are added as index.html?page=... below), but
+     * `index.asp` is UI3's Network Map -- a page worth testing, not the shell.
+     */
     var BLOCK = [
-        'Main_Login.asp', 'Logout.asp', 'index.html', 'index.asp',
+        'Main_Login.asp', 'Logout.asp', 'index.html',
         'AdaptiveQoS_Adaptive.asp', 'Advanced_TencentDownloadAcceleration.asp',
         'Main_IPTStatus_Content.asp', 'NULL', '',
     ];

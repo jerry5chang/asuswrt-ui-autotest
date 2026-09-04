@@ -93,16 +93,12 @@ export const FALLBACK_LANGS = [
     'JP', 'KR', 'MS', 'NL', 'NO', 'PL', 'RO', 'RU', 'SL', 'SV', 'TH', 'TR', 'UK',
 ];
 
-/** Pages that must never be swept: they log you out or hijack the run. */
-export const PAGE_BLOCKLIST = [
-    'Main_Login.asp',
-    'Logout.asp',
-    'index.html',
-    'index.asp',
-    'AdaptiveQoS_Adaptive.asp',
-    'Advanced_TencentDownloadAcceleration.asp',
-    'Main_IPTStatus_Content.asp',
-];
+/*
+ * Pages that must never be swept live in the BLOCK array inside
+ * background/probe.js. probeFn is stringified and injected, so it cannot
+ * import from here; keeping a second copy in this file only created something
+ * that looked authoritative and changed nothing.
+ */
 
 /** Feature -> page mapping used by the SPEC check suite. */
 export const DEFAULT_SPEC_MAP = {

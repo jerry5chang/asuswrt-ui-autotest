@@ -699,6 +699,213 @@ async function testEaaSkipLink() {
         failures(duplicated).some((m) => /exactly one skip link/.test(m)), failures(duplicated).join(' | '));
 }
 
+/* -------------------------------------------- offline: EAA client dialog */
+
+/**
+ * Stub for the Network Map client dialog. Models the two halves the real page
+ * has -- a trigger inside the #statusframe iframe, a dialog in the top
+ * document -- plus the plugin's trap behaviour, so both a conforming dialog
+ * and each way it can be wrong are exercised.
+ */
+function clientDialogDom(opts = {}) {
+    const {
+        hasPlugin = true,
+        hasFrame = true,
+        frameReadable = true,
+        hasCard = true,
+        hasDialog = true,
+        opens = true,
+        focusOnOpen = true,
+        role = 'dialog',
+        ariaModal = 'true',
+        ariaLabel = 'Client',
+        trapped = '1',
+        componentCount = 3,
+        unfocusableIndex = -1,
+        positiveTabindex = false,
+        trapWraps = true,
+        escCloses = true,
+    } = opts;
+
+    const { sandbox, ctx } = pageSandbox();
+    const doc = sandbox.document;
+
+    class FakeKeyboardEvent {
+        constructor(type, init = {}) {
+            Object.assign(this, { type, key: '', shiftKey: false }, init);
+            this.defaultPrevented = false;
+        }
+        preventDefault() { this.defaultPrevented = true; }
+        stopPropagation() {}
+        stopImmediatePropagation() {}
+    }
+    sandbox.KeyboardEvent = FakeKeyboardEvent;
+
+    const mk = (tagName, props = {}) => {
+        const attrs = { ...(props.attrs || {}) };
+        const listeners = {};
+        const el = {
+            tagName,
+            id: props.id || '',
+            name: props.name || '',
+            visible: props.visible !== false,
+            focusable: props.focusable !== false,
+            children: [],
+            getAttribute: (n) => (n in attrs ? attrs[n] : null),
+            setAttribute: (n, v) => { attrs[n] = v; },
+            hasAttribute: (n) => n in attrs,
+            getBoundingClientRect: () =>
+                el.visible ? { width: 200, height: 40 } : { width: 0, height: 0 },
+            contains: (other) => other === el || el.children.includes(other),
+            focus: () => { if (el.focusable) doc.activeElement = el; },
+            click: () => props.onClick && props.onClick(),
+            addEventListener: (type, fn) => { (listeners[type] = listeners[type] || []).push(fn); },
+            /** Fires on the target then up the ancestor chain, like a real
+             *  bubbling event -- the suite dispatches on the focused component
+             *  and the trap listens on the dialog. */
+            dispatchEvent: (event) => {
+                for (let node = el; node; node = node.parentNode) {
+                    for (const fn of node._listeners[event.type] || []) fn(event);
+                    if (!event.bubbles) break;
+                }
+                return !event.defaultPrevented;
+            },
+            _listeners: listeners,
+            parentNode: null,
+        };
+        return el;
+    };
+
+    const components = [];
+    for (let i = 0; i < componentCount; i++) {
+        components.push(
+            mk('INPUT', {
+                id: `field${i}`,
+                focusable: i !== unfocusableIndex,
+                attrs: positiveTabindex && i === 1 ? { tabindex: '2' } : {},
+            })
+        );
+    }
+
+    const dialog = mk('DIV', {
+        id: 'edit_client_block',
+        visible: false,
+        attrs: {
+            ...(role ? { role } : {}),
+            ...(ariaModal ? { 'aria-modal': ariaModal } : {}),
+            ...(ariaLabel ? { 'aria-label': ariaLabel } : {}),
+            ...(trapped ? { 'data-eaa-focus-trapped': trapped } : {}),
+        },
+    });
+    dialog.children = components;
+    dialog.querySelectorAll = () => components;
+    for (const c of components) c.parentNode = dialog;
+
+    // The plugin's trap: wrap at each end on Tab, click the close control on Esc.
+    dialog.addEventListener('keydown', (e) => {
+        const visibleOnes = components.filter((c) => c.visible);
+        if (e.key === 'Tab' && trapWraps && visibleOnes.length) {
+            const first = visibleOnes[0];
+            const last = visibleOnes[visibleOnes.length - 1];
+            if (e.shiftKey && doc.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && doc.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+        if (e.key === 'Escape' && escCloses) {
+            dialog.visible = false;
+            doc.activeElement = null;
+        }
+    });
+
+    const card = mk('DIV', {
+        id: 'card0',
+        attrs: { role: 'button', tabindex: '0' },
+        onClick: () => {
+            if (!opens) return;
+            dialog.visible = true;
+            if (focusOnOpen) doc.activeElement = components[0] || dialog;
+        },
+    });
+
+    const frameDoc = { querySelector: (sel) => (hasCard && /clientBg/.test(sel) ? card : null) };
+    const frame = mk('IFRAME', { id: 'statusframe' });
+    Object.defineProperty(frame, 'contentDocument', { get: () => (frameReadable ? frameDoc : null) });
+
+    doc.activeElement = null;
+    doc.querySelector = (sel) => {
+        if (sel === '#statusframe') return hasFrame ? frame : null;
+        if (sel === '#edit_client_block') return hasDialog ? dialog : null;
+        return null;
+    };
+    doc.querySelectorAll = () => [];
+    sandbox.getComputedStyle = (el) => ({
+        display: el && el.visible === false ? 'none' : 'block',
+        visibility: 'visible',
+    });
+    if (hasPlugin) sandbox.EAAPlugin = {};
+
+    loadIntoSandbox(ctx, 'src/page/instrument.js');
+    loadIntoSandbox(ctx, 'src/page/runtime.js');
+    loadIntoSandbox(ctx, 'src/suites/page/eaa-client-dialog.js');
+    return sandbox;
+}
+
+async function testEaaClientDialog() {
+    section('EAA client dialog (src/suites/page/eaa-client-dialog.js)');
+
+    const run = (opts) => clientDialogDom(opts).__AUT__.runSuites(['eaa.client-dialog'], 30000);
+    const sevs = (rows) => rows.map((r) => r.severity);
+    const failed = (rows) => rows.filter((r) => r.severity === 'fail').map((r) => r.message);
+
+    check('a build without the plugin is skipped', sevs(await run({ hasPlugin: false })).join() === 'skip');
+    check('a page with no client frame is skipped', sevs(await run({ hasFrame: false })).join() === 'skip');
+    check('an empty client list is skipped, not failed',
+        sevs(await run({ hasCard: false })).join() === 'skip');
+
+    const good = await run({});
+    check('a conforming dialog passes every assertion', failed(good).length === 0, failed(good).join(' | '));
+    check('...and asserts the whole contract', good.length >= 9, `${good.length} results`);
+
+    const noOpen = await run({ opens: false });
+    check('a card that opens nothing fails',
+        failed(noOpen).some((m) => /did not open/.test(m)), failed(noOpen).join(' | '));
+
+    const noFocus = await run({ focusOnOpen: false });
+    check('a dialog that does not take focus on open fails',
+        failed(noFocus).some((m) => /moves focus inside/.test(m)), failed(noFocus).join(' | '));
+
+    for (const [label, opts, needle] of [
+        ['role', { role: '' }, /role="dialog"/],
+        ['aria-modal', { ariaModal: '' }, /aria-modal/],
+        ['accessible name', { ariaLabel: '' }, /accessible name/],
+        ['focus trap', { trapped: '' }, /focus trap is installed/],
+    ]) {
+        const rows = await run(opts);
+        check(`a dialog missing its ${label} fails`, failed(rows).some((m) => needle.test(m)),
+            failed(rows).join(' | '));
+    }
+
+    const dead = await run({ unfocusableIndex: 1 });
+    check('a component that refuses focus fails — Tab would skip it',
+        failed(dead).some((m) => /accepts focus/.test(m)), failed(dead).join(' | '));
+
+    const reordered = await run({ positiveTabindex: true });
+    check('a positive tabindex inside the dialog fails',
+        failed(reordered).some((m) => /positive tabindex/.test(m)), failed(reordered).join(' | '));
+
+    const leaky = await run({ trapWraps: false });
+    check('a dialog Tab can escape fails',
+        failed(leaky).some((m) => /wraps to the first/.test(m)), failed(leaky).join(' | '));
+
+    const stuck = await run({ escCloses: false });
+    check('a dialog Escape does not close fails',
+        failed(stuck).some((m) => /Escape closes/.test(m)), failed(stuck).join(' | '));
+
+    const single = await run({ componentCount: 1 });
+    check('a single-component dialog notes there is no wrap to check',
+        single.some((r) => r.severity === 'info' && /no wrap/.test(r.message)),
+        JSON.stringify(sevs(single)));
+}
+
 /* ------------------------------------------------- offline: probe reporting */
 
 /**
@@ -852,6 +1059,7 @@ await testEvents();
 await testI18n();
 await testReport();
 await testEaaSkipLink();
+await testEaaClientDialog();
 await testProbeReporting();
 
 if (origin) await testAgainstDut();
