@@ -110,7 +110,7 @@ const MESSAGES = {
 
         'adv.risky.destructive': 'Destructive',
         'adv.risky.disconnect': 'Disconnects',
-        'adv.title': 'Advanced',
+        'adv.title': 'Blocked rc services',
 
         'run.start': 'Start',
         'run.pause': 'Pause',
@@ -298,7 +298,7 @@ const MESSAGES = {
 
         'adv.risky.destructive': '破壞性',
         'adv.risky.disconnect': '會斷線',
-        'adv.title': '進階',
+        'adv.title': '禁止使用的 rc service',
 
         'run.start': '開始',
         'run.pause': '暫停',
@@ -485,7 +485,7 @@ const MESSAGES = {
 
         'adv.risky.destructive': '破坏性',
         'adv.risky.disconnect': '会断线',
-        'adv.title': '高级',
+        'adv.title': '禁止使用的 rc service',
 
         'run.start': '开始',
         'run.pause': '暂停',
