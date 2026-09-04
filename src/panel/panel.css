@@ -308,14 +308,18 @@ main {
     margin-bottom: 10px;
 }
 
-#btnStart,
-#btnPause,
-#btnResume,
-#btnStop {
-    min-width: 88px;
+/* Every control is the same size, whichever of them is showing: one width,
+   one padding, centred labels. Clear was the .sm variant and visibly smaller
+   than the two beside it. */
+.controls .btn {
+    min-width: 92px;
+    padding: 7px 13px;
+    font-size: var(--fs-body);
+    text-align: center;
     justify-content: center;
 }
 
+/* Pinned right, so it does not shift when Start becomes Pause + Stop. */
 #btnClear { margin-left: auto; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
