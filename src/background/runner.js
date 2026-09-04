@@ -10,6 +10,7 @@
 
 import { RUN, SEV, SEV_BAD } from '../lib/const.js';
 import { SUITES, SUITE_BY_ID, appliesToPage } from '../suites/registry.js';
+import { mapEvents } from '../lib/events.js';
 import { DRIVER_RUN_SUITES } from './driver-suites.js';
 import * as state from './state.js';
 import { probeEnv } from './probe.js';
@@ -85,48 +86,6 @@ function navigateAndWait(tabId, url, timeoutMs) {
         chrome.tabs.onUpdated.addListener(onUpdated);
         chrome.tabs.update(tabId, { url }).catch((e) => finish({ ok: false, reason: e.message }));
     });
-}
-
-/** Is this event a known false alarm? */
-function knownIssue(settings, event) {
-    return (settings.knownIssues || []).some((k) => {
-        const whereOk = !k.where || (event.href || '').includes(k.where) ||
-            (event.detail && event.detail.file || '').includes(k.where);
-        return whereOk && k.match && event.message.includes(k.match);
-    });
-}
-
-const EVENT_MAP = {
-    jsError: { suite: 'core.js-error', severity: SEV.ERROR },
-    rejection: { suite: 'core.js-error', severity: SEV.ERROR },
-    console: { suite: 'core.console-error', severity: SEV.WARN },
-    resource: { suite: 'core.resource-error', severity: SEV.FAIL },
-    uiLog: { suite: 'core.ui-log', severity: SEV.INFO },
-    api: { suite: 'api.recorder', severity: SEV.WARN },
-    apiBlocked: { suite: 'api.recorder', severity: SEV.BLOCKED },
-};
-
-/** Turn buffered page events into report rows. */
-function mapEvents(events, { page, lang, settings, enabledChannels }) {
-    const out = [];
-    for (const event of events) {
-        const mapping = EVENT_MAP[event.kind];
-        if (!mapping) continue; // 'debug' and anything unrecognised
-        if (!enabledChannels.has(mapping.suite)) continue;
-
-        const known = knownIssue(settings, event);
-        out.push({
-            suite: mapping.suite,
-            severity: known ? SEV.SKIP : (event.kind === 'console' && event.detail?.level === 'warn' ? SEV.INFO : mapping.severity),
-            message: known ? `known issue: ${event.message}` : event.message,
-            detail: event.detail,
-            page,
-            lang,
-            href: event.href,
-            ts: event.ts,
-        });
-    }
-    return out;
 }
 
 /* --------------------------------------------------------------- the run */

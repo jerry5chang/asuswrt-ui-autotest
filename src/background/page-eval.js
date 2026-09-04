@@ -62,6 +62,25 @@ export function probeUrls(tabId, urls) {
     );
 }
 
+/** Call appGet.cgi with one hook expression and return its parsed value. */
+export function hookGetOne(tabId, expr, key) {
+    return evalInPage(
+        tabId,
+        (hookExpr, hookKey) =>
+            (async () => {
+                try {
+                    const res = await fetch('/appGet.cgi?hook=' + hookExpr, { credentials: 'same-origin' });
+                    if (!res.ok) return null;
+                    const data = JSON.parse(await res.text());
+                    return data[hookKey] === undefined ? null : data[hookKey];
+                } catch (e) {
+                    return null;
+                }
+            })(),
+        [expr, key]
+    );
+}
+
 /** Call appGet.cgi with a batch of hook expressions. */
 export function hookGet(tabId, hookExprs) {
     return evalInPage(
@@ -78,7 +97,11 @@ export function hookGet(tabId, hookExprs) {
                     try {
                         data = JSON.parse(text);
                     } catch (e) {
-                        return { ok: false, status: res.status, parseError: true, keys: [] };
+                        // httpd answers 200 with a login redirect once the session
+                        // is gone -- worth naming, because it is recoverable and
+                        // every later batch would fail identically.
+                        const login = /Main_Login\.asp/i.test(text);
+                        return { ok: false, status: res.status, parseError: true, login, keys: [] };
                     }
                     return { ok: true, status: res.status, keys: Object.keys(data) };
                 } catch (e) {

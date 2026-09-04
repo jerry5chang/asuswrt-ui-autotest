@@ -79,7 +79,21 @@
                 var el = event.target;
                 var src = el.src || el.href || '';
                 if (!src) return;
-                push('resource', el.tagName.toLowerCase() + ' failed to load: ' + src, { tag: el.tagName });
+
+                // Whose fault it is depends on where the resource lives. A
+                // same-origin miss is a firmware defect; a third-party one
+                // (asus.com FAQ probes, CDN assets) depends on the tester's
+                // internet access and on what that host chose to serve.
+                var external = false;
+                try {
+                    external = new URL(src, location.href).origin !== location.origin;
+                } catch (e) { /* unparseable src; treat as local */ }
+
+                push(
+                    'resource',
+                    (external ? 'external ' : '') + el.tagName.toLowerCase() + ' failed to load: ' + src,
+                    { tag: el.tagName, src: src, external: external }
+                );
                 return;
             }
             if (!AUT.cfg.channels.jsError) return;

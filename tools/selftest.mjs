@@ -48,6 +48,7 @@ function txtSection(txt, name) {
 /** Load a MAIN-world script (instrument.js / runtime.js) into a fake window. */
 function pageSandbox() {
     const sent = [];
+    const listeners = {};
 
     const sandbox = {
         console: { log() {}, error() {}, warn() {}, info() {} },
@@ -64,12 +65,24 @@ function pageSandbox() {
         Number,
         Math,
         Error,
+        URL,
         URLSearchParams,
         decodeURIComponent,
         encodeURIComponent,
-        location: { href: 'http://dut/Advanced_LAN_Content.asp', pathname: '/Advanced_LAN_Content.asp', search: '' },
-        addEventListener() {},
-        removeEventListener() {},
+        location: {
+            href: 'http://dut/Advanced_LAN_Content.asp',
+            origin: 'http://dut',
+            pathname: '/Advanced_LAN_Content.asp',
+            search: '',
+        },
+        addEventListener(type, fn) {
+            (listeners[type] = listeners[type] || []).push(fn);
+        },
+        removeEventListener(type, fn) {
+            const list = listeners[type] || [];
+            const i = list.indexOf(fn);
+            if (i !== -1) list.splice(i, 1);
+        },
         document: {
             createTreeWalker: () => ({ nextNode: () => null }),
             querySelector: () => null,
@@ -101,8 +114,13 @@ function pageSandbox() {
         return { ok: true, status: 200, text: async () => '{}', json: async () => ({}) };
     };
 
+    /** Dispatch a synthetic event at the listeners instrument.js installed. */
+    sandbox.__fire = (type, event) => {
+        for (const fn of listeners[type] || []) fn(event);
+    };
+
     const ctx = vm.createContext(sandbox);
-    return { sandbox, ctx, sent };
+    return { sandbox, ctx, sent, fire: sandbox.__fire };
 }
 
 function loadIntoSandbox(ctx, file) {
@@ -114,7 +132,7 @@ function loadIntoSandbox(ctx, file) {
 function testInstrument() {
     section('page instrumentation (src/page/instrument.js)');
 
-    const { sandbox, ctx, sent } = pageSandbox();
+    const { sandbox, ctx, sent, fire } = pageSandbox();
     loadIntoSandbox(ctx, 'src/page/instrument.js');
     const AUT = sandbox.__AUT__;
 
@@ -154,6 +172,21 @@ function testInstrument() {
     xhr.send('');
     check('blocked XHR is re-pointed at a harmless hook',
         sent.length === 1 && /hook=uptime/.test(sent[0].url), JSON.stringify(sent));
+
+    // Resource failures: same-origin is the firmware's fault, cross-origin is
+    // not. Real case that prompted this -- Advanced_Smart_Home_Alexa.asp probes
+    // www.asus.com for a localised FAQ page.
+    fire('error', { target: { tagName: 'IMG', src: 'http://dut/images/missing.png' } });
+    fire('error', { target: { tagName: 'SCRIPT', src: 'https://www.asus.com/tw/support/FAQ/1033393?callback=jQuery1' } });
+    const resources = AUT.events.filter((e) => e.kind === 'resource');
+    check('same-origin resource failure is not marked external',
+        resources[0] && resources[0].detail.external === false, JSON.stringify(resources[0]));
+    check('cross-origin resource failure is marked external',
+        resources[1] && resources[1].detail.external === true, JSON.stringify(resources[1]));
+    check('external failures say so in the message',
+        resources[1] && resources[1].message.startsWith('external script failed to load:'));
+    check('resource failures keep the src for known-issue matching',
+        resources[1] && resources[1].detail.src.includes('www.asus.com'));
 
     // drain() must hand everything over and reset.
     const drained = AUT.drain();
@@ -212,6 +245,55 @@ async function testRuntime() {
     check('expectApi finds a recorded call',
         expectResults.filter((r) => r.severity === 'pass').length === 2,
         JSON.stringify(expectResults));
+}
+
+/* ---------------------------------------------------------- offline: events */
+
+async function testEvents() {
+    section('event classification (src/lib/events.js)');
+
+    const { mapEvents, severityFor, knownIssue, EVENT_MAP } = await import('../src/lib/events.js');
+
+    const channels = new Set(['core.js-error', 'core.console-error', 'core.resource-error', 'core.ui-log', 'api.recorder']);
+    const settings = { knownIssues: [{ where: 'js/asus_notice.js', match: 'httpApi is not defined' }] };
+    const ctx = { page: 'x.asp', lang: 'TW', settings, enabledChannels: channels };
+
+    const rows = mapEvents([
+        { kind: 'jsError', message: 'boom', detail: { file: 'a.js' } },
+        { kind: 'console', message: 'shouted', detail: { level: 'error' } },
+        { kind: 'console', message: 'muttered', detail: { level: 'warn' } },
+        { kind: 'resource', message: 'img failed to load: /images/x.png', detail: { external: false } },
+        { kind: 'resource', message: 'external script failed to load: https://www.asus.com/x', detail: { external: true } },
+        { kind: 'apiBlocked', message: 'held reboot', detail: null },
+        { kind: 'debug', message: 'instrumentation installed', detail: null },
+    ], ctx);
+
+    check('unrecognised kinds are dropped', rows.length === 6, `got ${rows.length}`);
+    check('a JS error is an error', rows[0].severity === 'error');
+    check('console.error is a warning', rows[1].severity === 'warn');
+    check('console.warn is only info', rows[2].severity === 'info');
+    check('a same-origin resource miss is a fail', rows[3].severity === 'fail');
+    check('a cross-origin resource miss is only a warning', rows[4].severity === 'warn');
+    check('a held risky call is its own severity', rows[5].severity === 'blocked');
+    check('rows carry page and lang', rows[0].page === 'x.asp' && rows[0].lang === 'TW');
+
+    // Known issues are demoted to skip, not dropped -- a suppression should be
+    // visible in the report rather than invisible.
+    const suppressed = mapEvents([
+        { kind: 'jsError', message: 'Uncaught ReferenceError: httpApi is not defined', detail: { file: 'js/asus_notice.js' } },
+    ], ctx);
+    check('a known issue becomes skip, not a silent drop', suppressed[0].severity === 'skip');
+    check('a known issue is labelled as such', suppressed[0].message.startsWith('known issue:'));
+
+    check('known-issue matching can key off a resource src',
+        knownIssue({ knownIssues: [{ where: 'www.asus.com', match: 'failed to load' }] },
+            { kind: 'resource', message: 'external script failed to load: x', detail: { src: 'https://www.asus.com/x' } }));
+
+    check('a channel the user unticked is not reported',
+        mapEvents([{ kind: 'uiLog', message: 'noise' }], { ...ctx, enabledChannels: new Set() }).length === 0);
+
+    check('severityFor falls back to the baseline',
+        severityFor({ kind: 'jsError', detail: null }, EVENT_MAP.jsError) === 'error');
 }
 
 /* ---------------------------------------------------------- offline: report */
@@ -295,6 +377,44 @@ async function testRegistry() {
     check('page-scoped suite matches its own page', appliesToPage(qis, 'QIS_wizard.htm'));
     check('page-scoped suite skips other pages', !appliesToPage(qis, 'Advanced_LAN_Content.asp'));
     check('each-page suite matches anything', appliesToPage(SUITE_BY_ID['core.dom-sanity'], 'whatever.asp'));
+
+    // Every page suite must register under the id the registry advertises, or
+    // the runner injects the file and then reports the suite as "skip".
+    const mismatched = [];
+    for (const suite of SUITES.filter((s) => s.where === 'page')) {
+        const src = fs.readFileSync(suite.file, 'utf8');
+        if (!src.includes(`__AUT__.suite('${suite.id}'`)) mismatched.push(suite.id);
+    }
+    check('every page suite registers under its registry id', mismatched.length === 0, mismatched.join(', '));
+}
+
+/* ------------------------------------------------------ offline: hook list */
+
+async function testHookList() {
+    section('appGet.cgi hook list (src/suites/data/api-hooks.js)');
+
+    const { NORMALIZED_HOOKS, normalizeHook } = await import('../src/suites/data/api-hooks.js');
+
+    const plain = normalizeHook('uptime');
+    check('a plain hook becomes name()', plain.expr === 'uptime()');
+    check('a plain hook is keyed by its name', plain.key === 'uptime');
+
+    // app_call() in httpd/web.c writes `"<func>-<arg0>":` when an argument was
+    // supplied. Keying these by the bare name is what made
+    // check_passwd_strength look broken on a healthy DUT.
+    const withArg = normalizeHook({ name: 'check_passwd_strength', arg: 'wl_key' });
+    check('an argument hook becomes name(arg)', withArg.expr === 'check_passwd_strength(wl_key)');
+    check('an argument hook is keyed name-arg, as app_call() writes it',
+        withArg.key === 'check_passwd_strength-wl_key', withArg.key);
+
+    check('hook names are unique', new Set(NORMALIZED_HOOKS.map((h) => h.key)).size === NORMALIZED_HOOKS.length);
+    check('no entry still carries the old dash-in-the-name form',
+        !NORMALIZED_HOOKS.some((h) => h.name.includes('-')),
+        NORMALIZED_HOOKS.filter((h) => h.name.includes('-')).map((h) => h.name).join(', '));
+
+    const gated = NORMALIZED_HOOKS.filter((h) => h.needs);
+    check('the Broadcom-only wl_cap_* family is gated', gated.length === 5 && gated.every((h) => h.needs === 'broadcom'),
+        gated.map((h) => h.name).join(', '));
 }
 
 /* -------------------------------------------------------------- live: DUT */
@@ -359,11 +479,23 @@ async function testAgainstDut() {
 
     const api = await DRIVER_RUN_SUITES['api.hook-sweep'](ctx);
     const summary = api.find((r) => r.severity === 'pass');
-    const noResponse = api.filter((r) => r.severity === 'fail');
+    const silent = api.filter((r) => r.severity === 'warn');
+    const gated = api.filter((r) => r.severity === 'skip' && /not applicable/.test(r.message));
     check('WebAPI sweep produces a summary', !!summary, JSON.stringify(api.slice(0, 3)));
     check('WebAPI sweep had no transport errors', !api.some((r) => r.severity === 'error'));
-    console.log(`  ->   ${summary ? summary.message : 'no summary'}; ${noResponse.length} hook(s) with no response`);
-    for (const r of noResponse.slice(0, 12)) console.log(`  ->   ${r.message}`);
+    check('a silent hook is a warning, not a failure — it may be #ifdef\'d out',
+        !api.some((r) => r.severity === 'fail'));
+    check('Broadcom-only hooks are skipped on this MTK build', gated.length === 5, `${gated.length} gated`);
+
+    // Regression: app_call() answers with "<func>-<arg0>" when an argument was
+    // given, so keying this by the bare name reported a healthy hook as broken.
+    check('an argument-taking hook is matched by its name-arg key',
+        !silent.some((r) => r.message.includes('check_passwd_strength')),
+        silent.map((r) => r.message).join(' | '));
+
+    console.log(`  ->   ${summary ? summary.message : 'no summary'}; ${silent.length} silent, ${gated.length} gated`);
+    for (const r of gated) console.log(`  ->   SKIP ${r.message}`);
+    for (const r of silent) console.log(`  ->   WARN ${r.message}`);
 
     // End-to-end: feed the real results through the report builders.
     const { BUILDERS } = await import('../src/lib/report.js');
@@ -392,6 +524,8 @@ console.log('ASUSWRT UI Autotest v3.0 — self test');
 testInstrument();
 await testRuntime();
 await testRegistry();
+await testHookList();
+await testEvents();
 await testReport();
 
 if (origin) await testAgainstDut();

@@ -1,8 +1,22 @@
 /**
  * appGet.cgi hooks exercised by the `api.hook-sweep` suite.
  *
- * Format is the ASUSWRT hook syntax flattened to `name` or `name-arg`, which
- * the sweep expands to `name(arg)`. Add hooks here; nothing else needs editing.
+ * An entry is either a plain string, or an object when the hook needs more
+ * than its name:
+ *
+ *   'uptime'                                  -> uptime()
+ *   { name: 'check_passwd_strength',
+ *     arg: 'wl_key' }                         -> check_passwd_strength(wl_key)
+ *   { name: 'wl_cap_2g', needs: 'broadcom' }  -> skipped on non-Broadcom builds
+ *
+ * `needs` exists because "the hook returned nothing" and "the hook cannot
+ * exist in this firmware" look identical over appGet.cgi -- an unregistered
+ * hook is simply absent from the response. Without the annotation, sweeping a
+ * platform-specific hook on the wrong platform reports a defect that isn't one.
+ *
+ * Supported `needs` values:
+ *   'broadcom'      the hook is implemented in httpd/sysdeps/web-broadcom.c
+ *   'support:<key>' get_ui_support() must report <key> as truthy
  */
 export const API_HOOKS = [
     'get_clientlist',
@@ -31,7 +45,7 @@ export const API_HOOKS = [
     'get_iptvSettings',
     'utctimestamp',
     'check_acorpw',
-    'check_passwd_strength-wl_key',
+    { name: 'check_passwd_strength', arg: 'wl_key' },
     'check_wireless_encryption',
     'get_simact_result',
     'get_wgs_parameter',
@@ -67,11 +81,13 @@ export const API_HOOKS = [
     'chanspecs_5g_2',
     'chanspecs_6g',
     'chanspecs_6g_2',
-    'wl_cap_2g',
-    'wl_cap_5g',
-    'wl_cap_5g_2',
-    'wl_cap_6g',
-    'wl_cap_6g_2',
+    // wl_cap_* live in httpd/sysdeps/web-broadcom.c and are absent from MTK
+    // builds, so they are not swept there.
+    { name: 'wl_cap_2g', needs: 'broadcom' },
+    { name: 'wl_cap_5g', needs: 'broadcom' },
+    { name: 'wl_cap_5g_2', needs: 'broadcom' },
+    { name: 'wl_cap_6g', needs: 'broadcom' },
+    { name: 'wl_cap_6g_2', needs: 'broadcom' },
     'wl_nband_info',
     'wl_control_channel',
     'get_wl_channel_list_2g',
@@ -81,5 +97,26 @@ export const API_HOOKS = [
     'get_wl_channel_list_6g_2',
 ];
 
-/** Hooks whose argument depends on runtime state; skipped with a note. */
+/** Hooks whose argument depends on runtime state; reported as skipped. */
 export const API_HOOKS_NEEDING_ARGS = ['get_customized_attribute'];
+
+/** `'uptime'` or `{name, arg, needs}` -> a uniform shape. */
+export function normalizeHook(entry) {
+    const hook = typeof entry === 'string' ? { name: entry } : { ...entry };
+    return {
+        name: hook.name,
+        arg: hook.arg || '',
+        needs: hook.needs || null,
+        /** What appGet.cgi asks for. */
+        expr: `${hook.name}(${hook.arg || ''})`,
+        /**
+         * The JSON key appGet.cgi answers with. app_call() in httpd/web.c
+         * writes `"<func>-<arg0>":` whenever an argument was supplied, and
+         * plain `"<func>":` otherwise -- which is why the UI's own code reads
+         * `hookGet("check_passwd_strength-wl_key")`.
+         */
+        key: hook.arg ? `${hook.name}-${hook.arg}` : hook.name,
+    };
+}
+
+export const NORMALIZED_HOOKS = API_HOOKS.map(normalizeHook);
