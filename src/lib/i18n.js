@@ -231,6 +231,18 @@ const MESSAGES = {
         'suite.eaa.dialog.desc':
             'Opens each dialog on the page: does it announce itself, take focus, keep it, and '
             + 'give it back on Escape.',
+        'suite.eaa.page-structure.name': 'Page and semantic structure',
+        'suite.eaa.page-structure.desc':
+            'Language, title, headings, landmarks, data vs layout tables, frame titles, and text '
+            + 'spacing applied for real.',
+        'suite.eaa.contrast.name': 'Contrast',
+        'suite.eaa.contrast.desc':
+            'Text, placeholders and control edges against what is behind them. Candidates to look '
+            + 'at, since the colour behind is read from CSS.',
+        'suite.eaa.feedback.name': 'Status messages and errors',
+        'suite.eaa.feedback.desc':
+            'Messages must land in a live region, errors must be tied to their field, and nothing '
+            + 'assertive should update on every keystroke.',
         'suite.eaa.client-dialog.name': 'Client dialog keyboard operation',
         'suite.eaa.client-dialog.desc':
             'Network Map: opening a client must move focus into the dialog, Tab must reach ' +
@@ -432,6 +444,12 @@ const MESSAGES = {
         'suite.eaa.keyboard.desc': '可點擊的都要能聚焦並用鍵盤操作，順序合理，而且看得出焦點在哪。',
         'suite.eaa.dialog.name': '對話框無障礙',
         'suite.eaa.dialog.desc': '逐一打開頁面上的對話框：有沒有宣告自己、焦點是否移入、底層是否還可聚焦、ESC 能否關閉並把焦點還回去。',
+        'suite.eaa.page-structure.name': '頁面與語意結構',
+        'suite.eaa.page-structure.desc': '語言、標題、標題層級、地標、資料表與排版表、frame 標題，以及實際套用文字間距後量測。',
+        'suite.eaa.contrast.name': '對比度',
+        'suite.eaa.contrast.desc': '文字、placeholder 與控件邊界對背景的對比。背景顏色是從 CSS 推算，所以列為待確認項。',
+        'suite.eaa.feedback.name': '狀態訊息與錯誤',
+        'suite.eaa.feedback.desc': '訊息要落在 live region、錯誤要跟欄位關聯，而且不該有東西每次按鍵都用 assertive 打斷。',
         'suite.eaa.client-dialog.name': 'Client 對話框鍵盤操作',
         'suite.eaa.client-dialog.desc':
             '網路地圖：點開某個 client 後，焦點要進到對話框內，Tab 要能依序走到每個元件' +
@@ -633,6 +651,12 @@ const MESSAGES = {
         'suite.eaa.keyboard.desc': '可点击的都要能聚焦并用键盘操作，顺序合理，而且看得出焦点在哪。',
         'suite.eaa.dialog.name': '对话框无障碍',
         'suite.eaa.dialog.desc': '逐一打开页面上的对话框：有没有声明自己、焦点是否移入、底层是否还可聚焦、ESC 能否关闭并把焦点还回去。',
+        'suite.eaa.page-structure.name': '页面与语义结构',
+        'suite.eaa.page-structure.desc': '语言、标题、标题层级、地标、数据表与布局表、frame 标题，以及实际套用文字间距后测量。',
+        'suite.eaa.contrast.name': '对比度',
+        'suite.eaa.contrast.desc': '文字、placeholder 与控件边界对背景的对比。背景颜色是从 CSS 推算，所以列为待确认项。',
+        'suite.eaa.feedback.name': '状态消息与错误',
+        'suite.eaa.feedback.desc': '消息要落在 live region、错误要跟字段关联，而且不该有东西每次按键都用 assertive 打断。',
         'suite.eaa.client-dialog.name': 'Client 对话框键盘操作',
         'suite.eaa.client-dialog.desc':
             '网络地图：点开某个 client 后，焦点要进到对话框内，Tab 要能依序走到每个元件' +

@@ -512,9 +512,12 @@ function makeDocument() {
         _onclickHandlers: new Map(),
     };
     const html = new Element('html', doc);
+    const head = new Element('head', doc);
     const body = new Element('body', doc);
+    html.appendChild(head);
     html.appendChild(body);
     doc.documentElement = html;
+    doc.head = head;
     doc.body = body;
     doc._active = body;
 

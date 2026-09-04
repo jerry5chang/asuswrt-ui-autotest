@@ -330,6 +330,45 @@ export const SUITES = [
         defaultOn: false,
     },
     {
+        id: 'eaa.page-structure',
+        name: 'Page and semantic structure',
+        group: 'EAA',
+        description:
+            'Language, title, headings, landmarks, data vs layout tables, frame titles, and the ' +
+            'required text spacing applied and measured (9.1.3.1 / 9.2.4.2 / 9.1.4.12).',
+        where: 'page',
+        scope: 'each-page',
+        file: 'src/suites/page/eaa-page-structure.js',
+        cost: { shape: 'perPage', ms: 420 },
+        defaultOn: false,
+    },
+    {
+        id: 'eaa.contrast',
+        name: 'Contrast',
+        group: 'EAA',
+        description:
+            'Text against what is actually behind it (4.5:1, or 3:1 large), placeholder text, ' +
+            'and control boundaries (9.1.4.3 / 9.1.4.11). Reported as candidates.',
+        where: 'page',
+        scope: 'each-page',
+        file: 'src/suites/page/eaa-contrast.js',
+        cost: { shape: 'perPage', ms: 520 },
+        defaultOn: false,
+    },
+    {
+        id: 'eaa.feedback',
+        name: 'Status messages and errors',
+        group: 'EAA',
+        description:
+            'Messages the UI writes land in a live region, errors are tied to their field, and ' +
+            'nothing assertive updates on every keystroke (9.4.1.3 / 9.3.3.1).',
+        where: 'page',
+        scope: 'each-page',
+        file: 'src/suites/page/eaa-feedback.js',
+        cost: { shape: 'perPage', ms: 200 },
+        defaultOn: false,
+    },
+    {
         id: 'eaa.client-dialog',
         name: 'Client dialog keyboard operation',
         group: 'EAA',

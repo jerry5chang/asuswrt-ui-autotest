@@ -1200,6 +1200,214 @@ function eaaDom({
     return sandbox;
 }
 
+/* ------------------------------------------- offline: EAA page structure */
+
+async function testEaaPageStructure() {
+    section('EAA page structure (src/suites/page/eaa-page-structure.js)');
+
+    const run = async (html, setup) => {
+        const sandbox = a11yPage(html, ['src/suites/page/eaa-page-structure.js'], setup);
+        return sandbox.__AUT__.runSuites(['eaa.page-structure'], 10000);
+    };
+    const pick = (rows, sev) => rows.filter((r) => r.severity === sev);
+    const msgs = (rows, sev) => pick(rows, sev).map((r) => r.message);
+    const bad = (rows) => [...msgs(rows, 'fail'), ...msgs(rows, 'error')];
+
+    const setLang = (doc) => {
+        doc.documentElement.setAttribute('lang', 'en');
+        doc.title = 'LAN - LAN IP';
+    };
+
+    const good = await run(`
+        <main id="content">
+            <h1>LAN</h1>
+            <h2>LAN IP</h2>
+            <nav><a href="/x.asp">Wireless</a></nav>
+            <table role="presentation"><tr><td><input id="ip"></td></tr></table>
+            <table><tr><th scope="col">Name</th><th scope="col">IP</th></tr>
+                   <tr><td>PC</td><td>192.168.1.2</td></tr></table>
+            <iframe src="/device-map/router.asp" title="Router status"></iframe>
+        </main>`, setLang);
+    check('a well-structured page reports no failure', bad(good).length === 0, bad(good).join(' | '));
+
+    const noLang = await run('<main><h1>x</h1></main>', (doc) => { doc.title = 'Wireless'; });
+    check('a page with no lang fails',
+        bad(noLang).some((m) => /declares a language/.test(m)), bad(noLang).join(' | '));
+
+    const noTitle = await run('<main><h1>x</h1></main>', (doc) => {
+        doc.documentElement.setAttribute('lang', 'en');
+    });
+    check('a page with no title fails',
+        bad(noTitle).some((m) => /has a title/.test(m)), bad(noTitle).join(' | '));
+
+    const noMain = await run('<div><h1>Wireless</h1></div>', setLang);
+    check('a page with no main landmark fails',
+        bad(noMain).some((m) => /main landmark/.test(m)), bad(noMain).join(' | '));
+    check('...and says why it matters, since the skip link needs it',
+        pick(noMain, 'fail').some((r) => /skip link/.test(JSON.stringify(r.detail))),
+        JSON.stringify(pick(noMain, 'fail').map((r) => r.detail)).slice(0, 200));
+
+    const skipped = await run('<main><h1>A</h1><h3>B</h3></main>', setLang);
+    check('a skipped heading level is a warning',
+        msgs(skipped, 'warn').some((m) => /skips a heading level/.test(m)), msgs(skipped, 'warn').join(' | '));
+
+    // 「錯誤的使用了表格結構」: a form wrapped in a table with no headers.
+    const layoutTable = await run(`
+        <main><h1>LAN</h1>
+        <table id="form_table"><tr><td>IP</td><td><input id="ip"></td></tr>
+                               <tr><td>Mask</td><td><input id="mask"></td></tr></table></main>`, setLang);
+    const layoutRow = pick(layoutTable, 'fail').find((r) => /used for layout/.test(r.message));
+    check('a layout table with form controls fails', !!layoutRow, bad(layoutTable).join(' | '));
+    check('...naming the table', /#form_table/.test(layoutRow.message), layoutRow.message);
+    check('...and offering role="presentation"', /presentation/.test(layoutRow.message), layoutRow.message);
+
+    const noHeaders = await run(`
+        <main><h1>Clients</h1>
+        <table id="list"><tr><td>PC</td><td>1.2.3.4</td></tr><tr><td>TV</td><td>1.2.3.5</td></tr></table></main>`,
+        setLang);
+    check('a data table with no th fails',
+        bad(noHeaders).some((m) => /no header cells/.test(m)), bad(noHeaders).join(' | '));
+
+    const frame = await run('<main><h1>x</h1><iframe id="statusframe" src="/a.asp"></iframe></main>', setLang);
+    check('an untitled frame fails',
+        bad(frame).some((m) => /frame with no title/.test(m)), bad(frame).join(' | '));
+
+    // Visible to a screen reader, invisible to the eye.
+    const ghost = await run(
+        '<main><h1>x</h1><span id="ghost" data-rect="-900,-900,120,20">Hidden hint</span></main>', setLang);
+    check('text positioned off screen but still readable is a warning',
+        msgs(ghost, 'warn').some((m) => /not visible, while still being readable/.test(m)),
+        msgs(ghost, 'warn').join(' | '));
+
+    const spacing = a11yPage('<main><h1>x</h1></main>', ['src/suites/page/eaa-page-structure.js'], setLang);
+    await spacing.__AUT__.runSuites(['eaa.page-structure'], 10000);
+    check('the injected text-spacing stylesheet is removed again',
+        spacing.document.getElementById('__aut_text_spacing') === null,
+        String(spacing.document.getElementById('__aut_text_spacing')));
+}
+
+/* ------------------------------------------------- offline: EAA contrast */
+
+async function testEaaContrast() {
+    section('EAA contrast (src/suites/page/eaa-contrast.js)');
+
+    const run = async (html) => {
+        const sandbox = a11yPage(html, ['src/suites/page/eaa-contrast.js']);
+        return sandbox.__AUT__.runSuites(['eaa.contrast'], 10000);
+    };
+    const pick = (rows, sev) => rows.filter((r) => r.severity === sev);
+    const msgs = (rows, sev) => pick(rows, sev).map((r) => r.message);
+
+    const white = 'background-color: rgb(255, 255, 255)';
+
+    // The audit's own case: a grey "Max Limit" caption on white.
+    const grey = await run(
+        `<div style="${white}"><span id="cap" style="color: rgb(150, 150, 150)" data-rect="0,0,200,16">Port Forwarding List (Max Limit : 64)</span></div>`);
+    const row = pick(grey, 'warn').find((r) => /text contrast/.test(r.message));
+    check('grey text on white is reported', !!row, msgs(grey, 'warn').join(' | '));
+    check('...naming the element', /#cap/.test(row.message), row.message);
+    check('...with the measured ratio and the requirement',
+        row.detail.ratio < 4.5 && row.detail.required === 4.5, JSON.stringify(row.detail));
+    check('...and quoting the text, so it is findable in the UI',
+        /Max Limit/.test(row.detail.text || ''), JSON.stringify(row.detail));
+
+    const black = await run(
+        `<div style="${white}"><span style="color: rgb(0, 0, 0)" data-rect="0,0,100,16">Readable</span></div>`);
+    check('black on white passes',
+        msgs(black, 'pass').some((m) => /meet their contrast requirement/.test(m)),
+        [...msgs(black, 'warn'), ...msgs(black, 'pass')].join(' | '));
+
+    // Large text has a lower bar, and using the text bar would over-report.
+    const largeGrey = await run(
+        `<div style="${white}"><h2 style="color: rgb(120, 120, 120)" data-rect="0,0,300,32">Main network</h2></div>`);
+    check('large text is measured against 3:1',
+        pick(largeGrey, 'warn').every((r) => r.detail.required === 3) ,
+        JSON.stringify(pick(largeGrey, 'warn').map((r) => r.detail.required)));
+
+    // Translucent text over a panel: composited, not guessed.
+    const translucent = await run(
+        `<div style="${white}"><div style="background-color: rgba(0, 0, 0, 0.04)"><span style="color: rgba(0, 0, 0, 0.35)" data-rect="0,0,120,16">Faint</span></div></div>`);
+    check('translucent colours are composited before measuring',
+        pick(translucent, 'warn').some((r) => r.detail.ratio > 1 && r.detail.ratio < 4.5),
+        JSON.stringify(pick(translucent, 'warn').map((r) => r.detail)).slice(0, 160));
+
+    // A gradient behind the text makes the number a guess, and it says so.
+    const gradient = await run(
+        `<div style="${white}; background-image: linear-gradient(red, blue)"><span style="color: rgb(140,140,140)" data-rect="0,0,100,16">Over art</span></div>`);
+    check('text over a background image is information, not a finding',
+        pick(gradient, 'info').some((r) => /colour we could compute/.test(r.message)) &&
+            !pick(gradient, 'warn').some((r) => /text contrast/.test(r.message)),
+        [...msgs(gradient, 'info'), ...msgs(gradient, 'warn')].join(' | '));
+
+    const noText = await run('<div><img src="x.png" alt="only an image"></div>');
+    check('a page with no measurable text is skipped',
+        pick(noText, 'skip').length === 1, JSON.stringify(noText));
+
+    const icons = await run(
+        `<div style="${white}"><span data-rect="0,0,50,16">t</span><img src="helpicon.png" data-rect="0,0,16,16"></div>`);
+    check('bitmap icons are declared unmeasurable rather than passed silently',
+        msgs(icons, 'info').some((m) => /cannot be measured for contrast from CSS/.test(m)),
+        msgs(icons, 'info').join(' | '));
+}
+
+/* ------------------------------------------------- offline: EAA feedback */
+
+async function testEaaFeedback() {
+    section('EAA status messages and errors (src/suites/page/eaa-feedback.js)');
+
+    const run = async (html) => {
+        const sandbox = a11yPage(html, ['src/suites/page/eaa-feedback.js']);
+        return sandbox.__AUT__.runSuites(['eaa.feedback'], 10000);
+    };
+    const pick = (rows, sev) => rows.filter((r) => r.severity === sev);
+    const msgs = (rows, sev) => pick(rows, sev).map((r) => r.message);
+    const bad = (rows) => [...msgs(rows, 'fail'), ...msgs(rows, 'error')];
+
+    const silent = await run('<div><div id="alert_msg">Settings applied</div></div>');
+    const row = pick(silent, 'fail')[0];
+    check('a status container that is not a live region fails', !!row, bad(silent).join(' | '));
+    check('...naming the container', /#alert_msg/.test(row.message), row.message);
+    check('...and naming the fix', /aria-live="polite"/.test(row.message), row.message);
+
+    const announced = await run('<div><div id="alert_msg" role="status">Settings applied</div></div>');
+    check('role="status" is accepted',
+        bad(announced).length === 0, bad(announced).join(' | '));
+
+    const inherited = await run(
+        '<div aria-live="polite"><div id="alert_msg">Applied</div></div>');
+    check('a container inside a live region is accepted',
+        bad(inherited).length === 0, bad(inherited).join(' | '));
+
+    const bogus = await run('<div><div id="alert_msg" aria-live="yes">x</div></div>');
+    check('an unrecognised aria-live value fails',
+        bad(bogus).some((m) => /not off\/polite\/assertive/.test(m)), bad(bogus).join(' | '));
+
+    // The password-strength finding: assertive on something that updates per key.
+    const noisy = await run(
+        '<div><div aria-live="assertive"><div id="pwd_strength">Weak</div></div></div>');
+    check('an assertive region around a continuously updating widget is a warning',
+        msgs(noisy, 'warn').some((m) => /assertive live region/.test(m)), msgs(noisy, 'warn').join(' | '));
+    check('...and explains that it interrupts every keystroke',
+        msgs(noisy, 'warn').some((m) => /interrupts/.test(m)), msgs(noisy, 'warn').join(' | '));
+
+    const redBorder = await run('<div><input id="ip" class="input_error"></div>');
+    check('a field styled as invalid without aria-invalid fails',
+        bad(redBorder).some((m) => /does not declare aria-invalid/.test(m)), bad(redBorder).join(' | '));
+
+    const orphanError = await run('<div><input id="ip" aria-invalid="true"></div>');
+    check('a field marked invalid with no message is a warning',
+        msgs(orphanError, 'warn').some((m) => /points at no message/.test(m)),
+        msgs(orphanError, 'warn').join(' | '));
+
+    const wording = await run('<div><div id="alert_msg" role="status">IP format is wrong</div></div>');
+    check('whether the wording suggests a correction is handed to a person',
+        msgs(wording, 'info').some((m) => /human judgement/.test(m)), msgs(wording, 'info').join(' | '));
+
+    const nothing = await run('<div><p>No messages here</p></div>');
+    check('a page with no message containers is skipped',
+        pick(nothing, 'skip').length === 1, JSON.stringify(nothing));
+}
+
 /* ---------------------------------------------------- offline: EAA dialogs */
 
 /**
@@ -2462,6 +2670,9 @@ await testEstimate();
 await testTimings();
 await testReport();
 await testEaaNames();
+await testEaaPageStructure();
+await testEaaContrast();
+await testEaaFeedback();
 await testEaaDialog();
 await testEaaControlState();
 await testEaaKeyboard();
