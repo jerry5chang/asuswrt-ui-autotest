@@ -17,8 +17,6 @@
     --pass: #177245;
     --skip: #6b7280;
     --radius: 2px;
-    /* Only the theme switch, which is a pill by definition. */
-    --radius-pill: 999px;
 
     /* Type scale, ~1.15 between steps. The panel used to hardcode 10-16px in
        thirty places; changing size is now one edit. */
@@ -653,43 +651,38 @@ body:not(.is-empty) #emptyState { display: none; }
 
 body.on-report .estimate { display: none; }
 
-/* ------------------------------------------------------- theme switch */
+/* ------------------------------------------------- appearance toggle */
 
-/* iOS-style: a pill track with a sliding knob that carries the icon. */
-.switch {
+/* A circle with one half filled: the standard "appearance" glyph. It rotates
+   180 degrees so the filled half swaps sides, which reads as the flip itself
+   rather than needing a legend. Colours come from currentColor, so the icon
+   is correct in whichever theme it just switched to. */
+.iconbtn {
     flex: 0 0 auto;
-    width: 44px;
-    height: 24px;
-    padding: 2px;
+    width: 28px;
+    height: 28px;
+    padding: 0;
     border: 1px solid var(--line);
-    border-radius: var(--radius-pill);
-    background: var(--bg);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--fg);
     cursor: pointer;
-    position: relative;
-    display: block;
-}
-
-.switch .knob {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 18px;
-    height: 18px;
-    border-radius: var(--radius-pill);
-    background: var(--panel);
-    border: 1px solid var(--line);
     display: grid;
     place-items: center;
-    font-size: var(--fs-micro);
-    line-height: 1;
-    transition: transform .16s ease, background-color .16s ease;
 }
 
-.switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
-.switch[aria-checked="true"] .knob { transform: translateX(20px); }
+.iconbtn:hover { border-color: var(--accent); color: var(--accent); }
+.iconbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.iconbtn svg {
+    width: 17px;
+    height: 17px;
+    display: block;
+    transition: transform .2s ease;
+}
+
+.iconbtn[aria-checked="true"] svg { transform: rotate(180deg); }
 
 @media (prefers-reduced-motion: reduce) {
-    .switch .knob { transition: none; }
+    .iconbtn svg { transition: none; }
 }

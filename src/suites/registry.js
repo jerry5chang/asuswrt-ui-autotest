@@ -18,6 +18,8 @@
  *   file        for where:'page' -- extension-relative path of the injected file
  *   pages       for scope:'pages' -- page URLs this item applies to
  *   defaultOn   whether the checkbox starts ticked
+ *   timeoutMs   optional; overrides the shared per-suite allowance when an
+ *               item legitimately needs longer
  *   cost        rough time this item adds, for the run-time estimate:
  *               shape 'none'    passive; the shared per-page work already
  *                               covers it, so ticking it changes nothing
@@ -235,7 +237,10 @@ export const SUITES = [
         scope: 'pages',
         pages: ['index.asp'],
         file: 'src/suites/page/eaa-client-dialog.js',
-        cost: { shape: 'perPage', ms: 1800 },
+        /* The client list arrives on a poll and a router rescan, so this one
+           genuinely needs longer than the shared per-page allowance. */
+        timeoutMs: 35000,
+        cost: { shape: 'perPage', ms: 4000 },
         defaultOn: true,
     },
 ];

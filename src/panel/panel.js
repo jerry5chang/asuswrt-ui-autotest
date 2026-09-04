@@ -78,9 +78,9 @@ function applyTheme(pref) {
     if (pref === 'light' || pref === 'dark') root.dataset.theme = pref;
     else delete root.dataset.theme;
 
-    const toggle = $('#themeToggle');
-    toggle.setAttribute('aria-checked', String(effective === 'dark'));
-    toggle.querySelector('.knob').textContent = effective === 'dark' ? '☾' : '☀';
+    // The icon is a half-filled circle rotated by CSS, so nothing to set here
+    // beyond the state it reflects.
+    $('#themeToggle').setAttribute('aria-checked', String(effective === 'dark'));
     return effective;
 }
 

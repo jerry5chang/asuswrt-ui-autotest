@@ -345,11 +345,17 @@ export async function startRun({ tabId, selection, settings, env }) {
                 /* page suites */
                 if (pageSuites.length) {
                     try {
+                        // The batch runs sequentially, so it needs room for
+                        // whichever suite asked for the most.
+                        const allowance = Math.max(
+                            Math.max(settings.pageTimeoutMs / 2, 5000),
+                            ...pageSuites.map((s) => s.timeoutMs || 0)
+                        );
                         const { rows, timings, injectMs } = await runPageSuites(
                             tabId,
                             pageSuites.map((s) => s.file),
                             pageSuites.map((s) => s.id),
-                            Math.max(settings.pageTimeoutMs / 2, 5000)
+                            allowance
                         );
                         clock.add('pageSuiteInjection', injectMs, 1);
                         for (const [id, ms] of Object.entries(timings)) clock.add(`suite:${id}`, ms, 1);

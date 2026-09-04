@@ -55,18 +55,60 @@ window.__AUT__.suite('eaa.client-dialog', async function (t) {
     const frame = t.$('#statusframe');
     if (!frame) return t.skip('no #statusframe on this page — not the Network Map');
 
-    let frameDoc = null;
-    try {
-        frameDoc = frame.contentDocument;
-    } catch (e) {
-        frameDoc = null;
-    }
-    if (!frameDoc) return t.skip('the client list frame is not readable');
+    const frameDoc = await t.waitFor(() => {
+        try {
+            const doc = frame.contentDocument;
+            return doc && doc.body ? doc : null;
+        } catch (e) {
+            return null;
+        }
+    }, 8000);
+    if (!frameDoc) return t.skip('the client list frame never became readable');
 
-    // The list is filled from a poll, so it is not there the instant we run.
-    const card = await t.waitFor(() => frameDoc.querySelector(CARD), 5000);
+    /*
+     * The list is not there when the page reports loaded. clients.asp's
+     * initial() fires one AJAX for the list and then asks the router to
+     * rescan after a further 5s, re-drawing on a 3s poll -- so a card can be
+     * fifteen seconds out. Waiting five, as this did, reported "no clients"
+     * on a router that plainly had one.
+     */
+    const findCard = () => frameDoc.querySelector(CARD) || frameDoc.querySelector('[onclick*="popupCustomTable"]');
+
+    let card = await t.waitFor(findCard, 18000);
+
     if (!card) {
-        return t.skip('no client cards in the list — nothing to open');
+        /*
+         * Still nothing. The default tab lists every online client, wired
+         * included (clients.asp filters the other way round), so an empty
+         * default usually means an empty list -- but try the other tabs
+         * before concluding that, since a client can be counted on one of
+         * them and not yet drawn on this one.
+         */
+        const tabs = [
+            ...frameDoc.querySelectorAll('[onclick*="drawClientList"], [onclick*="switchTab_drawClientList"]'),
+        ];
+        for (const tab of tabs) {
+            tab.click();
+            card = await t.waitFor(findCard, 1500);
+            if (card) {
+                t.info(`the client list only drew after switching tab: ${(tab.textContent || '').trim().slice(0, 40)}`);
+                break;
+            }
+        }
+    }
+
+    if (!card) {
+        // Say which it was, so an empty router is not mistaken for a broken test.
+        const counted = ['tabOnlineNum', 'tabWiredNum', 'tabAllNum']
+            .map((id) => frameDoc.getElementById(id))
+            .filter(Boolean)
+            .map((el) => Number((el.textContent || '0').trim()) || 0);
+        const total = counted.reduce((a, b) => a + b, 0);
+        return t.skip(
+            total > 0
+                ? `the list counts ${total} client(s) but drew no card in 18s`
+                : 'the router reports no connected clients — nothing to open'
+        );
     }
 
     const dialog = t.$(DIALOG);
@@ -75,7 +117,7 @@ window.__AUT__.suite('eaa.client-dialog', async function (t) {
     /* --- open it -------------------------------------------------------- */
 
     card.click();
-    const opened = await t.waitFor(() => (isOpen(dialog) ? dialog : null), 3000);
+    const opened = await t.waitFor(() => (isOpen(dialog) ? dialog : null), 6000);
     if (!opened) return t.fail('clicking a client card did not open the client dialog');
     t.pass('clicking a client card opens the dialog');
 

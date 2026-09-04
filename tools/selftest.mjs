@@ -963,6 +963,9 @@ function clientDialogDom(opts = {}) {
         hasFrame = true,
         frameReadable = true,
         hasCard = true,
+        cardAfterCalls = 0,
+        cardNeedsTabClick = false,
+        countedClients = 0,
         hasDialog = true,
         opens = true,
         focusOnOpen = true,
@@ -979,6 +982,25 @@ function clientDialogDom(opts = {}) {
 
     const { sandbox, ctx } = pageSandbox();
     const doc = sandbox.document;
+
+    /*
+     * Virtual clock. The suite waits up to 18s for the client list, which is
+     * right on a real router and unacceptable in a test, so Date.now() runs
+     * fast and setTimeout fires immediately. Nothing in the injected code
+     * constructs a Date, only reads now().
+     */
+    const RealDate = Date;
+    let virtualNow = RealDate.now();
+    function FakeDate(...args) { return new RealDate(...args); }
+    FakeDate.now = () => (virtualNow += 150);
+    FakeDate.prototype = RealDate.prototype;
+    sandbox.Date = FakeDate;
+    /*
+     * Poll steps collapse to nothing; the runtime's own per-suite timeout
+     * guard must not. Dropping every delay made the 30s guard fire on the
+     * next tick and every case "timed out".
+     */
+    sandbox.setTimeout = (fn, ms) => setTimeout(fn, Number(ms) >= 1000 ? ms : 0);
 
     class FakeKeyboardEvent {
         constructor(type, init = {}) {
@@ -1076,7 +1098,26 @@ function clientDialogDom(opts = {}) {
         },
     });
 
-    const frameDoc = { querySelector: (sel) => (hasCard && /clientBg/.test(sel) ? card : null) };
+    let tabClicked = false;
+    let lookups = 0;
+
+    const tab = mk('A', { id: 'tabWired', onClick: () => { tabClicked = true; } });
+    tab.textContent = 'Wired (1)';
+    const counter = mk('B', { id: 'tabWiredNum' });
+    counter.textContent = String(countedClients);
+
+    const cardDrawn = () => {
+        if (!hasCard) return false;
+        if (cardNeedsTabClick && !tabClicked) return false;
+        return ++lookups > cardAfterCalls;
+    };
+
+    const frameDoc = {
+        body: mk('BODY'),
+        querySelector: (sel) => (/clientBg|popupCustomTable/.test(sel) && cardDrawn() ? card : null),
+        querySelectorAll: (sel) => (/drawClientList/.test(sel) ? [tab] : []),
+        getElementById: (id) => (id === 'tabWiredNum' ? counter : null),
+    };
     const frame = mk('IFRAME', { id: 'statusframe' });
     Object.defineProperty(frame, 'contentDocument', { get: () => (frameReadable ? frameDoc : null) });
 
@@ -1104,12 +1145,33 @@ async function testEaaClientDialog() {
 
     const run = (opts) => clientDialogDom(opts).__AUT__.runSuites(['eaa.client-dialog'], 30000);
     const sevs = (rows) => rows.map((r) => r.severity);
-    const failed = (rows) => rows.filter((r) => r.severity === 'fail').map((r) => r.message);
+    const failed = (rows) =>
+        rows.filter((r) => r.severity === 'fail' || r.severity === 'error').map((r) => r.message);
 
     check('a build without the plugin is skipped', sevs(await run({ hasPlugin: false })).join() === 'skip');
     check('a page with no client frame is skipped', sevs(await run({ hasFrame: false })).join() === 'skip');
-    check('an empty client list is skipped, not failed',
-        sevs(await run({ hasCard: false })).join() === 'skip');
+    const empty = await run({ hasCard: false });
+    check('an empty client list is skipped, not failed', sevs(empty).join() === 'skip');
+    check('...and blames the router being empty, not the test',
+        /no connected clients/.test(empty[0].message), empty[0].message);
+
+    // The actual bug: the list arrives on a poll plus a router rescan, so the
+    // old five-second wait reported "no clients" on a router that had one.
+    const late = await run({ cardAfterCalls: 40 });
+    check('a list that only draws after several seconds is still opened',
+        failed(late).length === 0 && late.some((r) => /opens the dialog/.test(r.message)),
+        JSON.stringify(sevs(late)));
+
+    const viaTab = await run({ cardNeedsTabClick: true });
+    check('a card that only draws on another tab is found by switching to it',
+        failed(viaTab).length === 0, failed(viaTab).join(' | '));
+    check('...and says so, since it is worth knowing',
+        viaTab.some((r) => r.severity === 'info' && /switching tab/.test(r.message)),
+        JSON.stringify(viaTab.map((r) => r.message)));
+
+    const counted = await run({ hasCard: false, countedClients: 3 });
+    check('a counted-but-undrawn list is distinguished from an empty one',
+        /counts 3 client/.test(counted[0].message), counted[0].message);
 
     const good = await run({});
     check('a conforming dialog passes every assertion', failed(good).length === 0, failed(good).join(' | '));
