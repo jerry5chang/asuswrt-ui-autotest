@@ -426,6 +426,31 @@ async function testEstimate() {
     check('a page-scoped suite is charged for one page, not all of them',
         delta === clientDialog.cost.ms, `${delta} vs ${clientDialog.cost.ms}`);
 
+    /* only pages a selected item acts on are visited, and charged for */
+    const { pagesInScope } = await import('../src/suites/registry.js');
+    const withIndex = [...pages, 'index.asp'];
+    check('an each-page item puts every page in scope',
+        pagesInScope(['core.dom-sanity'], withIndex).length === withIndex.length);
+    check('an instrumentation channel does too',
+        pagesInScope(['core.js-error'], withIndex).length === withIndex.length);
+    check('a page-scoped item puts only its own page in scope',
+        pagesInScope(['eaa.client-dialog'], withIndex).join() === 'index.asp',
+        pagesInScope(['eaa.client-dialog'], withIndex).join());
+    check('two page-scoped items put both their pages in scope',
+        pagesInScope(['eaa.client-dialog', 'pages.qis-wizard'], [...withIndex, 'QIS_wizard.htm']).length === 2);
+    check('a driver-only selection puts nothing in scope',
+        pagesInScope(['api.hook-sweep'], withIndex).length === 0);
+
+    // The complaint this fixes: ticking every page while selecting only the
+    // client dialog reported a 76-page sweep for a one-page run.
+    const scopedOnly = estimateRun({ settings, pages: withIndex, suiteIds: ['eaa.client-dialog'] });
+    check('the estimate counts only the pages that will be visited',
+        scopedOnly.pages === 1, String(scopedOnly.pages));
+    check('...and reports how many ticked pages are skipped',
+        scopedOnly.pagesSkipped === pages.length, String(scopedOnly.pagesSkipped));
+    check('...so it is far cheaper than the full sweep',
+        scopedOnly.totalMs < domOnly / 10, `${scopedOnly.totalMs} vs ${domOnly}`);
+
     /* measurements replace the seeds */
     const seeded = estimateRun({ settings, pages, suiteIds: ['core.dom-sanity'] });
     check('with no history the estimate rests on seeds', seeded.measuredShare === 0);
@@ -964,6 +989,8 @@ function clientDialogDom(opts = {}) {
         hasFrame = true,
         frameReadable = true,
         hasCard = true,
+        hasListLink = true,
+        listLoads = true,
         cardAfterCalls = 0,
         cardNeedsTabClick = false,
         countedClients = 0,
@@ -1113,11 +1140,27 @@ function clientDialogDom(opts = {}) {
         return ++lookups > cardAfterCalls;
     };
 
+    /*
+     * index.asp points the frame at /device-map/router.asp on load; the list
+     * only arrives once the Client status link sets its src. The stub models
+     * that, because assuming the frame already held the list is exactly the
+     * mistake the suite was making.
+     */
+    let framePath = '/device-map/router.asp';
+    const listLink = mk('A', {
+        id: 'clientStatusLink',
+        onClick: () => { if (listLoads) framePath = '/device-map/clients.asp'; },
+    });
+
+    const onList = () => framePath.includes('clients.asp');
+
     const frameDoc = {
         body: mk('BODY'),
-        querySelector: (sel) => (/clientBg|popupCustomTable/.test(sel) && cardDrawn() ? card : null),
-        querySelectorAll: (sel) => (/drawClientList/.test(sel) ? [tab] : []),
-        getElementById: (id) => (id === 'tabWiredNum' ? counter : null),
+        location: { get pathname() { return framePath; } },
+        querySelector: (sel) =>
+            onList() && /clientBg|popupCustomTable/.test(sel) && cardDrawn() ? card : null,
+        querySelectorAll: (sel) => (onList() && /drawClientList/.test(sel) ? [tab] : []),
+        getElementById: (id) => (onList() && id === 'tabWiredNum' ? counter : null),
     };
     const frame = mk('IFRAME', { id: 'statusframe' });
     Object.defineProperty(frame, 'contentDocument', { get: () => (frameReadable ? frameDoc : null) });
@@ -1125,6 +1168,7 @@ function clientDialogDom(opts = {}) {
     doc.activeElement = null;
     doc.querySelector = (sel) => {
         if (sel === '#statusframe') return hasFrame ? frame : null;
+        if (sel === '#clientStatusLink' || sel.includes('clients.asp')) return hasListLink ? listLink : null;
         if (sel === '#edit_client_block') return hasDialog ? dialog : null;
         return null;
     };
@@ -1151,10 +1195,30 @@ async function testEaaClientDialog() {
 
     check('a build without the plugin is skipped', sevs(await run({ hasPlugin: false })).join() === 'skip');
     check('a page with no client frame is skipped', sevs(await run({ hasFrame: false })).join() === 'skip');
+    const noLink = await run({ hasListLink: false });
+    check('a page with no client-list link is skipped',
+        sevs(noLink).join() === 'skip' && /client-list link/.test(noLink[0].message), noLink[0].message);
+
+    // The bug: the frame shows the router status panel until the Client status
+    // link is activated, so waiting for a card in it waited forever.
+    const wontLoad = await run({ listLoads: false });
+    check('a Client status link that loads nothing is a failure, not a skip',
+        failed(wontLoad).some((m) => /did not load device-map\/clients\.asp/.test(m)),
+        JSON.stringify(sevs(wontLoad)));
+
+    const opened = await run({});
+    check('the suite opens the client list before looking for a card',
+        opened.some((r) => /client list opens in the device-map frame/.test(r.message)),
+        JSON.stringify(opened.map((r) => r.message).slice(0, 3)));
+
+    // Opening the list succeeds, then there is nothing in it -- so the skip
+    // now sits behind a pass rather than being the only row.
+    const skipRow = (rows) => rows.find((r) => r.severity === 'skip');
     const empty = await run({ hasCard: false });
-    check('an empty client list is skipped, not failed', sevs(empty).join() === 'skip');
+    check('an empty client list is skipped, not failed',
+        !!skipRow(empty) && failed(empty).length === 0, JSON.stringify(sevs(empty)));
     check('...and blames the router being empty, not the test',
-        /no connected clients/.test(empty[0].message), empty[0].message);
+        /no connected clients/.test(skipRow(empty).message), skipRow(empty).message);
 
     // The actual bug: the list arrives on a poll plus a router rescan, so the
     // old five-second wait reported "no clients" on a router that had one.
@@ -1172,7 +1236,7 @@ async function testEaaClientDialog() {
 
     const counted = await run({ hasCard: false, countedClients: 3 });
     check('a counted-but-undrawn list is distinguished from an empty one',
-        /counts 3 client/.test(counted[0].message), counted[0].message);
+        /counts 3 client/.test(skipRow(counted).message), skipRow(counted).message);
 
     const good = await run({});
     check('a conforming dialog passes every assertion', failed(good).length === 0, failed(good).join(' | '));

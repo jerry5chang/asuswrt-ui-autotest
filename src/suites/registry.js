@@ -263,3 +263,29 @@ export function appliesToPage(suite, pageUrl) {
     if (suite.scope !== 'pages') return false;
     return (suite.pages || []).some((p) => pageUrl === p || pageUrl.startsWith(p));
 }
+
+/**
+ * Which of `pageUrls` the selected items will actually do something on.
+ *
+ * Selecting only a page-scoped item -- the Network Map client dialog, say --
+ * and leaving every page ticked meant visiting 76 pages so that one of them
+ * could run a test, which is both slow and confusing to read: the page count
+ * and the item selection did not correspond to anything.
+ *
+ * An each-page item or any instrumentation channel makes every page worth
+ * visiting, because they genuinely observe all of them. Otherwise only the
+ * pages the page-scoped items name are worth loading.
+ */
+export function pagesInScope(suiteIds, pageUrls = []) {
+    const selected = new Set(suiteIds || []);
+    const chosen = SUITES.filter((s) => selected.has(s.id));
+
+    const everywhere = chosen.some(
+        (s) => (s.where === 'page' || s.where === 'instrument') && s.scope === 'each-page'
+    );
+    if (everywhere) return [...pageUrls];
+
+    const scoped = chosen.filter((s) => s.where === 'page' && s.scope === 'pages');
+    if (!scoped.length) return [];
+    return pageUrls.filter((url) => scoped.some((s) => appliesToPage(s, url)));
+}

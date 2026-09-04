@@ -9,7 +9,7 @@
  */
 
 import { RUN, SEV, SEV_BAD } from '../lib/const.js';
-import { SUITES, SUITE_BY_ID, appliesToPage } from '../suites/registry.js';
+import { SUITES, SUITE_BY_ID, appliesToPage, pagesInScope } from '../suites/registry.js';
 import { collapseSuiteRows, mapEvents } from '../lib/events.js';
 import { estimateRun } from '../lib/estimate.js';
 import { createCollector, getTimings, mergeTimings } from './timings.js';
@@ -136,7 +136,13 @@ export async function startRun({ tabId, selection, settings, env }) {
     const wantsPages = SUITES.some(
         (s) => selectedIds.has(s.id) && (s.where === 'page' || s.where === 'instrument')
     );
-    const sweptPages = wantsPages ? pages : [];
+    /*
+     * And only the pages a selected item acts on. Selecting just the client
+     * dialog item used to visit all 76 pages so that one of them could run a
+     * test.
+     */
+    const inScope = new Set(pagesInScope(selection.suiteIds, pages.map((p) => p.url)));
+    const sweptPages = wantsPages ? pages.filter((p) => inScope.has(p.url)) : [];
 
     const clock = createCollector();
     const estimate = estimateRun({
@@ -187,6 +193,10 @@ export async function startRun({ tabId, selection, settings, env }) {
     );
     if (!wantsPages && pages.length) {
         state.note('no item needs a loaded page, so the page loop is skipped');
+    } else if (sweptPages.length < pages.length) {
+        state.note(
+            `${pages.length - sweptPages.length} selected page(s) skipped: no selected item acts on them`
+        );
     }
 
     const originalLang = env.lang;

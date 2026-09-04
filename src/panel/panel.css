@@ -220,15 +220,17 @@ main {
 
 .gtoggle {
     flex: 0 0 auto;
-    width: 18px;
-    height: 18px;
+    width: 22px;
+    height: 22px;
     padding: 0;
     border: 0;
     border-radius: var(--radius);
     background: none;
     color: var(--mut);
     font: inherit;
-    font-size: var(--fs-micro);
+    /* Sized against the group name it sits beside, not the small print. */
+    font-size: var(--fs-group);
+    line-height: 1;
     cursor: pointer;
     display: grid;
     place-items: center;

@@ -10,7 +10,7 @@
  */
 
 import { MSG, RUN, SEV_ORDER, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
-import { SUITES, GROUPS, SUITE_BY_ID } from '../suites/registry.js';
+import { SUITES, GROUPS, SUITE_BY_ID, pagesInScope } from '../suites/registry.js';
 import { BUILDERS, reportFilename } from '../lib/report.js';
 import { estimateRemaining, estimateRun, formatDuration } from '../lib/estimate.js';
 import {
@@ -458,6 +458,7 @@ function renderSuites() {
 
 function updateSuiteCount() {
     $('#suiteCount').textContent = `${sel.suiteIds.size}/${SUITES.length}`;
+    updatePageCount();
     renderEstimate();
 }
 
@@ -524,6 +525,21 @@ function updatePageCount() {
     const env = snap.run.env || {};
     const total = (env.pages || []).length;
     $('#pageCount').textContent = `${sel.pages.size}/${total}`;
+
+    /*
+     * Ticking a page does not mean it gets visited: with only a page-scoped
+     * item selected, the rest have nothing to run. Say so, rather than leaving
+     * "76 pages" next to a one-page run.
+     */
+    const visited = pagesInScope([...sel.suiteIds], [...sel.pages]).length;
+    const note = $('#pageScope');
+    if (visited < sel.pages.size) {
+        note.textContent = t('pages.inScope', { visited, selected: sel.pages.size });
+        note.hidden = false;
+    } else {
+        note.hidden = true;
+    }
+
     updateLangCount((env.langs && env.langs.length ? env.langs : FALLBACK_LANGS).length);
 }
 

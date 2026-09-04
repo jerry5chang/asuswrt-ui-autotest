@@ -28,7 +28,7 @@
  * `background/timings.js`. The result is an estimate, and says so.
  */
 
-import { SUITES, appliesToPage } from '../suites/registry.js';
+import { SUITES, appliesToPage, pagesInScope } from '../suites/registry.js';
 
 /**
  * Seeds, in ms, measured against ZenWiFi_BT8 / 3.0.0.4.388_34021.
@@ -81,7 +81,10 @@ function sharedCoefficient(key, timings) {
 export function estimateRun({ suiteIds, pages = [], langs = [], settings = {}, timings = {} }) {
     const selected = new Set(suiteIds || []);
     const passes = Math.max((langs || []).length, 1);
-    const pageCount = pages.length;
+    // Only the pages a selected item will act on are visited, so only those
+    // are charged for.
+    const inScope = pagesInScope(suiteIds, pages);
+    const pageCount = inScope.length;
     const pageLoop = needsPageLoop(selected) && pageCount > 0;
 
     const lines = [];
@@ -130,7 +133,7 @@ export function estimateRun({ suiteIds, pages = [], langs = [], settings = {}, t
         if (pageSuites.length) {
             const inject = sharedCoefficient('pageSuiteInjection', timings);
             // Injection is per page, but only on pages where a suite applies.
-            const injected = pages.filter((url) =>
+            const injected = inScope.filter((url) =>
                 pageSuites.some((s) => appliesToPage(s, url))
             ).length;
             add('pageSuiteInjection', inject.ms * injected * passes, {
@@ -139,7 +142,7 @@ export function estimateRun({ suiteIds, pages = [], langs = [], settings = {}, t
             });
 
             for (const suite of pageSuites) {
-                const runsOn = pages.filter((url) => appliesToPage(suite, url)).length;
+                const runsOn = inScope.filter((url) => appliesToPage(suite, url)).length;
                 if (!runsOn) continue;
                 const c = coefficient(suite, timings);
                 add(`suite:${suite.id}`, c.ms * runsOn * passes, {
@@ -161,6 +164,8 @@ export function estimateRun({ suiteIds, pages = [], langs = [], settings = {}, t
         totalMs: Math.round(total),
         lines: lines.sort((a, b) => b.ms - a.ms),
         pages: pageCount,
+        /** Ticked but not worth visiting, given the items selected. */
+        pagesSkipped: pages.length - pageCount,
         passes,
         // Matches the runner's queue: one driver slot per pass, plus each page.
         workItems: passes * (pageLoop ? pageCount + 1 : 1),

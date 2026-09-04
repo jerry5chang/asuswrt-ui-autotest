@@ -55,52 +55,76 @@ window.__AUT__.suite('eaa.client-dialog', async function (t) {
     const frame = t.$('#statusframe');
     if (!frame) return t.skip('no #statusframe on this page — not the Network Map');
 
-    const frameDoc = await t.waitFor(() => {
+    /*
+     * The frame is not showing the client list. index.asp points it at
+     * /device-map/router.asp on load; the list is only fetched when the
+     * "Client status" icon sets the frame's src -- an <a target="statusframe">
+     * that also calls showstausframe('Client'). Waiting for a card in
+     * whatever the frame happened to be showing meant waiting for one in the
+     * router status panel, which never has any, and reporting that as "the
+     * router has no clients".
+     */
+    const listLink = t.$('#clientStatusLink') || t.$('a[href*="device-map/clients.asp"]');
+    if (!listLink) return t.skip('no client-list link on this page');
+    listLink.click();
+
+    /** Re-read every time: the frame navigates, and can reload under us. */
+    const frameDoc = () => {
         try {
             const doc = frame.contentDocument;
             return doc && doc.body ? doc : null;
         } catch (e) {
             return null;
         }
-    }, 8000);
-    if (!frameDoc) return t.skip('the client list frame never became readable');
+    };
+
+    const listDoc = await t.waitFor(() => {
+        const doc = frameDoc();
+        if (!doc) return null;
+        const path = (doc.location && doc.location.pathname) || '';
+        return /clients\.asp/i.test(path) ? doc : null;
+    }, 10000);
+    if (!listDoc) {
+        return t.fail('activating Client status did not load device-map/clients.asp into the frame');
+    }
+    t.pass('the client list opens in the device-map frame');
 
     /*
-     * The list is not there when the page reports loaded. clients.asp's
-     * initial() fires one AJAX for the list and then asks the router to
-     * rescan after a further 5s, re-drawing on a 3s poll -- so a card can be
-     * fifteen seconds out. Waiting five, as this did, reported "no clients"
-     * on a router that plainly had one.
+     * clients.asp's initial() fires one AJAX for the list, then asks the
+     * router to rescan five seconds later, redrawing on a three-second poll --
+     * so a card can be fifteen seconds out.
      */
-    const findCard = () => frameDoc.querySelector(CARD) || frameDoc.querySelector('[onclick*="popupCustomTable"]');
+    const findCard = () => {
+        const doc = frameDoc();
+        if (!doc) return null;
+        return doc.querySelector(CARD) || doc.querySelector('[onclick*="popupCustomTable"]');
+    };
 
     let card = await t.waitFor(findCard, 18000);
 
     if (!card) {
-        /*
-         * Still nothing. The default tab lists every online client, wired
-         * included (clients.asp filters the other way round), so an empty
-         * default usually means an empty list -- but try the other tabs
-         * before concluding that, since a client can be counted on one of
-         * them and not yet drawn on this one.
-         */
-        const tabs = [
-            ...frameDoc.querySelectorAll('[onclick*="drawClientList"], [onclick*="switchTab_drawClientList"]'),
-        ];
+        // The default tab lists every online client, wired included, so an
+        // empty default usually means an empty list -- but check the others
+        // before concluding that.
+        const doc = frameDoc();
+        const tabs = doc
+            ? [...doc.querySelectorAll('[onclick*="drawClientList"], [onclick*="switchTab_drawClientList"]')]
+            : [];
         for (const tab of tabs) {
             tab.click();
             card = await t.waitFor(findCard, 1500);
             if (card) {
-                t.info(`the client list only drew after switching tab: ${(tab.textContent || '').trim().slice(0, 40)}`);
+                t.info(`the list only drew after switching tab: ${(tab.textContent || '').trim().slice(0, 40)}`);
                 break;
             }
         }
     }
 
     if (!card) {
-        // Say which it was, so an empty router is not mistaken for a broken test.
+        // Say which case it is, so an empty router is not read as a broken test.
+        const doc = frameDoc();
         const counted = ['tabOnlineNum', 'tabWiredNum', 'tabAllNum']
-            .map((id) => frameDoc.getElementById(id))
+            .map((id) => doc && doc.getElementById(id))
             .filter(Boolean)
             .map((el) => Number((el.textContent || '0').trim()) || 0);
         const total = counted.reduce((a, b) => a + b, 0);

@@ -83,6 +83,7 @@ const MESSAGES = {
 
         'pages.title': 'Pages',
         'pages.filter': 'Filter pages…',
+        'pages.inScope': 'Only {visited} of the {selected} ticked will be visited — no selected item acts on the rest.',
         'pages.empty': 'Probe the DUT to list its pages.',
         'pages.noMatch': 'No page matches that filter.',
 
@@ -278,6 +279,7 @@ const MESSAGES = {
 
         'pages.title': '頁面',
         'pages.filter': '篩選頁面…',
+        'pages.inScope': '勾選的 {selected} 頁中只會造訪 {visited} 頁 —— 其餘頁面沒有任何選中的測項會作用。',
         'pages.empty': '請先探測 DUT 以取得頁面清單。',
         'pages.noMatch': '沒有符合條件的頁面。',
 
@@ -469,6 +471,7 @@ const MESSAGES = {
 
         'pages.title': '页面',
         'pages.filter': '筛选页面…',
+        'pages.inScope': '勾选的 {selected} 页中只会访问 {visited} 页 —— 其余页面没有任何选中的测试项会作用。',
         'pages.empty': '请先探测 DUT 以获取页面清单。',
         'pages.noMatch': '没有符合条件的页面。',
 
