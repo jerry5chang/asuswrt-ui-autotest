@@ -250,6 +250,22 @@ async function testRuntime() {
         bySuite('t.check').map((r) => r.severity).join(',') === 'pass,fail');
     check('an unloaded suite is skipped, not silently dropped', bySuite('t.missing')[0]?.severity === 'skip');
 
+    // Verbose mode is the hook for diagnosing a suite from the DUT's own
+    // console, so check it actually emits and stays off by default.
+    const logged = [];
+    sandbox.console.info = (...args) => logged.push(args.join(' '));
+    AUT.suite('t.verbose', async (v) => v.pass('spoken'));
+    await AUT.runSuites(['t.verbose'], 3000);
+    check('nothing is logged unless verbose is on', logged.length === 0, logged.join(' | '));
+    AUT.configure({ verbose: true });
+    await AUT.runSuites(['t.verbose'], 3000);
+    check('verbose echoes the assertion with an [AUT] prefix',
+        logged.some((line) => /^\[AUT\] t\.verbose — pass: spoken/.test(line)), logged.join(' | '));
+    check('...and brackets the suite so a hang is visible',
+        logged.some((l) => /t\.verbose — start/.test(l)) && logged.some((l) => /done in \d+ms/.test(l)),
+        logged.join(' | '));
+    AUT.configure({ verbose: false });
+
     const hung = await AUT.runSuites(['t.hang'], 400);
     check('a hanging suite times out instead of stalling the run',
         hung[0]?.severity === 'error' && /timed out/.test(hung[0].message));
@@ -352,6 +368,46 @@ async function testEvents() {
     check('a skip survives collapsing',
         collapseSuiteRows([{ suite: 'a', severity: 'skip', message: 'n/a' }]).rows[0].severity === 'skip');
     check('nothing in, nothing out', collapseSuiteRows([]).rows.length === 0);
+
+    /*
+     * A diagnostic info must not suppress the pass summary. Treating every
+     * non-pass as a problem meant the client dialog suite -- twelve passing
+     * checks plus one info naming the focus-trap implementation -- reported
+     * the info alone, so a working suite looked like it had never run.
+     */
+    const withNote = collapseSuiteRows([
+        { suite: 'eaa.client-dialog', severity: 'pass', message: 'opens' },
+        { suite: 'eaa.client-dialog', severity: 'pass', message: 'role' },
+        { suite: 'eaa.client-dialog', severity: 'info', message: 'focus management provided by X' },
+        { suite: 'eaa.client-dialog', severity: 'pass', message: 'escape closes' },
+    ]);
+    check('an info alongside passes does not hide them',
+        withNote.rows.some((r) => r.severity === 'pass' && r.message === '3 checks passed'),
+        JSON.stringify(withNote.rows.map((r) => `${r.severity}:${r.message}`)));
+    check('...and the info is kept, because it says how it was verified',
+        withNote.rows.some((r) => r.severity === 'info'));
+    check('...counting only the passes, not the note',
+        withNote.rows.find((r) => r.severity === 'pass').detail.checks.length === 3);
+
+    const noteAndProblem = collapseSuiteRows([
+        { suite: 'a', severity: 'pass', message: 'p' },
+        { suite: 'a', severity: 'info', message: 'note' },
+        { suite: 'a', severity: 'fail', message: 'Escape closes the dialog' },
+    ]);
+    check('a real problem still suppresses the passes',
+        !noteAndProblem.rows.some((r) => r.severity === 'pass'),
+        JSON.stringify(noteAndProblem.rows.map((r) => r.severity)));
+    check('...and keeps both the problem and the note',
+        noteAndProblem.rows.map((r) => r.severity).sort().join() === 'fail,info');
+
+    for (const sev of ['warn', 'blocked']) {
+        const rows = collapseSuiteRows([
+            { suite: 'a', severity: 'pass', message: 'p' },
+            { suite: 'a', severity: sev, message: 'something' },
+        ]).rows;
+        check(`a ${sev} counts as a problem, so the passes are dropped`,
+            !rows.some((r) => r.severity === 'pass'), JSON.stringify(rows.map((r) => r.severity)));
+    }
 }
 
 /* --------------------------------------------------- offline: estimation */

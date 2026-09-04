@@ -268,6 +268,7 @@ const SETTING_FIELDS = {
     autoLogin: 'checked',
     safeMode: 'checked',
     stopOnError: 'checked',
+    verboseConsole: 'checked',
     pageSettleMs: 'value',
     pageTimeoutMs: 'value',
     timeScale: 'value',
@@ -688,11 +689,15 @@ function renderRun() {
     const busy = run.status === RUN.RUNNING || run.status === RUN.STOPPING;
     const paused = run.status === RUN.PAUSED;
 
-    $('#progressBar').style.width = `${run.progress || 0}%`;
-    $('#progressText').textContent =
+    // One percentage drives both the fill width and the clip on the top text
+    // layer, so they cannot drift apart.
+    $('#progressWrap').style.setProperty('--pct', `${run.progress || 0}%`);
+    const label =
         run.status === RUN.IDLE
             ? t('run.status.idle')
             : t('run.progress', { status: statusLabel(run.status), percent: run.progress || 0 });
+    $('#progressText').textContent = label;
+    $('#progressTextOver').textContent = label;
     $('#btnStart').hidden = busy || paused;
     $('#btnPause').hidden = !busy;
     $('#btnResume').hidden = !paused;

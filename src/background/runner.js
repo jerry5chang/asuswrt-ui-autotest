@@ -124,6 +124,7 @@ export async function startRun({ tabId, selection, settings, env }) {
         timeScale: settings.timeScale,
         safeMode: settings.safeMode,
         riskyActions: settings.riskyActions,
+        verbose: !!settings.verboseConsole,
         channels,
     };
 

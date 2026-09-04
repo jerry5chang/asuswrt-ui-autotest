@@ -9,8 +9,6 @@
     --line: #dde1e6;
     --accent: #006ce1;
     --accent-fg: #ffffff;
-    /* Progress fill: tinted so --fg reads on it and on the track alike. */
-    --bar: #b9d6fa;
     --error: #c0233b;
     --fail: #cf4a10;
     --warn: #9a6c00;
@@ -50,7 +48,6 @@
         --line: #2d343c;
         --accent: #4c9dff;
         --accent-fg: #0b1016;
-        --bar: #2c4c6e;
         --error: #ff7a8c;
         --fail: #ffa473;
         --warn: #ffd166;
@@ -69,7 +66,6 @@
     --line: #2d343c;
     --accent: #4c9dff;
     --accent-fg: #0b1016;
-        --bar: #2c4c6e;
     --error: #ff7a8c;
     --fail: #ffa473;
     --warn: #ffd166;
@@ -433,8 +429,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .bar {
     position: absolute;
     inset: 0 auto 0 0;
-    width: 0;
-    background: var(--bar);
+    width: var(--pct, 0%);
+    background: var(--accent);
     transition: width .2s;
 }
 
@@ -445,8 +441,22 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
     place-items: center;
     font-size: var(--fs-tiny);
     font-weight: 600;
-    color: var(--fg);
-    mix-blend-mode: normal;
+    pointer-events: none;
+}
+
+/* Under the fill: reads on the track. */
+.ptext.base { color: var(--fg); }
+
+/* Over the fill, clipped to it by the same percentage that sizes the bar, so
+   the two layers meet exactly at its edge. */
+.ptext.over {
+    color: var(--accent-fg);
+    clip-path: inset(0 calc(100% - var(--pct, 0%)) 0 0);
+    transition: clip-path .2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bar, .ptext.over { transition: none; }
 }
 
 /* The row for whatever is being visited right now, pinned above the results. */

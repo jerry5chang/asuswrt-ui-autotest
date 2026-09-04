@@ -136,6 +136,8 @@ export const DEFAULT_SETTINGS = {
     timeScale: 1.0,
     safeMode: true,
     stopOnError: false,
+    /** Echo every assertion to the DUT page's console, for diagnosis. */
+    verboseConsole: false,
     autoLogin: false,
     username: 'admin',
     password: '',

@@ -131,6 +131,9 @@
                     <span class="desc" data-i18n="opts.safeModeDesc"></span></span></label>
             <label class="check"><input id="stopOnError" type="checkbox">
                 <span data-i18n="opts.stopOnError"></span></label>
+            <label class="check"><input id="verboseConsole" type="checkbox">
+                <span class="grow"><span class="name" data-i18n="opts.verbose"></span>
+                    <span class="desc" data-i18n="opts.verboseDesc"></span></span></label>
             <div class="field">
                 <label for="pageSettleMs" data-i18n="opts.settle"></label>
                 <input id="pageSettleMs" type="number" min="0" step="250">
@@ -174,8 +177,14 @@
     <!-- -------------------------------------------------------------- RUN -->
     <section class="panel" data-panel="run">
         <div class="runhead">
-            <div class="progress"><div id="progressBar" class="bar"></div>
-                <span id="progressText" class="ptext"></span></div>
+            <!-- The label spans both the filled and unfilled parts, so it is
+                 drawn twice and the top copy is clipped to the fill. One
+                 colour cannot read on both. -->
+            <div id="progressWrap" class="progress">
+                <div id="progressBar" class="bar"></div>
+                <span id="progressText" class="ptext base"></span>
+                <span id="progressTextOver" class="ptext over" aria-hidden="true"></span>
+            </div>
         </div>
 
         <div class="controls">

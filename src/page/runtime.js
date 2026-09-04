@@ -35,6 +35,21 @@
                 message: String(message == null ? '' : message).slice(0, 1200),
                 detail: detail === undefined ? null : detail,
             });
+            /*
+             * With verbose on, every assertion is echoed to the page's own
+             * console. That is the only way to see where a suite stopped when
+             * the report shows one collapsed row -- open DevTools on the DUT
+             * page and read the [AUT] lines.
+             *
+             * console.info deliberately: instrument.js hooks error and warn,
+             * so logging through those would feed our own capture.
+             */
+            if (AUT.cfg && AUT.cfg.verbose) {
+                console.info(
+                    '[AUT] ' + suiteId + ' — ' + severity + ': ' + message,
+                    detail === undefined || detail === null ? '' : detail
+                );
+            }
         }
 
         var t = {
@@ -151,6 +166,7 @@
                     }
                     var ctx = makeContext(id);
                     var startedAt = Date.now();
+                    if (AUT.cfg && AUT.cfg.verbose) console.info('[AUT] ' + id + ' — start');
                     var guard = new Promise(function (resolve) {
                         setTimeout(function () { resolve('__timeout__'); }, timeout);
                     });
@@ -172,6 +188,12 @@
                         })
                         .then(function () {
                             AUT.suiteTimings[id] = Date.now() - startedAt;
+                            if (AUT.cfg && AUT.cfg.verbose) {
+                                console.info(
+                                    '[AUT] ' + id + ' — done in ' + (Date.now() - startedAt) + 'ms, ' +
+                                        ctx.results.length + ' check(s)'
+                                );
+                            }
                             all = all.concat(ctx.results);
                         });
                 });

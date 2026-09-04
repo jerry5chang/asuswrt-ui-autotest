@@ -97,6 +97,10 @@ const MESSAGES = {
         'opts.safeMode': 'Safe Mode',
         'opts.safeModeDesc': 'intercept reboot / restart / restore requests instead of sending them',
         'opts.stopOnError': 'Stop at the first error',
+        'opts.verbose': 'Verbose console output',
+        'opts.verboseDesc':
+            'echo every assertion to the router page’s own console, prefixed [AUT] — open '
+            + 'DevTools on that tab to see exactly where a suite stopped',
         'opts.settle': 'Settle after load (ms)',
         'opts.timeout': 'Page timeout (ms)',
         'opts.timeScale': 'Timer scale',
@@ -291,6 +295,10 @@ const MESSAGES = {
         'opts.safeMode': '安全模式',
         'opts.safeModeDesc': '攔下 reboot / restart / restore 等請求，不真的送出',
         'opts.stopOnError': '遇到第一個錯誤就停止',
+        'opts.verbose': '詳細 console 輸出',
+        'opts.verboseDesc':
+            '把每一條斷言印到路由器頁面自己的 console，前綴 [AUT] —— 在那個分頁開 DevTools ' +
+            '就能看到測項究竟停在哪一步',
         'opts.settle': '載入後等待（毫秒）',
         'opts.timeout': '單頁逾時（毫秒）',
         'opts.timeScale': '計時器倍率',
@@ -483,6 +491,10 @@ const MESSAGES = {
         'opts.safeMode': '安全模式',
         'opts.safeModeDesc': '拦截 reboot / restart / restore 等请求，不真正发出',
         'opts.stopOnError': '遇到第一个错误就停止',
+        'opts.verbose': '详细 console 输出',
+        'opts.verboseDesc':
+            '把每一条断言打印到路由器页面自身的 console，前缀 [AUT] —— 在那个标签页打开 DevTools ' +
+            '就能看到测试项究竟停在哪一步',
         'opts.settle': '加载后等待（毫秒）',
         'opts.timeout': '单页超时（毫秒）',
         'opts.timeScale': '定时器倍率',

@@ -100,6 +100,14 @@ export function mapEvents(events, { page, lang, settings, enabledChannels }) {
  * @returns {{rows: Array<object>, checks: number}}
  */
 export function collapseSuiteRows(rows) {
+    /*
+     * Only an actual problem suppresses the pass summary. Treating any
+     * non-pass as a problem meant a suite that passed twelve checks and also
+     * logged one diagnostic `info` reported the info alone -- so a working
+     * suite looked like it had not run at all.
+     */
+    const PROBLEMS = new Set([SEV.ERROR, SEV.FAIL, SEV.WARN, SEV.BLOCKED]);
+
     const bySuite = new Map();
     for (const row of rows || []) {
         if (!bySuite.has(row.suite)) bySuite.set(row.suite, []);
@@ -108,20 +116,25 @@ export function collapseSuiteRows(rows) {
 
     const out = [];
     for (const [suite, group] of bySuite) {
-        const notPass = group.filter((r) => r.severity !== SEV.PASS);
-        if (notPass.length === 0) {
+        const problems = group.filter((r) => PROBLEMS.has(r.severity));
+        const passes = group.filter((r) => r.severity === SEV.PASS);
+        // info and skip are deliberate notes from the suite; they are kept
+        // either way, because they say how something was verified.
+        const notes = group.filter((r) => r.severity === SEV.INFO || r.severity === SEV.SKIP);
+
+        if (!problems.length && passes.length) {
             out.push({
                 suite,
                 severity: SEV.PASS,
-                message: `${group.length} check${group.length === 1 ? '' : 's'} passed`,
-                detail: { checks: group.map((r) => r.message) },
+                message: `${passes.length} check${passes.length === 1 ? '' : 's'} passed`,
+                detail: { checks: passes.map((r) => r.message) },
             });
-        } else {
-            const passed = group.length - notPass.length;
-            for (const row of notPass) {
-                out.push(passed ? { ...row, detail: { ...(row.detail || {}), alsoPassed: passed } } : row);
-            }
         }
+
+        for (const row of problems) {
+            out.push(passes.length ? { ...row, detail: { ...(row.detail || {}), alsoPassed: passes.length } } : row);
+        }
+        out.push(...notes);
     }
     return { rows: out, checks: (rows || []).length };
 }
