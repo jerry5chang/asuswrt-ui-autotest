@@ -72,8 +72,7 @@ const MESSAGES = {
         'login.autoRelogin': 'Re-login automatically if the session expires mid-run',
         'login.hint':
             'Used to sign in on its own: when Probe finds the tab sitting on the login page, ' +
-            'and when a session expires mid-run. Needs the option above. Uses get_Nonce.cgi ' +
-            '+ login_v2.cgi; credentials stay in this browser profile’s extension storage.',
+            'and when a session expires mid-run, for which the option above must be on.',
 
         'suites.title': 'Test items',
         'preset.all': 'All',
@@ -263,9 +262,8 @@ const MESSAGES = {
         'login.password': '密碼',
         'login.autoRelogin': '測試中 session 過期時自動重新登入',
         'login.hint':
-            '供自動登入使用：探測時分頁停在登入頁、以及測試中 session 過期時。' +
-            '需要開啟上面那個選項。走 get_Nonce.cgi + login_v2.cgi，' +
-            '帳密只存在這個瀏覽器設定檔的擴充套件儲存空間。',
+            '供自動登入使用：探測時分頁停在登入頁、以及測試中 session 過期時，' +
+            '需要開啟上面那個選項。',
 
         'suites.title': '測項',
         'preset.all': '全選',
@@ -451,9 +449,8 @@ const MESSAGES = {
         'login.password': '密码',
         'login.autoRelogin': '测试过程中会话过期时自动重新登录',
         'login.hint':
-            '供自动登录使用：探测时标签页停在登录页、以及测试过程中会话过期时。' +
-            '需要开启上面那个选项。走 get_Nonce.cgi + login_v2.cgi，' +
-            '账号密码只保存在当前浏览器配置文件的扩展存储中。',
+            '供自动登录使用：探测时标签页停在登录页、以及测试过程中会话过期时，' +
+            '需要开启上面那个选项。',
 
         'suites.title': '测试项',
         'preset.all': '全选',
