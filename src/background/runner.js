@@ -373,7 +373,7 @@ export async function startRun({ tabId, selection, settings, env }) {
                      * a "being debugged" banner on the tab.
                      */
                     const wantsRealKeys =
-                        settings.realKeys !== false && pageSuites.some((s) => s.needsRealKeys);
+                        pageSuites.some((s) => s.needsRealKeys);
                     let inputService = null;
 
                     if (wantsRealKeys) {

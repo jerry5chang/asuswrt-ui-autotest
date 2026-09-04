@@ -144,7 +144,6 @@ export const DEFAULT_SETTINGS = {
      */
     devMode: false,
     /** Allow chrome.debugger attach for suites that need real key presses. */
-    realKeys: true,
     autoLogin: false,
     username: 'admin',
     password: '',

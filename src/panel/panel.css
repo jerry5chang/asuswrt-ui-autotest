@@ -10,6 +10,8 @@
     --line-soft: #ebeef1;
     --accent: #006ce1;
     --accent-fg: #ffffff;
+    --go: #1a7f37;
+    --go-fg: #ffffff;
     --error: #c0233b;
     --fail: #cf4a10;
     --warn: #9a6c00;
@@ -50,6 +52,8 @@
         --line-soft: #242a31;
         --accent: #4c9dff;
         --accent-fg: #0b1016;
+        --go: #238636;
+        --go-fg: #ffffff;
         --error: #ff7a8c;
         --fail: #ffa473;
         --warn: #ffd166;
@@ -69,6 +73,8 @@
     --line-soft: #242a31;
     --accent: #4c9dff;
     --accent-fg: #0b1016;
+    --go: #238636;
+    --go-fg: #ffffff;
     --error: #ff7a8c;
     --fail: #ffa473;
     --warn: #ffd166;
@@ -331,6 +337,9 @@ main {
 
 .btn.ghost { background: transparent; color: var(--fg); border-color: var(--line); }
 .btn.danger { background: var(--error); color: #fff; }
+/* Start is the one button that begins something; green says so where blue was
+   just "the accent colour again". */
+.btn.go { background: var(--go); color: var(--go-fg); border-color: var(--go); }
 .btn.sm { padding: 5px 10px; font-size: var(--fs-small); }
 .btn.xs { padding: 3px 8px; font-size: var(--fs-tiny); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }

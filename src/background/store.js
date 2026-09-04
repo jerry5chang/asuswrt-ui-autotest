@@ -14,7 +14,16 @@ export const DEFAULT_SELECTION = {
 
 export async function getSettings() {
     const bag = await chrome.storage.local.get(SETTINGS_KEY);
-    return { ...DEFAULT_SETTINGS, ...(bag[SETTINGS_KEY] || {}) };
+    const stored = bag[SETTINGS_KEY] || {};
+    /*
+     * A setting that no longer exists in source must not linger. Removing the
+     * realKeys option would otherwise leave anyone who had turned it off with
+     * it still off, and nothing in the UI to say why.
+     */
+    return {
+        ...DEFAULT_SETTINGS,
+        ...Object.fromEntries(Object.entries(stored).filter(([key]) => key in DEFAULT_SETTINGS)),
+    };
 }
 
 /** Plain-JSON deep equality; every setting is a JSON value. */
