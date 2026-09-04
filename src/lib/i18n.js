@@ -54,7 +54,7 @@ const MESSAGES = {
             'page list matches what this model actually ships.',
         'empty.probe': 'Probe the active tab',
 
-        'dut.title': 'DUT',
+        'dut.title': 'Device info',
         'dut.origin': 'Origin',
         'dut.model': 'Model',
         'dut.firmware': 'Firmware',
@@ -272,7 +272,7 @@ const MESSAGES = {
             '所以頁面清單會與這台機器實際出貨的功能一致。',
         'empty.probe': '探測目前分頁',
 
-        'dut.title': 'DUT',
+        'dut.title': '設備資訊',
         'dut.origin': '來源網址',
         'dut.model': '型號',
         'dut.firmware': '韌體版本',
@@ -484,7 +484,7 @@ const MESSAGES = {
             '因此页面清单会与这台设备实际提供的功能一致。',
         'empty.probe': '探测当前标签页',
 
-        'dut.title': 'DUT',
+        'dut.title': '设备信息',
         'dut.origin': '源地址',
         'dut.model': '型号',
         'dut.firmware': '固件版本',

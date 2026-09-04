@@ -69,12 +69,12 @@
         </section>
 
         <details class="group" data-when="probed" open>
-            <summary data-i18n="dut.title">DUT</summary>
+            <summary data-i18n="dut.title">Device info</summary>
             <dl id="envTable" class="kv"></dl>
         </details>
 
-        <details class="group">
-            <summary data-i18n="login.title">Login (auth v2)</summary>
+        <details class="group" open>
+            <summary data-i18n="login.title">Login</summary>
             <div class="field">
                 <label for="username" data-i18n="login.username">Username</label>
                 <input id="username" type="text" autocomplete="off" spellcheck="false">
@@ -88,7 +88,7 @@
             <p class="hint" data-i18n="login.hint"></p>
         </details>
 
-        <details class="group" open data-when="probed">
+        <details class="group" data-when="probed">
             <summary><span data-i18n="suites.title">Test items</span>
                 <span id="suiteCount" class="badge"></span></summary>
             <div class="chips" id="presets">
@@ -100,7 +100,7 @@
             <div id="suiteTree"></div>
         </details>
 
-        <details class="group" open data-when="probed">
+        <details class="group" data-when="probed">
             <summary><span data-i18n="pages.title">Pages</span>
                 <span id="pageCount" class="badge"></span></summary>
             <div class="row">
