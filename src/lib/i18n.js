@@ -165,8 +165,8 @@ const MESSAGES = {
 
         'group.Core': 'Core',
         'group.i18n': 'i18n',
-        'group.SPEC': 'SPEC',
-        'group.WebAPI': 'WebAPI',
+        'group.SPEC': 'Product spec',
+        'group.WebAPI': 'API checks',
         'group.Page tests': 'Page tests',
         'group.EAA': 'EAA',
 
@@ -354,8 +354,8 @@ const MESSAGES = {
 
         'group.Core': '核心',
         'group.i18n': '多語系',
-        'group.SPEC': 'SPEC',
-        'group.WebAPI': 'WebAPI',
+        'group.SPEC': '產品規格',
+        'group.WebAPI': 'API 檢測',
         'group.Page tests': '單頁測項',
         'group.EAA': 'EAA 無障礙',
 
@@ -542,8 +542,8 @@ const MESSAGES = {
 
         'group.Core': '核心',
         'group.i18n': '多语言',
-        'group.SPEC': 'SPEC',
-        'group.WebAPI': 'WebAPI',
+        'group.SPEC': '产品规格',
+        'group.WebAPI': 'API 检测',
         'group.Page tests': '单页测试项',
         'group.EAA': 'EAA 无障碍',
 
