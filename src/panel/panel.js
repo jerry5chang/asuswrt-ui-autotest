@@ -12,7 +12,7 @@
 import { MSG, RUN, SEV_ORDER, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
 import { SUITES, GROUPS, SUITE_BY_ID, pagesInScope } from '../suites/registry.js';
 import { BUILDERS, reportFilename } from '../lib/report.js';
-import { ignoreRuleFor } from '../lib/events.js';
+import { ignoreRuleFor, knownIssue, rulesMatching } from '../lib/events.js';
 import { estimateRemaining, estimateRun, formatDuration } from '../lib/estimate.js';
 import {
     LOCALES,
@@ -37,6 +37,8 @@ let snap = null;
 const sel = { suiteIds: new Set(), pages: new Set(), langs: new Set() };
 let pagesTouched = false;
 let reportCache = null;
+/** reportCache.results with the current known-issue list applied. */
+let reportRows = [];
 /** Which suite groups are folded away. Remembered across sessions. */
 let collapsedGroups = new Set();
 
@@ -745,16 +747,46 @@ async function ignoreFinding(row) {
     if (!rule) return;
 
     const known = [...(snap.settings.knownIssues || [])];
-    const already = known.some((k) => k.where === rule.where && k.match === rule.match);
-    if (!already) known.push(rule);
+    if (!known.some((k) => k.where === rule.where && k.match === rule.match)) known.push(rule);
 
     snap = await send(MSG.SAVE_SETTINGS, { settings: { knownIssues: known } });
-    await loadReport();
+    renderReport();
     flash('#runError', t('report.ignored', { count: known.length }), 'ok');
+}
+
+/** Take a rule back out, so the finding is reported again. */
+async function restoreFinding(row) {
+    const drop = rulesMatching(snap.settings, row);
+    if (!drop.length) return;
+
+    const known = (snap.settings.knownIssues || []).filter((k) => !drop.includes(k));
+    snap = await send(MSG.SAVE_SETTINGS, { settings: { knownIssues: known } });
+    renderReport();
+    flash('#runError', t('report.restored'), 'ok');
 }
 
 /** Findings worth offering to suppress: the ones that read as defects. */
 const SUPPRESSIBLE = new Set(['error', 'fail', 'warn']);
+
+/**
+ * Re-apply the known-issue list to results a run already classified.
+ *
+ * The runner filters as it records, so a rule added afterwards would not
+ * affect anything already in the report -- press Ignore and the row you were
+ * looking at stays a failure until the next run, which reads as the button
+ * having done nothing. Reclassifying for display fixes that; the stored run is
+ * untouched, and the next run reaches the same verdict on its own.
+ */
+function withKnownIssues(rows) {
+    const rules = (snap.settings && snap.settings.knownIssues) || [];
+    if (!rules.length) return rows;
+
+    return rows.map((row) => {
+        if (!SUPPRESSIBLE.has(row.severity)) return row;
+        if (!knownIssue({ knownIssues: rules }, row)) return row;
+        return { ...row, severity: 'skip', message: `known issue: ${row.message}`, suppressed: true };
+    });
+}
 
 function renderResultList(host, rows, current) {
     host.textContent = '';
@@ -784,15 +816,26 @@ function renderResultList(host, rows, current) {
 
         // Only in the Report tab: during a run the list is a feed, and a
         // button that reflows it while results stream in is a nuisance.
-        if (host.id === 'reportRows' && SUPPRESSIBLE.has(r.severity) && ignoreRuleFor(r)) {
-            const ignore = el('button', 'ignore', t('report.ignore'));
-            ignore.type = 'button';
-            ignore.title = t('report.ignoreTitle');
-            ignore.addEventListener('click', (event) => {
-                event.stopPropagation();
-                ignoreFinding(r);
-            });
-            item.append(ignore);
+        if (host.id === 'reportRows') {
+            if (r.suppressed) {
+                const restore = el('button', 'ignore', t('report.restore'));
+                restore.type = 'button';
+                restore.title = t('report.restoreTitle');
+                restore.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    restoreFinding(r);
+                });
+                item.append(restore);
+            } else if (SUPPRESSIBLE.has(r.severity) && ignoreRuleFor(r)) {
+                const ignore = el('button', 'ignore accent', t('report.ignore'));
+                ignore.type = 'button';
+                ignore.title = t('report.ignoreTitle');
+                ignore.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    ignoreFinding(r);
+                });
+                item.append(ignore);
+            }
         }
 
         host.append(item);
@@ -815,10 +858,16 @@ function renderReport() {
     if (!reportCache) return;
     const run = reportCache;
 
-    renderCards($('#reportSummary'), run.counts || {});
+    // Everything the Report tab shows is counted after the known-issue list is
+    // applied, so the cards and the rows cannot disagree.
+    reportRows = withKnownIssues(run.results || []);
+    const counts = {};
+    for (const row of reportRows) counts[row.severity] = (counts[row.severity] || 0) + 1;
 
-    fillSelect($('#filterSev'), SEV_ORDER.filter((s) => (run.counts || {})[s]), (s) => [s, sevLabel(s)]);
-    fillSelect($('#filterSuite'), [...new Set((run.results || []).map((r) => r.suite))].sort(), (s) => [s, suiteName(s)]);
+    renderCards($('#reportSummary'), counts);
+
+    fillSelect($('#filterSev'), SEV_ORDER.filter((s) => counts[s]), (s) => [s, sevLabel(s)]);
+    fillSelect($('#filterSuite'), [...new Set(reportRows.map((r) => r.suite))].sort(), (s) => [s, suiteName(s)]);
 
     applyReportFilter();
 
@@ -932,7 +981,7 @@ function applyReportFilter() {
     const suiteFilter = $('#filterSuite').value;
     const needle = $('#filterQuery').value.trim().toLowerCase();
 
-    const rows = (reportCache.results || []).filter(
+    const rows = reportRows.filter(
         (r) =>
             (!sevFilter || r.severity === sevFilter) &&
             (!suiteFilter || r.suite === suiteFilter) &&
@@ -942,7 +991,7 @@ function applyReportFilter() {
     );
 
     rows.sort((a, b) => SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity));
-    $('#filterCount').textContent = `${rows.length}/${(reportCache.results || []).length}`;
+    $('#filterCount').textContent = `${rows.length}/${reportRows.length}`;
     renderResultList($('#reportRows'), rows.slice(0, 500));
 }
 

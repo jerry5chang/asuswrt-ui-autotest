@@ -157,6 +157,9 @@ const MESSAGES = {
             'Add a rule that suppresses this finding, reported as skip from now on. Review or '
             + 'remove it under Options → Advanced lists → Known issues.',
         'report.ignored': 'Added to known issues ({count} in the list).',
+        'report.restore': 'Restore',
+        'report.restoreTitle': 'Remove the rule hiding this, so it is reported again.',
+        'report.restored': 'Rule removed; this is reported again.',
         'report.noApis': 'No API calls recorded.',
         'report.nothingToExport': 'Nothing to export yet — run a test first.',
 
@@ -362,6 +365,9 @@ const MESSAGES = {
         'report.ignoreTitle':
             '加一條規則把這筆結果壓成 skip。之後可在「選項 → 進階清單 → 已知問題」檢視或移除。',
         'report.ignored': '已加入已知問題（清單共 {count} 條）。',
+        'report.restore': '取消忽略',
+        'report.restoreTitle': '移除壓住這筆的規則，讓它重新被回報。',
+        'report.restored': '規則已移除，這筆會重新被回報。',
         'report.noApis': '沒有記錄到 API 呼叫。',
         'report.nothingToExport': '還沒有可匯出的內容 —— 請先跑一次測試。',
 
@@ -566,6 +572,9 @@ const MESSAGES = {
         'report.ignoreTitle':
             '加一条规则把这条结果压成 skip。之后可在「选项 → 高级清单 → 已知问题」查看或移除。',
         'report.ignored': '已加入已知问题（清单共 {count} 条）。',
+        'report.restore': '取消忽略',
+        'report.restoreTitle': '移除压住这条的规则，让它重新被报告。',
+        'report.restored': '规则已移除，这条会重新被报告。',
         'report.noApis': '没有记录到 API 调用。',
         'report.nothingToExport': '还没有可导出的内容 —— 请先运行一次测试。',
 

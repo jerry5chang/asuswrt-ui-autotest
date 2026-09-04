@@ -786,4 +786,19 @@ body.on-report .estimate { display: none; }
 }
 
 .item > .ignore:hover { color: var(--fg); border-color: var(--mut); }
+
+/* Ignore is the action being offered, so it reads as one rather than as
+   another piece of muted metadata. Restore keeps the quiet treatment: it
+   undoes something, and only appears on a row already hidden. */
+.item > .ignore.accent {
+    color: var(--accent);
+    border-color: var(--accent);
+    font-weight: 600;
+}
+
+.item > .ignore.accent:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-fg);
+}
 .item > .ignore:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

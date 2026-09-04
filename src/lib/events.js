@@ -33,6 +33,16 @@ export function knownIssue(settings, event) {
     });
 }
 
+/** Rules from `settings` that would suppress this already-recorded row. */
+export function rulesMatching(settings, row) {
+    if (!row) return [];
+    // Rows the run already suppressed carry the prefix; strip it to match.
+    const message = String(row.message || '').replace(/^known issue: /, '');
+    return (settings.knownIssues || []).filter((rule) =>
+        knownIssue({ knownIssues: [rule] }, { ...row, message })
+    );
+}
+
 /**
  * Turn a reported row into a known-issue rule that will suppress it.
  *

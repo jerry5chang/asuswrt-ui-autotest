@@ -351,6 +351,31 @@ async function testEvents() {
         }));
     check('a finding with no message yields no rule', ignoreRuleFor({ message: '' }) === null);
 
+    /*
+     * Ignoring has to change the report you are looking at. The runner filters
+     * as it records, so a rule added afterwards affects nothing already
+     * recorded -- the row would stay a failure and the button would read as
+     * having done nothing. rulesMatching is what lets the panel reclassify,
+     * and undo it.
+     */
+    const { rulesMatching } = await import('../src/lib/events.js');
+    const recorded = {
+        suite: 'core.resource-error',
+        severity: 'fail',
+        message: 'link failed to load: http://192.168.8.1/mobile.customize/customize.css',
+        detail: { src: 'http://192.168.8.1/mobile.customize/customize.css' },
+        page: 'QIS_wizard.htm',
+    };
+    check('a rule is found for a row it suppresses',
+        rulesMatching({ knownIssues: [rule] }, recorded).length === 1);
+    check('...and for the same row once already prefixed, so it can be undone',
+        rulesMatching({ knownIssues: [rule] }, { ...recorded, message: `known issue: ${recorded.message}` })
+            .length === 1);
+    check('...but not for an unrelated row',
+        rulesMatching({ knownIssues: [rule] }, { ...recorded, message: 'something else', detail: {} })
+            .length === 0);
+    check('no rules, no matches', rulesMatching({}, recorded).length === 0);
+
     check('known-issue matching can key off a resource src',
         knownIssue({ knownIssues: [{ where: 'www.asus.com', match: 'failed to load' }] },
             { kind: 'resource', message: 'external script failed to load: x', detail: { src: 'https://www.asus.com/x' } }));
