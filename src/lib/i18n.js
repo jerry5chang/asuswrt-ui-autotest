@@ -123,7 +123,10 @@ const MESSAGES = {
             'v2.x kept these in config/config.js, so changing one meant editing the extension ' +
             'and reloading it. Edit them here instead.',
         'adv.specMap': 'Feature → page map (SPEC check)',
-        'adv.knownIssues': 'Known issues (reported as skip)',
+        'adv.localIgnores': 'Ignored on this machine (reported as skip)',
+        'adv.shipped':
+            '{count} more ship with the extension and update with it, so they are not listed '
+            + 'here; these are added to those, never replacing them.',
         'adv.riskyActions': 'Risky action_script values (Safe Mode)',
         'adv.apply': 'Apply lists',
         'adv.reset': 'Reset to defaults',
@@ -165,6 +168,9 @@ const MESSAGES = {
         'report.restore': 'Restore',
         'report.restoreTitle': 'Remove the rule hiding this, so it is reported again.',
         'report.restored': 'Rule removed; this is reported again.',
+        'report.restoreShipped':
+            'This one ships with the extension, so it stays. Change DEFAULT_KNOWN_ISSUES in '
+            + 'source to drop it for everyone.',
         'report.noApis': 'No API calls recorded.',
         'report.nothingToExport': 'Nothing to export yet — run a test first.',
 
@@ -337,7 +343,10 @@ const MESSAGES = {
         'adv.hint':
             'v2.x 把這些放在 config/config.js，改一次就得動擴充套件再重新載入。現在直接在這裡改。',
         'adv.specMap': '功能 → 頁面對應（SPEC 檢查）',
-        'adv.knownIssues': '已知問題（回報為 skip）',
+        'adv.localIgnores': '本機忽略的項目（回報為 skip）',
+        'adv.shipped':
+            '另有 {count} 條隨套件發行、會跟著更新，所以不列在這裡；' +
+            '這裡的是疊加在那些之上，不會取代它們。',
         'adv.riskyActions': '危險的 action_script 清單（安全模式）',
         'adv.apply': '套用清單',
         'adv.reset': '回復預設值',
@@ -378,6 +387,8 @@ const MESSAGES = {
         'report.restore': '取消忽略',
         'report.restoreTitle': '移除壓住這筆的規則，讓它重新被回報。',
         'report.restored': '規則已移除，這筆會重新被回報。',
+        'report.restoreShipped':
+            '這條是隨套件發行的，會保留。要對所有人取消，得改原始碼的 DEFAULT_KNOWN_ISSUES。',
         'report.noApis': '沒有記錄到 API 呼叫。',
         'report.nothingToExport': '還沒有可匯出的內容 —— 請先跑一次測試。',
 
@@ -549,7 +560,10 @@ const MESSAGES = {
         'adv.hint':
             'v2.x 把这些放在 config/config.js，改一次就得修改扩展并重新加载。现在可直接在这里改。',
         'adv.specMap': '功能 → 页面映射（SPEC 检查）',
-        'adv.knownIssues': '已知问题（报告为 skip）',
+        'adv.localIgnores': '本机忽略的项目（报告为 skip）',
+        'adv.shipped':
+            '另有 {count} 条随扩展发行、会跟着更新，所以不列在这里；' +
+            '这里的是叠加在那些之上，不会取代它们。',
         'adv.riskyActions': '危险的 action_script 清单（安全模式）',
         'adv.apply': '应用清单',
         'adv.reset': '恢复默认值',
@@ -590,6 +604,8 @@ const MESSAGES = {
         'report.restore': '取消忽略',
         'report.restoreTitle': '移除压住这条的规则，让它重新被报告。',
         'report.restored': '规则已移除，这条会重新被报告。',
+        'report.restoreShipped':
+            '这条是随扩展发行的，会保留。要对所有人取消，得改源码的 DEFAULT_KNOWN_ISSUES。',
         'report.noApis': '没有记录到 API 调用。',
         'report.nothingToExport': '还没有可导出的内容 —— 请先运行一次测试。',
 

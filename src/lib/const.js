@@ -150,7 +150,14 @@ export const DEFAULT_SETTINGS = {
     username: 'admin',
     password: '',
     riskyActions: ALL_RISKY_ACTIONS,
+    /*
+     * The curated list, shipped in source. Not editable in the panel: a stored
+     * copy would shadow it, and then updating the extension could never add a
+     * rule for anyone who had ever pressed Ignore.
+     */
     knownIssues: DEFAULT_KNOWN_ISSUES,
+    /** Rules added on this machine. Unioned with the shipped list, never replacing it. */
+    ignoredExtra: [],
     specMap: DEFAULT_SPEC_MAP,
     returnPage: 'Advanced_LAN_Content.asp',
 };

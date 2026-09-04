@@ -12,7 +12,7 @@
 import { MSG, RUN, SEV_ORDER, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
 import { SUITES, GROUPS, SUITE_BY_ID, pagesInScope } from '../suites/registry.js';
 import { BUILDERS, reportFilename } from '../lib/report.js';
-import { ignoreRuleFor, knownIssue, rulesMatching } from '../lib/events.js';
+import { activeIgnoreRules, ignoreRuleFor, knownIssue, rulesMatching } from '../lib/events.js';
 import { estimateRemaining, estimateRun, formatDuration } from '../lib/estimate.js';
 import {
     LOCALES,
@@ -281,7 +281,7 @@ const SETTING_FIELDS = {
 };
 
 /** Settings held as JSON in a textarea rather than a single input. */
-const JSON_FIELDS = ['specMap', 'knownIssues', 'riskyActions'];
+const JSON_FIELDS = ['specMap', 'ignoredExtra', 'riskyActions'];
 
 function renderSettings() {
     for (const [id, prop] of Object.entries(SETTING_FIELDS)) {
@@ -295,8 +295,10 @@ function renderSettings() {
 
     // These rules are what silences findings, so say how many are in force
     // without having to open the section.
-    const rules = (snap.settings.knownIssues || []).length;
-    $('#advCount').textContent = t('adv.rules', { count: rules });
+    const shipped = (snap.settings.knownIssues || []).length;
+    const local = (snap.settings.ignoredExtra || []).length;
+    $('#advCount').textContent = t('adv.rules', { count: shipped + local });
+    $('#advShipped').textContent = t('adv.shipped', { count: shipped });
 }
 
 /**
@@ -752,12 +754,14 @@ async function ignoreFinding(row) {
     const rule = ignoreRuleFor(row);
     if (!rule) return;
 
-    const known = [...(snap.settings.knownIssues || [])];
-    if (!known.some((k) => k.where === rule.where && k.match === rule.match)) known.push(rule);
+    // Added to the local list, never to the shipped one: a stored copy of the
+    // shipped list would shadow it and block future updates.
+    const extra = [...(snap.settings.ignoredExtra || [])];
+    if (!extra.some((k) => k.where === rule.where && k.match === rule.match)) extra.push(rule);
 
-    snap = await send(MSG.SAVE_SETTINGS, { settings: { knownIssues: known } });
+    snap = await send(MSG.SAVE_SETTINGS, { settings: { ignoredExtra: extra } });
     renderReport();
-    flash('#runError', t('report.ignored', { count: known.length }), 'ok');
+    flash('#runError', t('report.ignored', { count: activeIgnoreRules(snap.settings).length }), 'ok');
 }
 
 /** Take a rule back out, so the finding is reported again. */
@@ -765,10 +769,18 @@ async function restoreFinding(row) {
     const drop = rulesMatching(snap.settings, row);
     if (!drop.length) return;
 
-    const known = (snap.settings.knownIssues || []).filter((k) => !drop.includes(k));
-    snap = await send(MSG.SAVE_SETTINGS, { settings: { knownIssues: known } });
-    renderReport();
-    flash('#runError', t('report.restored'), 'ok');
+    const extra = (snap.settings.ignoredExtra || []).filter((k) => !drop.includes(k));
+    const removed = (snap.settings.ignoredExtra || []).length - extra.length;
+
+    if (removed) {
+        snap = await send(MSG.SAVE_SETTINGS, { settings: { ignoredExtra: extra } });
+        renderReport();
+        flash('#runError', t('report.restored'), 'ok');
+    }
+
+    // Anything left matching came with the extension, and is changed in source
+    // rather than here -- otherwise a local edit would shadow future updates.
+    if (drop.length > removed) flash('#runError', t('report.restoreShipped'), 'warn');
 }
 
 /** Findings worth offering to suppress: the ones that read as defects. */

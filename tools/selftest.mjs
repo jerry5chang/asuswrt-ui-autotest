@@ -1624,11 +1624,20 @@ async function testSettingsStore() {
     check('a default the user never touched flows through to them',
         merged.knownIssues[0].where === 'new');
 
-    // A value the user really did change must survive, even back to a default.
-    await saveSettings({ knownIssues: [] });
+    // A value the user really did change must survive, even emptied.
+    await saveSettings({ riskyActions: [] });
     check('an emptied list is kept, because empty differs from the default',
-        JSON.stringify(stub.local.get('settings').knownIssues) === '[]',
+        JSON.stringify(stub.local.get('settings').riskyActions) === '[]',
         JSON.stringify(stub.local.get('settings')));
+
+    // The shipped ignore list is source-only, so it cannot be shadowed even
+    // by a caller that tries.
+    await saveSettings({ knownIssues: [] });
+    check('the shipped ignore list refuses to be stored',
+        !('knownIssues' in stub.local.get('settings')),
+        JSON.stringify(Object.keys(stub.local.get('settings'))));
+    check('...so it still reads back from source',
+        (await getSettings()).knownIssues.length === DEFAULT_SETTINGS.knownIssues.length);
 
     await saveSettings({ theme: DEFAULT_SETTINGS.theme });
     check('setting a value back to its default removes the override',
@@ -1639,14 +1648,35 @@ async function testSettingsStore() {
      * show it again" is not true. chrome.storage.local does; the check is that
      * a curated list is stored as an override and read back intact.
      */
-    await saveSettings({ knownIssues: [{ where: 'a/b.css', match: 'failed to load' }] });
-    check('a curated ignore list is persisted', 
-        stub.local.get('settings').knownIssues.length === 1,
+    await saveSettings({ ignoredExtra: [{ where: 'a/b.css', match: 'failed to load' }] });
+    check('a locally ignored finding is persisted',
+        stub.local.get('settings').ignoredExtra.length === 1,
         JSON.stringify(stub.local.get('settings')));
     check('...and read back intact',
-        (await getSettings()).knownIssues[0].where === 'a/b.css');
+        (await getSettings()).ignoredExtra[0].where === 'a/b.css');
     check('maintainer mode is off by default, so a colleague cannot edit the list',
         DEFAULT_SETTINGS.devMode === false);
+
+    /*
+     * The point of splitting the two lists: a local addition must not stop the
+     * shipped list growing. Storing one merged array meant an extension update
+     * could never add a rule for anyone who had pressed Ignore.
+     */
+    const { activeIgnoreRules } = await import('../src/lib/events.js');
+    const shippedNow = (await getSettings()).knownIssues.length;
+    check('a local addition does not replace the shipped list',
+        activeIgnoreRules(await getSettings()).length === shippedNow + 1);
+    check('...and the shipped list is not written to storage at all',
+        !('knownIssues' in stub.local.get('settings')),
+        JSON.stringify(Object.keys(stub.local.get('settings'))));
+
+    // Simulate the extension shipping another rule.
+    const grown = { ...DEFAULT_SETTINGS, knownIssues: [...DEFAULT_SETTINGS.knownIssues, { where: 'new', match: 'x' }] };
+    const afterUpdate = { ...grown, ...stub.local.get('settings') };
+    check('an update delivers its new rule even to someone who has pressed Ignore',
+        activeIgnoreRules(afterUpdate).some((r) => r.where === 'new') &&
+            activeIgnoreRules(afterUpdate).some((r) => r.where === 'a/b.css'),
+        JSON.stringify(activeIgnoreRules(afterUpdate).map((r) => r.where)));
 
     delete globalThis.chrome;
 }

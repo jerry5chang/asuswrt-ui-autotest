@@ -19,9 +19,19 @@ export const EVENT_MAP = {
     apiBlocked: { suite: 'api.recorder', severity: SEV.BLOCKED },
 };
 
+/**
+ * Every rule in force: the list shipped with the extension, plus whatever was
+ * added on this machine. A union rather than an override, so updating the
+ * extension always delivers its new rules -- a stored copy of the whole list
+ * would shadow them permanently.
+ */
+export function activeIgnoreRules(settings = {}) {
+    return [...(settings.knownIssues || []), ...(settings.ignoredExtra || [])];
+}
+
 /** Is this event a known false alarm? */
 export function knownIssue(settings, event) {
-    return (settings.knownIssues || []).some((k) => {
+    return activeIgnoreRules(settings).some((k) => {
         if (!k.match) return false;
         const where = k.where;
         const whereOk =
@@ -38,7 +48,7 @@ export function rulesMatching(settings, row) {
     if (!row) return [];
     // Rows the run already suppressed carry the prefix; strip it to match.
     const message = String(row.message || '').replace(/^known issue: /, '');
-    return (settings.knownIssues || []).filter((rule) =>
+    return activeIgnoreRules(settings).filter((rule) =>
         knownIssue({ knownIssues: [rule] }, { ...row, message })
     );
 }

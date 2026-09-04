@@ -31,11 +31,20 @@ function sameAsDefault(key, value) {
  * DEFAULT_SETTINGS then failed to reach anyone who had ever touched a setting,
  * which is how a new known-issue entry could be added and still not apply.
  */
+/**
+ * Settings that only ever come from source. Storing one would shadow it, and
+ * then shipping a new value could never reach anyone who had saved anything.
+ * `knownIssues` is the curated ignore list; local additions go to
+ * `ignoredExtra`, which is unioned with it rather than replacing it.
+ */
+const SHIPPED_ONLY = ['knownIssues'];
+
 export async function saveSettings(patch) {
     const effective = { ...(await getSettings()), ...patch };
 
     const overrides = {};
     for (const [key, value] of Object.entries(effective)) {
+        if (SHIPPED_ONLY.includes(key)) continue;
         if (!sameAsDefault(key, value)) overrides[key] = value;
     }
 
