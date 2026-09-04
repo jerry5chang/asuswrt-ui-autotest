@@ -17,6 +17,8 @@
     --pass: #177245;
     --skip: #6b7280;
     --radius: 2px;
+    /* Only the theme switch, which is a pill by definition. */
+    --radius-pill: 999px;
 
     /* Type scale, ~1.15 between steps. The panel used to hardcode 10-16px in
        thirty places; changing size is now one edit. */
@@ -28,8 +30,19 @@
     --fs-figure: 18px;
 }
 
+/*
+ * Three states, not two. An explicit choice stamps data-theme on the root; the
+ * default "follow the system" setting stamps nothing, so only
+ * prefers-color-scheme separates light from dark there. The guard makes an
+ * explicit light choice beat a dark OS, and the [data-theme="dark"] block
+ * makes the toggle win in the other direction too.
+ *
+ * The two dark blocks are identical on purpose; a test asserts they stay that
+ * way, because a token defined in only one of them would apply in one state
+ * and not the other.
+ */
 @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
         --bg: #16191d;
         --panel: #1d2126;
         --fg: #e5e9ed;
@@ -47,24 +60,59 @@
     }
 }
 
-* { box-sizing: border-box; }
-
-/* Header, tabs and the estimate travel together, so nothing has to know how
-   tall the others are -- which is what a type-scale change would have broken. */
-.stickytop {
-    position: sticky;
-    top: 0;
-    z-index: 6;
-    background: var(--panel);
+:root[data-theme="dark"] {
+    --bg: #16191d;
+    --panel: #1d2126;
+    --fg: #e5e9ed;
+    --mut: #98a2ae;
+    --line: #2d343c;
+    --accent: #4c9dff;
+    --accent-fg: #0b1016;
+    --error: #ff7a8c;
+    --fail: #ffa473;
+    --warn: #ffd166;
+    --blocked: #b197fc;
+    --info: #79c0ff;
+    --pass: #5fd39a;
+    --skip: #98a2ae;
 }
 
+* { box-sizing: border-box; }
+
+html { height: 100%; }
+
+/*
+ * App shell rather than a sticky header. `position: sticky` in a
+ * document-scrolled page drifts a few pixels as the scroll starts, which is
+ * exactly what it looked like. Here the header is a flex row that cannot
+ * scroll because it is not inside the scrolling box at all -- <main> is the
+ * only thing that scrolls.
+ */
 body {
     margin: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     background: var(--bg);
     color: var(--fg);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: var(--fs-body);
     line-height: 1.5;
+}
+
+.apphead {
+    flex: 0 0 auto;
+    background: var(--panel);
+}
+
+main {
+    flex: 1 1 auto;
+    /* Without this a flex item refuses to shrink below its content, and the
+       whole column overflows instead of the box scrolling. */
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 /* ------------------------------------------------------------- top bar */
@@ -604,3 +652,44 @@ body:not(.is-empty) #emptyState { display: none; }
 }
 
 body.on-report .estimate { display: none; }
+
+/* ------------------------------------------------------- theme switch */
+
+/* iOS-style: a pill track with a sliding knob that carries the icon. */
+.switch {
+    flex: 0 0 auto;
+    width: 44px;
+    height: 24px;
+    padding: 2px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--bg);
+    cursor: pointer;
+    position: relative;
+    display: block;
+}
+
+.switch .knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: var(--radius-pill);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    display: grid;
+    place-items: center;
+    font-size: var(--fs-micro);
+    line-height: 1;
+    transition: transform .16s ease, background-color .16s ease;
+}
+
+.switch[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+.switch[aria-checked="true"] .knob { transform: translateX(20px); }
+
+.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+    .switch .knob { transition: none; }
+}

@@ -116,6 +116,13 @@ export const DEFAULT_SPEC_MAP = {
 export const DEFAULT_KNOWN_ISSUES = [
     { where: 'js/asus_notice.js', match: 'httpApi is not defined' },
     { where: 'tm.svg', match: "Cannot read properties of null (reading 'getItem')" },
+    /*
+     * QIS_V3 links ./mobile.customize/customize.css unconditionally, but that
+     * directory only ships with the business customisation package. By design:
+     * without the package installed there is no custom styling to apply, so
+     * the 404 is expected rather than a defect.
+     */
+    { where: 'mobile.customize/customize.css', match: 'failed to load' },
 ];
 
 export const DEFAULT_SETTINGS = {
@@ -123,6 +130,8 @@ export const DEFAULT_SETTINGS = {
     locale: '',
     /** Suite groups the user has folded away in the panel. */
     collapsedGroups: [],
+    /** '' follows the OS; 'light' or 'dark' is an explicit choice. */
+    theme: '',
     pageSettleMs: 2000,
     pageTimeoutMs: 20000,
     timeScale: 1.0,

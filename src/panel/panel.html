@@ -13,7 +13,7 @@
      around <b>/<code>, so a translator gets the whole clause and the panel
      still needs no innerHTML. -->
 
-<div class="stickytop">
+<div class="apphead">
 <header class="topbar">
     <div class="brand">
         <img class="logo" src="../../resource/icon.png" alt="">
@@ -23,6 +23,8 @@
         </div>
     </div>
     <div class="topbar-actions">
+        <button id="themeToggle" class="switch" type="button" role="switch" aria-checked="false"
+                data-i18n-title="topbar.theme"><span class="knob" aria-hidden="true"></span></button>
         <select id="uiLocale" class="locale" data-i18n-title="topbar.language"></select>
         <button id="btnProbe" class="btn ghost sm" data-when="probed"
                 data-i18n="topbar.probe" data-i18n-title="topbar.probeTitle">Probe</button>
@@ -35,8 +37,8 @@
     <button class="tab" data-tab="report" role="tab" data-i18n="tab.report">Report</button>
 </nav>
 
-<!-- Sits outside the panels so the same figure is in front of you while you
-     configure a run and while it is running. -->
+<!-- Inside the header, so it is in front of you while you configure a run and
+     while it is running -- and cannot scroll away. -->
 <div id="estimateBar" class="estimate" data-when="probed" hidden>
     <span class="elabel" id="estimateLabel"></span>
     <b id="estimateTime" class="etime"></b>

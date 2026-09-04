@@ -610,14 +610,16 @@ async function testRegistry() {
 
     // Sizes and radii go through tokens, so "make it bigger" stays one edit
     // rather than thirty, and nothing drifts out of the scale.
-    const css = fs.readFileSync('src/panel/panel.css', 'utf8');
+    // Comments talk about the properties they explain, so strip them or the
+    // checks below match the prose rather than the CSS.
+    const css = fs.readFileSync('src/panel/panel.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     const hardSizes = [...css.matchAll(/font-size:\s*(\d+px)/g)].map((m) => m[1]);
     check('no hardcoded font size in the panel CSS', hardSizes.length === 0, hardSizes.join(', '));
     // Capture the value and filter, rather than a lookahead after \s* -- which
     // backtracks and tests at the space, matching everything.
     const hardRadii = [...css.matchAll(/border-radius:([^;]+);/g)]
         .map((m) => m[1].trim())
-        .filter((value) => !value.includes('var(--radius)'));
+        .filter((value) => !/var\(--radius[a-z-]*\)/.test(value));
     check('no hardcoded corner radius in the panel CSS', hardRadii.length === 0, hardRadii.join(', '));
 
     const declared = new Set([...css.matchAll(/(--fs-[a-z]+):/g)].map((m) => m[1]));
@@ -627,15 +629,43 @@ async function testRegistry() {
     check('every type token defined is used', [...declared].every((tok) => used.has(tok)),
         [...declared].filter((tok) => !used.has(tok)).join(', '));
 
-    // A sticky header stack with hand-counted offsets breaks the moment the
-    // type scale changes, so there is exactly one sticky element and it pins
-    // to the top rather than below a measured header height.
-    const stickyRules = [...css.matchAll(/([^{}]+)\{([^}]*position:\s*sticky[^}]*)\}/g)];
-    check('exactly one element is sticky', stickyRules.length === 1,
-        stickyRules.map((m) => m[1].trim()).join(' | '));
-    check('...it is the header stack', stickyRules[0] && stickyRules[0][1].includes('.stickytop'));
-    check('...and it pins to 0, not to a counted offset',
-        stickyRules[0] && /top:\s*0\s*;/.test(stickyRules[0][2]), stickyRules[0] && stickyRules[0][2]);
+    // The header is held still by being outside the scrolling box, not by
+    // position: sticky, which drifted as the scroll started.
+    check('nothing relies on position: sticky', !/position:\s*sticky/.test(css),
+        (css.match(/[^{}]+\{[^}]*position:\s*sticky/g) || []).join(' | '));
+    check('the body is a non-scrolling flex column',
+        /body\s*\{[^}]*flex-direction:\s*column[^}]*\}/.test(css) &&
+            /body\s*\{[^}]*overflow:\s*hidden[^}]*\}/.test(css));
+    check('main is the scrolling box',
+        /\bmain\s*\{[^}]*overflow-y:\s*auto[^}]*\}/.test(css));
+    check('...and may shrink, or the column overflows instead of scrolling',
+        /\bmain\s*\{[^}]*min-height:\s*0[^}]*\}/.test(css));
+
+    /*
+     * Theming has three states: an explicit choice stamps data-theme, and the
+     * default stamps nothing, where only prefers-color-scheme separates light
+     * from dark. A token defined in only one of the two dark blocks would
+     * apply in one state and not the other, so they must stay identical.
+     */
+    const tokensOf = (block) =>
+        [...block.matchAll(/(--[a-z-]+):\s*([^;]+);/g)].map((m) => `${m[1]}:${m[2].trim()}`).sort();
+    const mediaDark = /@media \(prefers-color-scheme: dark\) \{\s*:root:not\(\[data-theme="light"\]\) \{([^}]*)\}/.exec(css);
+    const explicitDark = /:root\[data-theme="dark"\] \{([^}]*)\}/.exec(css);
+    check('the OS-dark block is guarded so an explicit light choice wins', !!mediaDark);
+    check('an explicit dark choice has its own block', !!explicitDark);
+    check('...and the two define exactly the same tokens',
+        mediaDark && explicitDark &&
+            tokensOf(mediaDark[1]).join('|') === tokensOf(explicitDark[1]).join('|'),
+        mediaDark && explicitDark
+            ? tokensOf(mediaDark[1]).filter((x) => !tokensOf(explicitDark[1]).includes(x)).join(', ')
+            : 'block missing');
+
+    const lightRoot = /:root \{([^}]*)\}/.exec(css);
+    const lightTokens = lightRoot ? tokensOf(lightRoot[1]).map((x) => x.split(':')[0]) : [];
+    const darkTokens = explicitDark ? tokensOf(explicitDark[1]).map((x) => x.split(':')[0]) : [];
+    const onlyDark = darkTokens.filter((tok) => !lightTokens.includes(tok));
+    check('every dark token is declared in the light palette first',
+        onlyDark.length === 0, onlyDark.join(', '));
 }
 
 /* ------------------------------------------------------ offline: hook list */

@@ -58,6 +58,47 @@ function el(tag, className, text) {
     return node;
 }
 
+/* ----------------------------------------------------------------- theme */
+
+const prefersDark = () => window.matchMedia('(prefers-color-scheme: dark)');
+
+/** '' follows the OS; 'light' / 'dark' is the user's own choice. */
+function effectiveTheme(pref) {
+    if (pref === 'light' || pref === 'dark') return pref;
+    return prefersDark().matches ? 'dark' : 'light';
+}
+
+/**
+ * Stamps data-theme only for an explicit choice, so the default state stays
+ * "whatever the OS says" and keeps following it.
+ */
+function applyTheme(pref) {
+    const effective = effectiveTheme(pref);
+    const root = document.documentElement;
+    if (pref === 'light' || pref === 'dark') root.dataset.theme = pref;
+    else delete root.dataset.theme;
+
+    const toggle = $('#themeToggle');
+    toggle.setAttribute('aria-checked', String(effective === 'dark'));
+    toggle.querySelector('.knob').textContent = effective === 'dark' ? '☾' : '☀';
+    return effective;
+}
+
+function initThemeToggle() {
+    $('#themeToggle').addEventListener('click', async () => {
+        // Flip away from what is actually on screen, whether that came from
+        // the OS or from a previous choice, and make the result explicit.
+        const next = effectiveTheme(snap && snap.settings.theme) === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        snap = await send(MSG.SAVE_SETTINGS, { settings: { theme: next } });
+    });
+
+    // Still following the OS? Then follow it when it changes.
+    prefersDark().addEventListener('change', () => {
+        if (!snap || !snap.settings.theme) applyTheme('');
+    });
+}
+
 /* ---------------------------------------------------------------- locale */
 
 /**
@@ -128,6 +169,7 @@ async function refresh() {
     snap = await send(MSG.GET_SNAPSHOT);
     if (!snap) return;
     applyLocale(snap.settings.locale);
+    applyTheme(snap.settings.theme);
     collapsedGroups = new Set(snap.settings.collapsedGroups || []);
     sel.suiteIds = new Set(snap.selection.suiteIds || []);
     sel.langs = new Set(snap.selection.langs || []);
@@ -628,12 +670,7 @@ function renderRun() {
     $('#progressText').textContent =
         run.status === RUN.IDLE
             ? t('run.status.idle')
-            : t('run.progress', {
-                  status: statusLabel(run.status),
-                  percent: run.progress || 0,
-                  done: run.cursor,
-                  total: run.total,
-              });
+            : t('run.progress', { status: statusLabel(run.status), percent: run.progress || 0 });
     $('#currentItem').textContent = run.current
         ? `${run.current.lang} · ${run.current.page || t('run.driverSuites')}`
         : '—';
@@ -645,8 +682,28 @@ function renderRun() {
 
     renderEstimate();
     renderCards($('#counters'), run.counts || {});
-    renderResultList($('#liveResults'), (run.results || []).slice(-80).reverse());
+    renderResultList($('#liveResults'), liveResultOrder(run.results || []));
     $('#runLog').textContent = (run.notes || []).join('\n');
+}
+
+/**
+ * What to show in "Latest results" during a run.
+ *
+ * Newest-first alone buries failures: a sweep produces hundreds of rows and
+ * the one that matters scrolls out of the window within a page or two. So
+ * every error and failure is pinned to the top and never dropped, whatever
+ * else arrives; the rest of the space goes to the most recent activity, so
+ * you can still see it is making progress.
+ */
+function liveResultOrder(results) {
+    const bad = [];
+    const rest = [];
+    for (const row of results) {
+        (row.severity === 'error' || row.severity === 'fail' ? bad : rest).push(row);
+    }
+    // Worst first, then most recent within each severity.
+    bad.sort((a, b) => SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity) || (b.ts || 0) - (a.ts || 0));
+    return [...bad, ...rest.slice(-60).reverse()];
 }
 
 function statusLabel(status) {
@@ -937,7 +994,9 @@ chrome.runtime.onMessage.addListener((msg) => {
 });
 
 initLocaleSelect();
+initThemeToggle();
 applyLocale(detectLocale()); // paint something readable before the snapshot lands
+applyTheme(''); // ...in the OS's appearance, until settings say otherwise
 initTabs();
 initPresets();
 initPageControls();
