@@ -271,6 +271,7 @@ const SETTING_FIELDS = {
     autoLogin: 'checked',
     safeMode: 'checked',
     stopOnError: 'checked',
+    devMode: 'checked',
     realKeys: 'checked',
     verboseConsole: 'checked',
     pageSettleMs: 'value',
@@ -291,6 +292,11 @@ function renderSettings() {
         const node = $('#' + id);
         if (node) node.value = JSON.stringify(snap.settings[id], null, 2);
     }
+
+    // These rules are what silences findings, so say how many are in force
+    // without having to open the section.
+    const rules = (snap.settings.knownIssues || []).length;
+    $('#advCount').textContent = t('adv.rules', { count: rules });
 }
 
 /**
@@ -816,7 +822,9 @@ function renderResultList(host, rows, current) {
 
         // Only in the Report tab: during a run the list is a feed, and a
         // button that reflows it while results stream in is a nuisance.
-        if (host.id === 'reportRows') {
+        // Curating the list is a maintainer action; a colleague sees the
+        // rules applied but no buttons to change them.
+        if (host.id === 'reportRows' && snap.settings.devMode) {
             if (r.suppressed) {
                 const restore = el('button', 'ignore', t('report.restore'));
                 restore.type = 'button';

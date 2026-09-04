@@ -97,6 +97,10 @@ const MESSAGES = {
         'opts.safeMode': 'Safe Mode',
         'opts.safeModeDesc': 'intercept reboot / restart / restore requests instead of sending them',
         'opts.stopOnError': 'Stop at the first error',
+        'opts.devMode': 'Maintainer mode',
+        'opts.devModeDesc':
+            'show the Ignore / Restore buttons on report rows, for curating the known-issue '
+            + 'list. Off for everyone else: the list still applies, they just cannot change it.',
         'opts.realKeys': 'Real key presses',
         'opts.realKeysDesc':
             'attach the debugger for pages whose tests need a key the browser acts on, so Tab '
@@ -123,6 +127,7 @@ const MESSAGES = {
         'adv.riskyActions': 'Risky action_script values (Safe Mode)',
         'adv.apply': 'Apply lists',
         'adv.reset': 'Reset to defaults',
+        'adv.rules': '{count} rules',
         'adv.saved': 'Saved.',
         'adv.resetHint': 'Reset to defaults — press Apply lists to save.',
 
@@ -308,6 +313,10 @@ const MESSAGES = {
         'opts.safeMode': '安全模式',
         'opts.safeModeDesc': '攔下 reboot / restart / restore 等請求，不真的送出',
         'opts.stopOnError': '遇到第一個錯誤就停止',
+        'opts.devMode': '維護者模式',
+        'opts.devModeDesc':
+            '在報告列上顯示「忽略／取消忽略」按鈕，用來整理已知問題清單。' +
+            '其他人關著：清單照樣生效，只是不能改。',
         'opts.realKeys': '真實按鍵',
         'opts.realKeysDesc':
             '對需要「瀏覽器真的會反應的按鍵」的測項附加 debugger，讓 Tab 真的移動焦點。' +
@@ -332,6 +341,7 @@ const MESSAGES = {
         'adv.riskyActions': '危險的 action_script 清單（安全模式）',
         'adv.apply': '套用清單',
         'adv.reset': '回復預設值',
+        'adv.rules': '{count} 條規則',
         'adv.saved': '已儲存。',
         'adv.resetHint': '已回復預設值 —— 請按「套用清單」儲存。',
 
@@ -515,6 +525,10 @@ const MESSAGES = {
         'opts.safeMode': '安全模式',
         'opts.safeModeDesc': '拦截 reboot / restart / restore 等请求，不真正发出',
         'opts.stopOnError': '遇到第一个错误就停止',
+        'opts.devMode': '维护者模式',
+        'opts.devModeDesc':
+            '在报告行上显示「忽略／取消忽略」按钮，用来整理已知问题清单。' +
+            '其他人关着：清单照样生效，只是不能改。',
         'opts.realKeys': '真实按键',
         'opts.realKeysDesc':
             '对需要「浏览器真的会响应的按键」的测试项附加 debugger，让 Tab 真的移动焦点。' +
@@ -539,6 +553,7 @@ const MESSAGES = {
         'adv.riskyActions': '危险的 action_script 清单（安全模式）',
         'adv.apply': '应用清单',
         'adv.reset': '恢复默认值',
+        'adv.rules': '{count} 条规则',
         'adv.saved': '已保存。',
         'adv.resetHint': '已恢复默认值 —— 请点「应用清单」保存。',
 

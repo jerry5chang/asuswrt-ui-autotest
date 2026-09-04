@@ -532,6 +532,12 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 
 .pill {
     flex: 0 0 auto;
+    /* Centred vertically, like the action on the other end of the row, and
+       one width for every severity so the messages beside them line up
+       instead of starting at six different offsets. */
+    align-self: center;
+    min-width: 58px;
+    text-align: center;
     font-size: var(--fs-micro);
     font-weight: 700;
     text-transform: uppercase;

@@ -1634,6 +1634,20 @@ async function testSettingsStore() {
     check('setting a value back to its default removes the override',
         !('theme' in stub.local.get('settings')), JSON.stringify(stub.local.get('settings')));
 
+    /*
+     * The ignore list has to survive a browser restart, or "future runs never
+     * show it again" is not true. chrome.storage.local does; the check is that
+     * a curated list is stored as an override and read back intact.
+     */
+    await saveSettings({ knownIssues: [{ where: 'a/b.css', match: 'failed to load' }] });
+    check('a curated ignore list is persisted', 
+        stub.local.get('settings').knownIssues.length === 1,
+        JSON.stringify(stub.local.get('settings')));
+    check('...and read back intact',
+        (await getSettings()).knownIssues[0].where === 'a/b.css');
+    check('maintainer mode is off by default, so a colleague cannot edit the list',
+        DEFAULT_SETTINGS.devMode === false);
+
     delete globalThis.chrome;
 }
 

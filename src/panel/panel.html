@@ -131,6 +131,9 @@
                     <span class="desc" data-i18n="opts.safeModeDesc"></span></span></label>
             <label class="check"><input id="stopOnError" type="checkbox">
                 <span data-i18n="opts.stopOnError"></span></label>
+            <label class="check"><input id="devMode" type="checkbox">
+                <span class="grow"><span class="name" data-i18n="opts.devMode"></span>
+                    <span class="desc" data-i18n="opts.devModeDesc"></span></span></label>
             <label class="check"><input id="realKeys" type="checkbox">
                 <span class="grow"><span class="name" data-i18n="opts.realKeys"></span>
                     <span class="desc" data-i18n="opts.realKeysDesc"></span></span></label>
@@ -157,7 +160,8 @@
         </details>
 
         <details class="group" data-when="probed">
-            <summary data-i18n="adv.title">Advanced lists</summary>
+            <summary><span data-i18n="adv.title">Advanced lists</span>
+                <span id="advCount" class="badge"></span></summary>
             <p class="hint" data-i18n="adv.hint"></p>
 
             <label class="lbl" for="specMap" data-i18n="adv.specMap"></label>
