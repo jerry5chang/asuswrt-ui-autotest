@@ -41,6 +41,18 @@ async function activeTab() {
     return tab || null;
 }
 
+/** A tab URL trimmed to something worth putting in an error message. */
+function describeUrl(url) {
+    if (!url) return 'a tab with no address';
+    const scheme = /^([a-z-]+):/i.exec(url);
+    if (scheme && scheme[1] !== 'http' && scheme[1] !== 'https') {
+        // chrome://extensions, about:blank, file:// -- name the scheme, since
+        // the rest of the URL adds nothing.
+        return `a ${scheme[1]}: page`;
+    }
+    return url.length > 60 ? `${url.slice(0, 57)}...` : url;
+}
+
 async function snapshot({ full = false } = {}) {
     return {
         run: state.summary({ full }),
@@ -52,19 +64,39 @@ async function snapshot({ full = false } = {}) {
 
 /* --------------------------------------------------------------- routing */
 
-const handlers = {
+export const handlers = {
     async [MSG.GET_SNAPSHOT](msg) {
         return snapshot({ full: !!msg.full });
     },
 
     async [MSG.PROBE_ENV]() {
         const tab = await activeTab();
-        if (!tab) return { ok: false, reason: 'no active tab' };
-        if (!/^https?:/.test(tab.url || '')) {
-            return { ok: false, reason: 'the active tab is not an http(s) page' };
+
+        /**
+         * Record the outcome even when probing never got started. The panel
+         * renders the DUT card from run state, so a reason that is returned
+         * but not stored is a reason nobody ever sees -- it just leaves the
+         * generic "press Probe" hint sitting there.
+         */
+        const failed = (reason, extra = {}) => {
+            const env = { ok: false, loggedIn: false, pages: [], langs: [], reason, ...extra };
+            state.patch({ env });
+            return env;
+        };
+
+        if (!tab) {
+            return failed('no active tab — open the router UI in a tab, then press Probe');
         }
+        if (!/^https?:/.test(tab.url || '')) {
+            return failed(
+                `the active tab is ${describeUrl(tab.url)}, not the router UI — switch to the ` +
+                    'tab showing the router and press Probe again',
+                { probedUrl: tab.url || '' }
+            );
+        }
+
         const settings = await getSettings();
-        const env = await probe(tab.id, settings);
+        const env = { ...(await probe(tab.id, settings)), probedUrl: tab.url };
         state.patch({ env, tabId: tab.id, origin: env.origin || '' });
         return env;
     },

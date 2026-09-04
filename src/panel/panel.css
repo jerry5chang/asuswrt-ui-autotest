@@ -416,3 +416,51 @@ textarea.json.invalid { border-color: var(--error); }
 
 .hint.bad { color: var(--error); }
 .hint.good { color: var(--pass); }
+
+/* ----------------------------------------------------------- empty state
+   Before a successful probe there is no page list, no language list and
+   nothing to run, so the whole configuration surface is hidden and only the
+   guidance and its button remain. */
+
+body.is-empty [data-when="probed"] { display: none !important; }
+body:not(.is-empty) #emptyState { display: none; }
+
+.onboard {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px 15px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.onboard h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 650;
+}
+
+.onboard .steps {
+    margin: 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    color: var(--mut);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.onboard .steps li::marker { color: var(--accent); font-weight: 600; }
+.onboard .steps b { color: var(--fg); }
+.onboard .note { margin: 0; }
+.onboard .kv { font-size: 11px; }
+.onboard > .btn { align-self: stretch; }
+
+/* A tab with nothing behind it yet. */
+.tab[aria-disabled="true"] {
+    opacity: .38;
+    cursor: default;
+}

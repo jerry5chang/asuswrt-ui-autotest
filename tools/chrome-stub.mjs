@@ -7,7 +7,8 @@
  * dynamic content-script registration. Those need Chrome; see docs/TESTING.md.
  */
 
-export function installChromeStub(session) {
+export function installChromeStub(session, { tabUrl } = {}) {
+    let tabs = [{ id: 1, url: tabUrl || `${session.origin}/index.asp` }];
     const local = new Map();
     const sess = new Map();
 
@@ -64,10 +65,10 @@ export function installChromeStub(session) {
 
         tabs: {
             async query() {
-                return [{ id: 1, url: `${session.origin}/index.asp` }];
+                return tabs.filter((t) => t.url !== undefined);
             },
-            async get() {
-                return { id: 1, url: `${session.origin}/index.asp` };
+            async get(id) {
+                return tabs.find((t) => t.id === id) || tabs[0];
             },
             async update(id, info) {
                 calls.navigations.push(info.url);
@@ -109,5 +110,15 @@ export function installChromeStub(session) {
         webNavigation: { onCommitted: { addListener: () => {} } },
     };
 
-    return { local, sess, registered, calls, listeners };
+    return {
+        local,
+        sess,
+        registered,
+        calls,
+        listeners,
+        /** Point the "active tab" somewhere else, or nowhere. */
+        setTabs(next) {
+            tabs = next;
+        },
+    };
 }

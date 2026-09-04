@@ -35,14 +35,34 @@ function el(tag, className, text) {
 
 /* ------------------------------------------------------------------ tabs */
 
+function showTab(name) {
+    $$('.tab').forEach((t) => t.classList.toggle('is-active', t.dataset.tab === name));
+    $$('.panel').forEach((p) => p.classList.toggle('is-active', p.dataset.panel === name));
+    if (name === 'report') loadReport();
+}
+
 function initTabs() {
     $$('.tab').forEach((tab) => {
         tab.addEventListener('click', () => {
-            $$('.tab').forEach((t) => t.classList.toggle('is-active', t === tab));
-            $$('.panel').forEach((p) => p.classList.toggle('is-active', p.dataset.panel === tab.dataset.tab));
-            if (tab.dataset.tab === 'report') loadReport();
+            if (tab.getAttribute('aria-disabled') === 'true') return;
+            showTab(tab.dataset.tab);
         });
     });
+}
+
+/**
+ * Run and Report are meaningless until there is something to run against, so
+ * they are disabled rather than shown empty. A finished run keeps them open
+ * even if the probe was lost with a worker restart.
+ */
+function setRunTabsEnabled(enabled) {
+    let bounce = false;
+    for (const tab of $$('.tab')) {
+        if (tab.dataset.tab === 'setup') continue;
+        tab.setAttribute('aria-disabled', String(!enabled));
+        if (!enabled && tab.classList.contains('is-active')) bounce = true;
+    }
+    if (bounce) showTab('setup');
 }
 
 /* -------------------------------------------------------------- snapshot */
@@ -75,21 +95,18 @@ function renderAll() {
 
 function renderEnv() {
     const env = (snap.run && snap.run.env) || null;
+    const probed = !!(env && env.ok);
     const table = $('#envTable');
     table.textContent = '';
 
-    if (!env || !env.ok) {
-        $('#dutLine').textContent = env && env.reason ? env.reason : 'no DUT probed yet';
-        $('#probeHint').hidden = false;
-        $('#probeHint').className = 'note warn';
-        $('#probeHint').innerHTML = env && env.reason
-            ? `<b>Probe incomplete.</b> ${escapeHtml(env.reason)}`
-            : 'Open the router UI in a tab, log in, then press <b>Probe</b>.';
-        if (env) addKv(table, { Origin: env.origin || '-', 'Logged in': env.loggedIn ? 'yes' : 'no' });
+    document.body.classList.toggle('is-empty', !probed);
+    setRunTabsEnabled(probed || (snap.run && snap.run.resultCount > 0));
+
+    if (!probed) {
+        renderEmptyState(env);
         return;
     }
 
-    $('#probeHint').hidden = true;
     $('#dutLine').textContent = `${env.model} · ${env.firmware} · ${env.theme.toUpperCase()}`;
     $('#dutLine').title = env.origin;
 
@@ -103,6 +120,36 @@ function renderEnv() {
         Pages: String((env.pages || []).length),
         'Languages available': String((env.langs || []).length || '-'),
     });
+}
+
+/** Guidance, plus why the last attempt did not get anywhere. */
+function renderEmptyState(env) {
+    const reason = $('#probeReason');
+    const saw = $('#probeSaw');
+    saw.textContent = '';
+
+    if (env && env.reason) {
+        $('#dutLine').textContent = env.reason;
+        reason.textContent = env.reason;
+        // flash() may have left a success/error class behind.
+        reason.className = 'note warn';
+        reason.hidden = false;
+        // What the probe was actually looking at, so a wrong active tab is
+        // visible rather than something to deduce from the message.
+        if (env.probedUrl !== undefined || env.origin) {
+            saw.hidden = false;
+            addKv(saw, {
+                'Active tab': env.probedUrl || '(none)',
+                'Logged in': env.loggedIn ? 'yes' : 'no',
+            });
+        } else {
+            saw.hidden = true;
+        }
+    } else {
+        $('#dutLine').textContent = 'no DUT probed yet';
+        reason.hidden = true;
+        saw.hidden = true;
+    }
 }
 
 function addKv(dl, obj) {
@@ -539,29 +586,28 @@ function flash(selector, text, kind = 'error') {
 }
 
 function initActions() {
-    $('#btnProbe').addEventListener('click', async () => {
-        const btn = $('#btnProbe');
-        btn.disabled = true;
-        btn.textContent = '…';
-        try {
-            await send(MSG.PROBE_ENV);
-            await refresh();
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Probe';
-        }
-    });
+    for (const id of ['#btnProbe', '#btnProbeBig']) {
+        const btn = $(id);
+        if (!btn) continue;
+        const label = btn.textContent;
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            btn.textContent = 'Probing…';
+            try {
+                await send(MSG.PROBE_ENV);
+                await refresh();
+            } finally {
+                btn.disabled = false;
+                btn.textContent = label;
+            }
+        });
+    }
 
     $('#btnLogin').addEventListener('click', async () => {
         await send(MSG.SAVE_SETTINGS, { settings: collectSettings() });
         const res = await send(MSG.LOGIN, {});
-        if (res && res.ok) {
-            flash('#probeHint', 'Logged in. Press Probe to read the page inventory.', 'ok');
-            $('#probeHint').hidden = false;
-        } else {
-            flash('#probeHint', `Login failed: ${(res && res.reason) || 'unknown error'}`);
-            $('#probeHint').hidden = false;
-        }
+        if (res && res.ok) flash('#probeReason', 'Logged in — now press Probe.', 'ok');
+        else flash('#probeReason', `Login failed: ${(res && res.reason) || 'unknown error'}`);
     });
 
     $('#btnStart').addEventListener('click', async () => {
@@ -590,10 +636,6 @@ function initActions() {
 
     ['#filterSev', '#filterSuite'].forEach((s) => $(s).addEventListener('change', applyReportFilter));
     $('#filterQuery').addEventListener('input', applyReportFilter);
-}
-
-function escapeHtml(s) {
-    return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
 
 /* --------------------------------------------------------------- startup */

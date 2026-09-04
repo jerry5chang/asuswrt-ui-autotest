@@ -417,6 +417,47 @@ async function testHookList() {
         gated.map((h) => h.name).join(', '));
 }
 
+/* ------------------------------------------------- offline: probe reporting */
+
+/**
+ * The DUT card renders from run state, so a probe failure that is returned but
+ * never stored shows up as the generic "press Probe" hint with an empty card --
+ * which is exactly what happened when the active tab was chrome://extensions.
+ */
+async function testProbeReporting() {
+    section('probe failure reporting (src/background/service-worker.js)');
+
+    const stub = installChromeStub(
+        { origin: 'http://dut', fetch: async () => ({ ok: false, status: 0, text: async () => '' }) },
+        { tabUrl: 'chrome://extensions/' }
+    );
+    const { handlers } = await import('../src/background/service-worker.js');
+    const { MSG } = await import('../src/lib/const.js');
+
+    const env = await handlers[MSG.PROBE_ENV]({});
+    check('probing a non-http tab fails', env.ok === false);
+    check('...and names the scheme rather than the raw URL',
+        /chrome: page/.test(env.reason), env.reason);
+    check('...and says what to do about it', /switch to the tab/.test(env.reason));
+    check('...and records which tab it looked at', env.probedUrl === 'chrome://extensions/');
+
+    // The regression: this has to be readable from run state, not only returned.
+    const snap = await handlers[MSG.GET_SNAPSHOT]({});
+    check('the reason reaches run state, where the panel reads it',
+        snap.run.env && snap.run.env.reason === env.reason,
+        JSON.stringify(snap.run.env));
+    check('a failed probe still yields a usable env shape',
+        Array.isArray(snap.run.env.pages) && Array.isArray(snap.run.env.langs));
+
+    stub.setTabs([]);
+    const noTab = await handlers[MSG.PROBE_ENV]({});
+    check('no open tab is reported too', noTab.ok === false && /no active tab/.test(noTab.reason));
+    const snap2 = await handlers[MSG.GET_SNAPSHOT]({});
+    check('...and that reason is stored as well', snap2.run.env.reason === noTab.reason);
+
+    delete globalThis.chrome;
+}
+
 /* -------------------------------------------------------------- live: DUT */
 
 async function testAgainstDut() {
@@ -527,6 +568,7 @@ await testRegistry();
 await testHookList();
 await testEvents();
 await testReport();
+await testProbeReporting();
 
 if (origin) await testAgainstDut();
 else console.log('\n(no DUT given; skipping live checks)');

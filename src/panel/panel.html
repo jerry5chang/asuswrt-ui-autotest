@@ -16,7 +16,8 @@
             <p id="dutLine" class="dut">no DUT probed yet</p>
         </div>
     </div>
-    <button id="btnProbe" class="btn ghost sm" title="Read the DUT page inventory from the active tab">Probe</button>
+    <button id="btnProbe" class="btn ghost sm" data-when="probed"
+            title="Re-read the page inventory from the active tab">Probe</button>
 </header>
 
 <nav class="tabs" role="tablist">
@@ -29,11 +30,21 @@
     <!-- ------------------------------------------------------------ SETUP -->
     <section class="panel is-active" data-panel="setup">
 
-        <div id="probeHint" class="note warn">
-            Open the router UI in a tab, log in, then press <b>Probe</b>.
-        </div>
+        <!-- Shown until a probe succeeds; everything marked data-when="probed"
+             stays hidden until then, because none of it is usable yet. -->
+        <section id="emptyState" class="onboard">
+            <h2>No router probed yet</h2>
+            <ol class="steps">
+                <li>Open the router UI in a tab — <code>http://192.168.8.1</code> — and sign in.</li>
+                <li>Leave that tab in front and press <b>Probe</b>. It reads the router's own
+                    menu, so the page list matches what this model actually ships.</li>
+            </ol>
+            <p id="probeReason" class="note warn" hidden></p>
+            <dl id="probeSaw" class="kv" hidden></dl>
+            <button id="btnProbeBig" class="btn primary">Probe the active tab</button>
+        </section>
 
-        <details class="group" open>
+        <details class="group" data-when="probed" open>
             <summary>DUT</summary>
             <dl id="envTable" class="kv"></dl>
         </details>
@@ -55,7 +66,7 @@
                 Credentials stay in this browser profile's extension storage.</p>
         </details>
 
-        <details class="group" open>
+        <details class="group" open data-when="probed">
             <summary>Test items <span id="suiteCount" class="badge"></span></summary>
             <div class="chips" id="presets">
                 <button class="chip" data-preset="full">All</button>
@@ -66,7 +77,7 @@
             <div id="suiteTree"></div>
         </details>
 
-        <details class="group" open>
+        <details class="group" open data-when="probed">
             <summary>Pages <span id="pageCount" class="badge"></span></summary>
             <div class="row">
                 <input id="pageSearch" type="search" placeholder="Filter pages…">
@@ -76,14 +87,14 @@
             <div id="pageList" class="scroller"></div>
         </details>
 
-        <details class="group">
+        <details class="group" data-when="probed">
             <summary>Languages <span id="langCount" class="badge"></span></summary>
             <p class="hint">Leave empty to test only the language the DUT is set to.
                 Each extra language repeats the whole sweep.</p>
             <div class="chips" id="langChips"></div>
         </details>
 
-        <details class="group">
+        <details class="group" data-when="probed">
             <summary>Options</summary>
             <label class="check"><input id="safeMode" type="checkbox">
                 <span><b>Safe Mode</b> — intercept reboot / restart / restore requests
@@ -111,7 +122,7 @@
             </div>
         </details>
 
-        <details class="group">
+        <details class="group" data-when="probed">
             <summary>Advanced lists</summary>
             <p class="hint">v2.x kept these in <code>config/config.js</code>, so changing one
                 meant editing the extension and reloading it. Edit them here instead.</p>
