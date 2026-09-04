@@ -25,6 +25,8 @@ const MESSAGES = {
         'common.yes': 'yes',
         'common.no': 'no',
         'common.none': '(none)',
+        'common.selectAll': 'All',
+        'common.selectNone': 'None',
 
         'topbar.short': 'UI Autotest',
         'topbar.probe': 'Probe',
@@ -62,9 +64,11 @@ const MESSAGES = {
         'login.autoRelogin': 'Re-login automatically if the session expires mid-run',
         'login.now': 'Log in now',
         'login.hint':
-            'Uses get_Nonce.cgi + login_v2.cgi. Credentials stay in this browser profile’s ' +
-            'extension storage.',
-        'login.ok': 'Logged in — now press Probe.',
+            'Signs the active tab in, so you can start from the login page instead of ' +
+            'signing in by hand — and these credentials are what the re-login option above ' +
+            'uses when a session expires mid-run. Uses get_Nonce.cgi + login_v2.cgi; they ' +
+            'stay in this browser profile’s extension storage.',
+        'login.ok': 'Logged in — reading the page inventory…',
         'login.failed': 'Login failed: {reason}',
 
         'suites.title': 'Test items',
@@ -75,8 +79,6 @@ const MESSAGES = {
 
         'pages.title': 'Pages',
         'pages.filter': 'Filter pages…',
-        'pages.all': 'All',
-        'pages.none': 'None',
         'pages.empty': 'Probe the DUT to list its pages.',
         'pages.noMatch': 'No page matches that filter.',
 
@@ -84,6 +86,7 @@ const MESSAGES = {
         'langs.hint':
             'Leave empty to test only the language the DUT is set to. Each extra language ' +
             'repeats the whole sweep.',
+        'langs.estimate': '{langs} × {pages} pages = {items} work items',
 
         'opts.title': 'Options',
         'opts.safeMode': 'Safe Mode',
@@ -200,6 +203,8 @@ const MESSAGES = {
         'common.yes': '是',
         'common.no': '否',
         'common.none': '（無）',
+        'common.selectAll': '全選',
+        'common.selectNone': '全不選',
 
         'topbar.short': 'UI 自動測試',
         'topbar.probe': '探測',
@@ -237,8 +242,10 @@ const MESSAGES = {
         'login.autoRelogin': '測試中 session 過期時自動重新登入',
         'login.now': '立即登入',
         'login.hint':
-            '使用 get_Nonce.cgi + login_v2.cgi。帳密只存在這個瀏覽器設定檔的擴充套件儲存空間。',
-        'login.ok': '已登入 —— 請按「探測」。',
+            '直接把目前分頁登入，這樣就可以從登入頁開始、不用自己手動登入；' +
+            '上面那個「自動重新登入」在測試中 session 過期時用的也是這組帳密。' +
+            '走 get_Nonce.cgi + login_v2.cgi，帳密只存在這個瀏覽器設定檔的擴充套件儲存空間。',
+        'login.ok': '已登入 —— 正在讀取頁面清單…',
         'login.failed': '登入失敗：{reason}',
 
         'suites.title': '測項',
@@ -249,13 +256,12 @@ const MESSAGES = {
 
         'pages.title': '頁面',
         'pages.filter': '篩選頁面…',
-        'pages.all': '全選',
-        'pages.none': '全不選',
         'pages.empty': '請先探測 DUT 以取得頁面清單。',
         'pages.noMatch': '沒有符合條件的頁面。',
 
         'langs.title': '語言',
         'langs.hint': '留空則只測 DUT 目前的語言。每多選一個語言就會把整輪掃描重跑一次。',
+        'langs.estimate': '{langs} 種語言 × {pages} 頁 = {items} 個工作項',
 
         'opts.title': '選項',
         'opts.safeMode': '安全模式',
@@ -370,6 +376,8 @@ const MESSAGES = {
         'common.yes': '是',
         'common.no': '否',
         'common.none': '（无）',
+        'common.selectAll': '全选',
+        'common.selectNone': '全不选',
 
         'topbar.short': 'UI 自动测试',
         'topbar.probe': '探测',
@@ -407,8 +415,10 @@ const MESSAGES = {
         'login.autoRelogin': '测试过程中会话过期时自动重新登录',
         'login.now': '立即登录',
         'login.hint':
-            '使用 get_Nonce.cgi + login_v2.cgi。账号密码只保存在当前浏览器配置文件的扩展存储中。',
-        'login.ok': '已登录 —— 请点「探测」。',
+            '直接把当前标签页登录，这样就可以从登录页开始、不用手动登录；' +
+            '上面那个「自动重新登录」在测试过程中会话过期时用的也是这组账密。' +
+            '走 get_Nonce.cgi + login_v2.cgi，账号密码只保存在当前浏览器配置文件的扩展存储中。',
+        'login.ok': '已登录 —— 正在读取页面清单…',
         'login.failed': '登录失败：{reason}',
 
         'suites.title': '测试项',
@@ -419,13 +429,12 @@ const MESSAGES = {
 
         'pages.title': '页面',
         'pages.filter': '筛选页面…',
-        'pages.all': '全选',
-        'pages.none': '全不选',
         'pages.empty': '请先探测 DUT 以获取页面清单。',
         'pages.noMatch': '没有符合条件的页面。',
 
         'langs.title': '语言',
         'langs.hint': '留空则只测 DUT 当前的语言。每多选一个语言就会把整轮扫描重跑一次。',
+        'langs.estimate': '{langs} 种语言 × {pages} 页 = {items} 个工作项',
 
         'opts.title': '选项',
         'opts.safeMode': '安全模式',

@@ -89,8 +89,8 @@
                 <span id="pageCount" class="badge"></span></summary>
             <div class="row">
                 <input id="pageSearch" type="search" data-i18n-placeholder="pages.filter">
-                <button id="pagesAll" class="btn ghost xs" data-i18n="pages.all">All</button>
-                <button id="pagesNone" class="btn ghost xs" data-i18n="pages.none">None</button>
+                <button id="pagesAll" class="btn ghost xs" data-i18n="common.selectAll">All</button>
+                <button id="pagesNone" class="btn ghost xs" data-i18n="common.selectNone">None</button>
             </div>
             <div id="pageList" class="scroller"></div>
         </details>
@@ -99,6 +99,11 @@
             <summary><span data-i18n="langs.title">Languages</span>
                 <span id="langCount" class="badge"></span></summary>
             <p class="hint" data-i18n="langs.hint"></p>
+            <div class="row">
+                <button id="langsAll" class="btn ghost xs" data-i18n="common.selectAll">All</button>
+                <button id="langsNone" class="btn ghost xs" data-i18n="common.selectNone">None</button>
+                <span id="langEstimate" class="hint grow"></span>
+            </div>
             <div class="chips" id="langChips"></div>
         </details>
 

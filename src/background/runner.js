@@ -67,7 +67,7 @@ export async function unregisterInstrument() {
 }
 
 /** Navigate and resolve once the tab reports `complete`, or on timeout. */
-function navigateAndWait(tabId, url, timeoutMs) {
+export function navigateAndWait(tabId, url, timeoutMs) {
     return new Promise((resolve) => {
         let settled = false;
         const finish = (outcome) => {

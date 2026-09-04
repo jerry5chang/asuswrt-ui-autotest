@@ -146,13 +146,34 @@ body {
 .group > *:not(summary):last-child { padding-bottom: 11px; }
 
 .subgroup { margin: 0 0 10px; }
-.subgroup > h3 {
+/* The group heading is a checkbox that ticks the whole group. */
+.grouphead {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 12px 0 5px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.grouphead input { margin: 0; flex: 0 0 auto; }
+
+.grouphead .gname {
     font-size: 11px;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .06em;
     color: var(--mut);
-    margin: 10px 0 5px;
 }
+
+.grouphead .gcount {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 10px;
+    color: var(--mut);
+    margin-left: auto;
+}
+
+.subgroup > .check { padding-left: 4px; }
 
 /* ------------------------------------------------------------ controls */
 
@@ -194,6 +215,7 @@ body {
 
 .row { display: flex; gap: 6px; align-items: center; margin: 8px 0; }
 .row > input[type=search], .row > select { flex: 1; min-width: 0; }
+.row > .grow { flex: 1; min-width: 0; text-align: right; }
 
 input[type=text], input[type=password], input[type=number], input[type=search], select {
     font: inherit;

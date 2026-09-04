@@ -322,9 +322,36 @@ function renderSuites() {
     host.textContent = '';
 
     for (const group of GROUPS) {
+        const inGroup = SUITES.filter((s) => s.group === group);
         const box = el('div', 'subgroup');
-        box.append(el('h3', null, groupLabel(group)));
-        for (const suite of SUITES.filter((s) => s.group === group)) {
+
+        // The group heading is itself a checkbox: it ticks or clears the whole
+        // group, and shows indeterminate while only part of it is selected.
+        const head = el('label', 'grouphead');
+        const groupBox = el('input');
+        groupBox.type = 'checkbox';
+        const count = el('span', 'gcount');
+
+        const syncGroup = () => {
+            const on = inGroup.filter((suite) => sel.suiteIds.has(suite.id)).length;
+            groupBox.checked = on === inGroup.length;
+            groupBox.indeterminate = on > 0 && on < inGroup.length;
+            count.textContent = `${on}/${inGroup.length}`;
+        };
+
+        groupBox.addEventListener('change', () => {
+            for (const suite of inGroup) {
+                if (groupBox.checked) sel.suiteIds.add(suite.id);
+                else sel.suiteIds.delete(suite.id);
+            }
+            renderSuites();
+            persist();
+        });
+
+        head.append(groupBox, el('span', 'gname', groupLabel(group)), count);
+        box.append(head);
+
+        for (const suite of inGroup) {
             const label = el('label', 'check');
             const input = el('input');
             input.type = 'checkbox';
@@ -332,6 +359,7 @@ function renderSuites() {
             input.addEventListener('change', () => {
                 if (input.checked) sel.suiteIds.add(suite.id);
                 else sel.suiteIds.delete(suite.id);
+                syncGroup();
                 updateSuiteCount();
                 persist();
             });
@@ -343,6 +371,8 @@ function renderSuites() {
             label.append(input, text);
             box.append(label);
         }
+
+        syncGroup();
         host.append(box);
     }
     updateSuiteCount();
@@ -412,8 +442,10 @@ function renderPages() {
 }
 
 function updatePageCount() {
-    const total = ((snap.run.env && snap.run.env.pages) || []).length;
+    const env = snap.run.env || {};
+    const total = (env.pages || []).length;
     $('#pageCount').textContent = `${sel.pages.size}/${total}`;
+    updateLangCount((env.langs && env.langs.length ? env.langs : FALLBACK_LANGS).length);
 }
 
 function initPageControls() {
@@ -447,12 +479,49 @@ function renderLangs() {
             if (sel.langs.has(code)) sel.langs.delete(code);
             else sel.langs.add(code);
             chip.classList.toggle('is-on', sel.langs.has(code));
-            $('#langCount').textContent = String(sel.langs.size);
+            updateLangCount(langs.length);
             persist();
         });
         host.append(chip);
     }
-    $('#langCount').textContent = String(sel.langs.size);
+    updateLangCount(langs.length);
+}
+
+/**
+ * "All languages" repeats the entire sweep per language, so show what the
+ * current selection actually costs rather than leaving it to be discovered.
+ */
+function updateLangCount(total) {
+    $('#langCount').textContent = `${sel.langs.size}/${total}`;
+
+    const passes = Math.max(sel.langs.size, 1);
+    const pages = sel.pages.size;
+    const estimate = $('#langEstimate');
+    estimate.textContent = pages
+        ? t('langs.estimate', {
+              langs: passes,
+              pages,
+              // One driver slot per pass, matching the runner's queue.
+              items: passes * (pages + 1),
+          })
+        : '';
+}
+
+function initLangControls() {
+    const allLangs = () => {
+        const env = snap.run.env || {};
+        return env.langs && env.langs.length ? env.langs : FALLBACK_LANGS;
+    };
+    $('#langsAll').addEventListener('click', () => {
+        for (const code of allLangs()) sel.langs.add(code);
+        renderLangs();
+        persist();
+    });
+    $('#langsNone').addEventListener('click', () => {
+        sel.langs.clear();
+        renderLangs();
+        persist();
+    });
 }
 
 /* ------------------------------------------------------------------- run */
@@ -665,8 +734,14 @@ function initActions() {
     $('#btnLogin').addEventListener('click', async () => {
         await send(MSG.SAVE_SETTINGS, { settings: collectSettings() });
         const res = await send(MSG.LOGIN, {});
-        if (res && res.ok) flash('#probeReason', t('login.ok'), 'ok');
-        else flash('#probeReason', t('login.failed', { reason: (res && res.reason) || '?' }));
+        if (!res || !res.ok) {
+            flash('#probeReason', t('login.failed', { reason: (res && res.reason) || '?' }));
+            return;
+        }
+        // Signing in is never the goal in itself; reading the inventory is.
+        flash('#probeReason', t('login.ok'), 'ok');
+        await send(MSG.PROBE_ENV);
+        await refresh();
     });
 
     $('#btnStart').addEventListener('click', async () => {
@@ -711,6 +786,7 @@ applyLocale(detectLocale()); // paint something readable before the snapshot lan
 initTabs();
 initPresets();
 initPageControls();
+initLangControls();
 initActions();
 initJsonEditors();
 initExport();
