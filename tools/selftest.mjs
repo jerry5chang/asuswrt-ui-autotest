@@ -11,6 +11,7 @@
 
 import vm from 'node:vm';
 import fs from 'node:fs';
+import path from 'node:path';
 import { installChromeStub } from './chrome-stub.mjs';
 import { connect } from './dut-session.mjs';
 
@@ -408,6 +409,17 @@ async function testRegistry() {
         if (!src.includes(`__AUT__.suite('${suite.id}'`)) mismatched.push(suite.id);
     }
     check('every page suite registers under its registry id', mismatched.length === 0, mismatched.join(', '));
+
+    // A stale relative path in the panel shows up as a broken-image glyph and
+    // nothing else, so check the assets it references actually resolve.
+    const html = fs.readFileSync('src/panel/panel.html', 'utf8');
+    const refs = [...html.matchAll(/(?:src|href)="([^"]+)"/g)]
+        .map((m) => m[1])
+        .filter((ref) => !/^(https?:|data:|#)/.test(ref));
+    const brokenRefs = refs.filter((ref) => !fs.existsSync(path.resolve('src/panel', ref)));
+    check('every asset panel.html references exists', brokenRefs.length === 0, brokenRefs.join(', '));
+    check('the panel uses the extension icon rather than a letter placeholder',
+        refs.includes('../../resource/icon.png'), refs.join(', '));
 }
 
 /* ------------------------------------------------------ offline: hook list */
