@@ -35,6 +35,13 @@ const MESSAGES = {
         'topbar.noDut': 'no DUT probed yet',
         'topbar.language': 'Panel language',
 
+        'estimate.label': 'Estimated run',
+        'estimate.remaining': 'Remaining',
+        'estimate.detail': '{pages} pages × {passes} language pass(es)',
+        'estimate.elapsed': 'elapsed {elapsed}',
+        'estimate.noPages': 'no page visits needed for this selection',
+        'estimate.measured': 'Measured time per item',
+
         'tab.setup': 'Setup',
         'tab.run': 'Run',
         'tab.report': 'Report',
@@ -141,6 +148,15 @@ const MESSAGES = {
         'report.noApis': 'No API calls recorded.',
         'report.nothingToExport': 'Nothing to export yet — run a test first.',
 
+        'cost.navigate': 'Navigating to pages',
+        'cost.pageFixed': 'Instrumenting and harvesting pages',
+        'cost.pageSuiteInjection': 'Injecting page suites',
+        'cost.settle': 'Waiting for pages to settle',
+        'cost.langSwitch': 'Switching UI language',
+        'cost.preflight': 'Session checks',
+        'cost.returnNav': 'Returning to the start page',
+        'cost.detail': '{share}% · {each} ms × {n}',
+
         'api.held': 'held',
         'api.risky': 'risky',
         'api.sent': 'sent',
@@ -216,6 +232,13 @@ const MESSAGES = {
         'topbar.probeTitle': '從目前分頁重新讀取頁面清單',
         'topbar.noDut': '尚未探測任何 DUT',
         'topbar.language': '介面語言',
+
+        'estimate.label': '預估耗時',
+        'estimate.remaining': '剩餘',
+        'estimate.detail': '{pages} 頁 × {passes} 個語言 pass',
+        'estimate.elapsed': '已用 {elapsed}',
+        'estimate.noPages': '這組選擇不需要逐頁瀏覽',
+        'estimate.measured': '各測項實測耗時',
 
         'tab.setup': '設定',
         'tab.run': '執行',
@@ -319,6 +342,15 @@ const MESSAGES = {
         'report.noApis': '沒有記錄到 API 呼叫。',
         'report.nothingToExport': '還沒有可匯出的內容 —— 請先跑一次測試。',
 
+        'cost.navigate': '導向各頁面',
+        'cost.pageFixed': '頁面儀器化與回收',
+        'cost.pageSuiteInjection': '注入單頁測項',
+        'cost.settle': '等待頁面穩定',
+        'cost.langSwitch': '切換介面語言',
+        'cost.preflight': 'Session 檢查',
+        'cost.returnNav': '返回起始頁',
+        'cost.detail': '{share}% · 每次 {each} ms × {n}',
+
         'api.held': '已攔下',
         'api.risky': '危險',
         'api.sent': '已送出',
@@ -393,6 +425,13 @@ const MESSAGES = {
         'topbar.probeTitle': '从当前标签页重新读取页面清单',
         'topbar.noDut': '尚未探测任何 DUT',
         'topbar.language': '界面语言',
+
+        'estimate.label': '预估耗时',
+        'estimate.remaining': '剩余',
+        'estimate.detail': '{pages} 页 × {passes} 个语言 pass',
+        'estimate.elapsed': '已用 {elapsed}',
+        'estimate.noPages': '这组选择不需要逐页浏览',
+        'estimate.measured': '各测试项实测耗时',
 
         'tab.setup': '设置',
         'tab.run': '运行',
@@ -495,6 +534,15 @@ const MESSAGES = {
         'report.apiCalls': '已记录的 API 调用',
         'report.noApis': '没有记录到 API 调用。',
         'report.nothingToExport': '还没有可导出的内容 —— 请先运行一次测试。',
+
+        'cost.navigate': '导向各页面',
+        'cost.pageFixed': '页面仪器化与回收',
+        'cost.pageSuiteInjection': '注入单页测试项',
+        'cost.settle': '等待页面稳定',
+        'cost.langSwitch': '切换界面语言',
+        'cost.preflight': 'Session 检查',
+        'cost.returnNav': '返回起始页',
+        'cost.detail': '{share}% · 每次 {each} ms × {n}',
 
         'api.held': '已拦截',
         'api.risky': '危险',

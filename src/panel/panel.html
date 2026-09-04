@@ -34,6 +34,14 @@
     <button class="tab" data-tab="report" role="tab" data-i18n="tab.report">Report</button>
 </nav>
 
+<!-- Sits outside the panels so the same figure is in front of you while you
+     configure a run and while it is running. -->
+<div id="estimateBar" class="estimate" data-when="probed" hidden>
+    <span class="elabel" id="estimateLabel"></span>
+    <b id="estimateTime" class="etime"></b>
+    <span class="edetail" id="estimateDetail"></span>
+</div>
+
 <main>
     <!-- ------------------------------------------------------------ SETUP -->
     <section class="panel is-active" data-panel="setup">
@@ -206,6 +214,12 @@
         </div>
 
         <div id="reportRows" class="scroller tall"></div>
+
+        <details class="group">
+            <summary><span data-i18n="estimate.measured">Measured time per item</span>
+                <span id="timingTotal" class="badge"></span></summary>
+            <div id="timingRows" class="scroller"></div>
+        </details>
 
         <details class="group">
             <summary><span data-i18n="report.apiCalls">Recorded API calls</span>

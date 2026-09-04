@@ -30,6 +30,12 @@ export function emptyRun() {
         results: [],
         apis: [],
         notes: [],
+        /** Measured run costs, accumulated by background/timings.js. */
+        timings: {},
+        /** What the estimate said before the run started, for comparison. */
+        estimateMs: 0,
+        /** Assertions performed; far larger than the number of result rows. */
+        checks: 0,
     };
 }
 
@@ -141,6 +147,9 @@ export function summary({ full = false } = {}) {
         startedAt: run.startedAt,
         endedAt: run.endedAt,
         counts: countBySeverity(run.results),
+        timings: run.timings,
+        estimateMs: run.estimateMs,
+        checks: run.checks,
         resultCount: run.results.length,
         apiCount: run.apis.length,
         results: full ? run.results : run.results.slice(-200),

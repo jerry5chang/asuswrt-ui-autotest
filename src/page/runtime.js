@@ -137,6 +137,9 @@
     AUT.runSuites = function (ids, perSuiteTimeoutMs) {
         var timeout = perSuiteTimeoutMs || 10000;
         var all = [];
+        // Read by the driver in the same executeScript hop; kept off the
+        // return value so the contract stays "an array of results".
+        AUT.suiteTimings = {};
 
         return ids
             .reduce(function (chain, id) {
@@ -147,6 +150,7 @@
                         return;
                     }
                     var ctx = makeContext(id);
+                    var startedAt = Date.now();
                     var guard = new Promise(function (resolve) {
                         setTimeout(function () { resolve('__timeout__'); }, timeout);
                     });
@@ -167,6 +171,7 @@
                             });
                         })
                         .then(function () {
+                            AUT.suiteTimings[id] = Date.now() - startedAt;
                             all = all.concat(ctx.results);
                         });
                 });

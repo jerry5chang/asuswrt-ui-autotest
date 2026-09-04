@@ -317,6 +317,193 @@ async function testEvents() {
 
     check('severityFor falls back to the baseline',
         severityFor({ kind: 'jsError', detail: null }, EVENT_MAP.jsError) === 'error');
+
+    /* One row per test, not one per assertion. eaa.skip-link makes twelve
+     * assertions per page; on 75 pages that was 899 "pass" rows, which buried
+     * every other item and made the totals unreadable. */
+    const { collapseSuiteRows } = await import('../src/lib/events.js');
+
+    const allPassed = collapseSuiteRows([
+        { suite: 'eaa.skip-link', severity: 'pass', message: 'a' },
+        { suite: 'eaa.skip-link', severity: 'pass', message: 'b' },
+        { suite: 'eaa.skip-link', severity: 'pass', message: 'c' },
+    ]);
+    check('an all-passing suite collapses to a single row', allPassed.rows.length === 1);
+    check('...that says how many checks passed', allPassed.rows[0].message === '3 checks passed');
+    check('...and keeps them in the detail', allPassed.rows[0].detail.checks.length === 3);
+    check('...while still reporting the raw assertion count', allPassed.checks === 3);
+
+    const oneFailed = collapseSuiteRows([
+        { suite: 'eaa.skip-link', severity: 'pass', message: 'a' },
+        { suite: 'eaa.skip-link', severity: 'fail', message: 'not the first tab stop' },
+        { suite: 'eaa.skip-link', severity: 'pass', message: 'c' },
+    ]);
+    check('a failure is reported on its own, without its passing siblings',
+        oneFailed.rows.length === 1 && oneFailed.rows[0].severity === 'fail',
+        JSON.stringify(oneFailed.rows));
+    check('...noting how many did pass', oneFailed.rows[0].detail.alsoPassed === 2);
+
+    const twoSuites = collapseSuiteRows([
+        { suite: 'a', severity: 'pass', message: 'x' },
+        { suite: 'b', severity: 'warn', message: 'y' },
+        { suite: 'b', severity: 'pass', message: 'z' },
+    ]);
+    check('suites are collapsed independently', twoSuites.rows.length === 2);
+    check('a skip survives collapsing',
+        collapseSuiteRows([{ suite: 'a', severity: 'skip', message: 'n/a' }]).rows[0].severity === 'skip');
+    check('nothing in, nothing out', collapseSuiteRows([]).rows.length === 0);
+}
+
+/* --------------------------------------------------- offline: estimation */
+
+async function testEstimate() {
+    section('run-time estimation (src/lib/estimate.js)');
+
+    const { estimateRun, formatDuration, estimateRemaining, SEED } = await import('../src/lib/estimate.js');
+    const { SUITES } = await import('../src/suites/registry.js');
+    const settings = { pageSettleMs: 2000, returnPage: 'Advanced_LAN_Content.asp' };
+
+    const pages = Array.from({ length: 75 }, (_, i) => `page${i}.asp`);
+    const ms = (opts) => estimateRun({ settings, pages, ...opts }).totalMs;
+
+    /* formatting -- hours, minutes, seconds, as asked for */
+    check('seconds only under a minute', formatDuration(45_000) === '45s', formatDuration(45_000));
+    check('minutes and seconds under an hour', formatDuration(200_000) === '3m 20s', formatDuration(200_000));
+    check('hours and minutes above an hour', formatDuration(4_320_000) === '1h 12m', formatDuration(4_320_000));
+    check('no leading zero unit', !formatDuration(200_000).startsWith('0h'));
+    check('never negative', formatDuration(-5) === '0s');
+
+    /* the whole point: overlap */
+    const oneChannel = ms({ suiteIds: ['core.js-error'] });
+    const allChannels = ms({
+        suiteIds: ['core.js-error', 'core.console-error', 'core.resource-error', 'core.ui-log', 'api.recorder'],
+    });
+    check('passive channels cost nothing extra — five is the price of one',
+        oneChannel === allChannels, `${oneChannel} vs ${allChannels}`);
+
+    const domOnly = ms({ suiteIds: ['core.dom-sanity'] });
+    const domPlusChannels = ms({ suiteIds: ['core.dom-sanity', 'core.js-error', 'core.ui-log'] });
+    check('a page suite shares the page cost with the channels',
+        domPlusChannels === domOnly, `${domOnly} vs ${domPlusChannels}`);
+
+    const twoSuites = ms({ suiteIds: ['core.dom-sanity', 'i18n.token'] });
+    check('two page suites add only their own execution, not two page visits',
+        twoSuites > domOnly && twoSuites < domOnly * 1.4, `${domOnly} -> ${twoSuites}`);
+
+    /* driver-only selections skip the page loop entirely */
+    const driverOnly = estimateRun({ settings, pages, suiteIds: ['api.hook-sweep'] });
+    check('a driver-only selection needs no page visits', driverOnly.pageLoop === false);
+    check('...so it is far cheaper than a sweep', driverOnly.totalMs < domOnly / 10,
+        `${driverOnly.totalMs} vs ${domOnly}`);
+    check('...and its work items collapse to one per pass', driverOnly.workItems === 1);
+
+    /* scaling */
+    const langs3 = ms({ suiteIds: ['core.dom-sanity'], langs: ['EN', 'TW', 'CN'] });
+    check('three languages cost roughly three passes plus the switches',
+        langs3 > domOnly * 2.8 && langs3 < domOnly * 3.3, `${domOnly} -> ${langs3}`);
+
+    const fewPages = estimateRun({ settings, pages: pages.slice(0, 5), suiteIds: ['core.dom-sanity'] });
+    check('five pages cost about a fifteenth of seventy-five',
+        fewPages.totalMs < domOnly / 10, `${fewPages.totalMs} vs ${domOnly}`);
+
+    check('the settle setting moves the estimate immediately',
+        ms({ suiteIds: ['core.dom-sanity'] }) >
+            estimateRun({ settings: { ...settings, pageSettleMs: 500 }, pages, suiteIds: ['core.dom-sanity'] }).totalMs);
+
+    /* page-scoped suites only cost on the pages they apply to */
+    const withPageScoped = estimateRun({
+        settings,
+        pages: [...pages, 'index.asp'],
+        suiteIds: ['core.dom-sanity', 'eaa.client-dialog'],
+    });
+    const withoutIt = estimateRun({
+        settings,
+        pages: [...pages, 'index.asp'],
+        suiteIds: ['core.dom-sanity'],
+    });
+    const delta = withPageScoped.totalMs - withoutIt.totalMs;
+    const clientDialog = SUITES.find((x) => x.id === 'eaa.client-dialog');
+    check('a page-scoped suite is charged for one page, not all of them',
+        delta === clientDialog.cost.ms, `${delta} vs ${clientDialog.cost.ms}`);
+
+    /* measurements replace the seeds */
+    const seeded = estimateRun({ settings, pages, suiteIds: ['core.dom-sanity'] });
+    check('with no history the estimate rests on seeds', seeded.measuredShare === 0);
+    const measured = estimateRun({
+        settings,
+        pages,
+        suiteIds: ['core.dom-sanity'],
+        timings: { navigate: { ms: SEED.navigate * 4, n: 9 }, pageFixed: { ms: SEED.pageFixed, n: 9 } },
+    });
+    check('a measured coefficient overrides its seed', measured.totalMs > seeded.totalMs,
+        `${seeded.totalMs} -> ${measured.totalMs}`);
+    check('...and the estimate reports how much of it is measured',
+        measured.measuredShare > 0 && measured.measuredShare < 1, String(measured.measuredShare));
+
+    /* remaining time */
+    check('remaining falls back to the model early on',
+        estimateRemaining({ startedAt: Date.now(), cursor: 0, total: 76, fallbackMs: 180_000 }) === 180_000);
+    const fiveMinAgo = Date.now() - 300_000;
+    const remaining = estimateRemaining({ startedAt: fiveMinAgo, cursor: 38, total: 76, fallbackMs: 1 });
+    check('once under way it uses the pace actually being kept',
+        Math.abs(remaining - 300_000) < 2000, String(remaining));
+    check('nothing remains once the queue is done',
+        estimateRemaining({ startedAt: fiveMinAgo, cursor: 76, total: 76, fallbackMs: 9 }) === 0);
+}
+
+/* ------------------------------------------------------ offline: timings */
+
+async function testTimings() {
+    section('measured timings (src/background/timings.js)');
+
+    installChromeStub({ origin: 'http://dut', fetch: async () => ({ ok: false }) });
+    const { createCollector, getTimings, mergeTimings, clearTimings } = await import(
+        '../src/background/timings.js'
+    );
+
+    const clock = createCollector();
+    clock.add('navigate', 1500, 10); // 10 visits, 150ms each
+    clock.add('navigate', 500, 2);
+    clock.add('suite:core.dom-sanity', 120, 8);
+    check('samples accumulate as total and count',
+        clock.totals().navigate.ms === 2000 && clock.totals().navigate.n === 12,
+        JSON.stringify(clock.totals().navigate));
+
+    await clock.time('preflight', 1, () => new Promise((r) => setTimeout(r, 30)));
+    check('time() records an awaited call', clock.totals().preflight.n === 1 &&
+        clock.totals().preflight.ms >= 25);
+
+    check('a negative or zero-unit sample is ignored', (() => {
+        const c = createCollector();
+        c.add('navigate', -5, 1);
+        c.add('navigate', 100, 0);
+        return !c.totals().navigate;
+    })());
+
+    await clearTimings();
+    const first = await mergeTimings(clock.totals());
+    check('merging normalises to a per-unit coefficient',
+        Math.abs(first.navigate.ms - 2000 / 12) < 0.01, JSON.stringify(first.navigate));
+    check('...and starts the confidence counter at one', first.navigate.n === 1);
+
+    // An EMA has to follow a changed DUT rather than be anchored by history.
+    let latest = first;
+    for (let i = 0; i < 8; i++) {
+        latest = await mergeTimings({ navigate: { ms: 1000, n: 1 } });
+    }
+    check('repeated samples pull the average towards the new figure',
+        latest.navigate.ms > 900, String(latest.navigate.ms));
+    check('the confidence counter grows', latest.navigate.n === 9);
+
+    const guarded = await mergeTimings({ navigate: { ms: 10_000_000, n: 1 } });
+    check('an absurd sample is rejected rather than poisoning the average',
+        guarded.navigate.ms === latest.navigate.ms, String(guarded.navigate.ms));
+
+    check('an empty merge is a no-op', Object.keys(await mergeTimings({})).length > 0);
+    await clearTimings();
+    check('clearing removes everything', Object.keys(await getTimings()).length === 0);
+
+    delete globalThis.chrome;
 }
 
 /* ---------------------------------------------------------- offline: report */
@@ -480,14 +667,18 @@ async function testI18n() {
     }
 
     // Every vocabulary the panel looks up by computed key.
+    const { SEED } = await import('../src/lib/estimate.js');
     for (const { code } of LOCALES) {
         const gaps = [
+            // Each cost line the timing breakdown can show needs a label, or
+            // the report shows a raw key like "cost.pageFixed".
+            ...[...Object.keys(SEED), 'settle', 'detail'].map((k) => `cost.${k}`),
             ...SEV_ORDER.map((sev) => `sev.${sev}`),
             ...['idle', 'running', 'paused', 'stopping', 'done', 'aborted'].map((x) => `run.status.${x}`),
             ...[...new Set(SUITES.map((x) => x.group))].map((g) => `group.${g}`),
             ...SUITES.flatMap((x) => [`suite.${x.id}.name`, `suite.${x.id}.desc`]),
         ].filter((k) => !(k in dicts[code]));
-        check(`${code} covers every severity, status, group and suite`, gaps.length === 0,
+        check(`${code} covers every severity, status, group, suite and cost line`, gaps.length === 0,
             gaps.slice(0, 6).join(', '));
     }
 
@@ -501,7 +692,7 @@ async function testI18n() {
 
     // And keys nobody uses are dead weight.
     const js = fs.readFileSync('src/panel/panel.js', 'utf8');
-    const DYNAMIC = ['sev.', 'run.status.', 'group.', 'suite.'];
+    const DYNAMIC = ['sev.', 'run.status.', 'group.', 'suite.', 'cost.'];
     const unused = enKeys.filter(
         (k) => !DYNAMIC.some((prefix) => k.startsWith(prefix)) && !htmlKeys.includes(k) && !js.includes(`'${k}'`)
     );
@@ -1057,6 +1248,8 @@ await testRegistry();
 await testHookList();
 await testEvents();
 await testI18n();
+await testEstimate();
+await testTimings();
 await testReport();
 await testEaaSkipLink();
 await testEaaClientDialog();

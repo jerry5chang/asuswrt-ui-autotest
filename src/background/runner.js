@@ -10,7 +10,9 @@
 
 import { RUN, SEV, SEV_BAD } from '../lib/const.js';
 import { SUITES, SUITE_BY_ID, appliesToPage } from '../suites/registry.js';
-import { mapEvents } from '../lib/events.js';
+import { collapseSuiteRows, mapEvents } from '../lib/events.js';
+import { estimateRun } from '../lib/estimate.js';
+import { createCollector, getTimings, mergeTimings } from './timings.js';
 import { DRIVER_RUN_SUITES } from './driver-suites.js';
 import * as state from './state.js';
 import { probeEnv } from './probe.js';
@@ -127,12 +129,30 @@ export async function startRun({ tabId, selection, settings, env }) {
 
     const driverIds = Object.keys(DRIVER_RUN_SUITES).filter((id) => selectedIds.has(id));
 
+    /*
+     * Nothing that needs a loaded page means no page loop. Selecting only the
+     * WebAPI sweep used to still walk all 75 pages doing nothing at each one.
+     */
+    const wantsPages = SUITES.some(
+        (s) => selectedIds.has(s.id) && (s.where === 'page' || s.where === 'instrument')
+    );
+    const sweptPages = wantsPages ? pages : [];
+
+    const clock = createCollector();
+    const estimate = estimateRun({
+        suiteIds: selection.suiteIds,
+        pages: pages.map((p) => p.url),
+        langs: selection.langs,
+        settings,
+        timings: await getTimings(),
+    });
+
     // Work items drive the progress bar: one per page per language, plus one
     // slot per language for that language's driver suites.
     const queue = [];
     for (const lang of langs) {
         queue.push({ lang, page: null, kind: 'driver' });
-        for (const p of pages) queue.push({ lang, page: p.url, kind: 'page' });
+        for (const p of sweptPages) queue.push({ lang, page: p.url, kind: 'page' });
     }
 
     state.patch(
@@ -152,15 +172,28 @@ export async function startRun({ tabId, selection, settings, env }) {
             results: [],
             apis: [],
             notes: [],
+            checks: 0,
+            // Live object: the collector mutates it, so later persists carry
+            // the accumulating figures without extra bookkeeping.
+            timings: clock.totals(),
+            estimateMs: estimate.totalMs,
         },
         { flush: true }
     );
 
-    state.note(`run started: ${pages.length} page(s) x ${langs.length} language pass(es)`);
+    state.note(
+        `run started: ${sweptPages.length} page(s) x ${langs.length} language pass(es); ` +
+            `estimated ${Math.round(estimate.totalMs / 1000)}s`
+    );
+    if (!wantsPages && pages.length) {
+        state.note('no item needs a loaded page, so the page loop is skipped');
+    }
 
     const originalLang = env.lang;
     const shared = {};
     const seen = new Set();
+    /** Assertions performed, which is a much bigger number than rows. */
+    let checks = 0;
 
     /** Drop duplicate rows; a sweep repeats the same UI log on every page. */
     function record(rows) {
@@ -186,7 +219,7 @@ export async function startRun({ tabId, selection, settings, env }) {
 
             if (lang !== CURRENT_LANG && lang !== originalLang) {
                 state.note(`switching UI language to ${lang}`);
-                const res = await setLanguage(tabId, lang);
+                const res = await clock.time('langSwitch', 1, () => setLanguage(tabId, lang));
                 if (!res || !res.ok) {
                     record([{ suite: 'core.reachability', severity: SEV.ERROR, page: '', lang,
                         message: `could not switch language to ${lang}: ${(res && res.reason) || 'unknown'}` }]);
@@ -200,7 +233,7 @@ export async function startRun({ tabId, selection, settings, env }) {
              * so checking here turns one clear error into the alternative of
              * a hundred identical ones.
              */
-            if (!(await isLoggedIn(tabId))) {
+            if (!(await clock.time('preflight', 1, () => isLoggedIn(tabId)))) {
                 if (settings.autoLogin && settings.username) {
                     state.note('session is not valid; logging in with auth v2');
                     const login = await loginAuthV2(tabId, settings.username, settings.password);
@@ -232,7 +265,13 @@ export async function startRun({ tabId, selection, settings, env }) {
                 if (!(await gate())) break;
                 state.note(`${lang}: ${SUITE_BY_ID[id].name}`);
                 try {
-                    const rows = (await DRIVER_RUN_SUITES[id](ctx)) || [];
+                    // Normalise by the unit the coefficient is expressed in, so
+                    // a figure from a 119-page sweep still fits a 5-page one.
+                    const suite = SUITE_BY_ID[id];
+                    const units =
+                        suite.cost && suite.cost.shape === 'perPage' ? Math.max(pages.length, 1) : 1;
+                    const rows =
+                        (await clock.time(`suite:${id}`, units, () => DRIVER_RUN_SUITES[id](ctx))) || [];
                     record(rows.map((r) => ({ lang, ...r })));
                 } catch (e) {
                     record([{ suite: id, severity: SEV.ERROR, page: '', lang,
@@ -242,7 +281,7 @@ export async function startRun({ tabId, selection, settings, env }) {
             state.patch({ cursor: state.get().cursor + 1 });
 
             /* --- page loop --- */
-            for (const page of pages) {
+            for (const page of sweptPages) {
                 if (!(await gate())) break;
 
                 state.patch({ current: { lang, page: page.url } });
@@ -257,7 +296,9 @@ export async function startRun({ tabId, selection, settings, env }) {
                     (s) => s.where === 'page' && selectedIds.has(s.id) && appliesToPage(s, page.url)
                 );
 
-                const nav = await navigateAndWait(tabId, `${origin}/${page.url}`, settings.pageTimeoutMs);
+                const nav = await clock.time('navigate', 1, () =>
+                    navigateAndWait(tabId, `${origin}/${page.url}`, settings.pageTimeoutMs)
+                );
                 if (!nav.ok) {
                     record([{ suite: 'core.reachability', severity: SEV.ERROR, page: page.url, lang,
                         message: `navigation failed: ${nav.reason}` }]);
@@ -265,7 +306,9 @@ export async function startRun({ tabId, selection, settings, env }) {
                     continue;
                 }
 
-                await configureInstrument(tabId, instrumentCfg);
+                // Timed without the settle sleep: that comes from settings, so
+                // baking it into the average would fight the setting.
+                await clock.time('pageFixed', 1, () => configureInstrument(tabId, instrumentCfg));
                 await sleep(settings.pageSettleMs);
 
                 // A page that bounced to the login screen means the session died.
@@ -302,13 +345,18 @@ export async function startRun({ tabId, selection, settings, env }) {
                 /* page suites */
                 if (pageSuites.length) {
                     try {
-                        const rows = await runPageSuites(
+                        const { rows, timings, injectMs } = await runPageSuites(
                             tabId,
                             pageSuites.map((s) => s.file),
                             pageSuites.map((s) => s.id),
                             Math.max(settings.pageTimeoutMs / 2, 5000)
                         );
-                        record(rows.map((r) => ({ ...r, page: page.url, lang })));
+                        clock.add('pageSuiteInjection', injectMs, 1);
+                        for (const [id, ms] of Object.entries(timings)) clock.add(`suite:${id}`, ms, 1);
+                        // One row per suite, not one per assertion.
+                        const collapsed = collapseSuiteRows(rows);
+                        checks += collapsed.checks;
+                        record(collapsed.rows.map((r) => ({ ...r, page: page.url, lang })));
                     } catch (e) {
                         record([{ suite: 'page', severity: SEV.ERROR, page: page.url, lang,
                             message: `page suites failed to run: ${e.message}` }]);
@@ -316,14 +364,14 @@ export async function startRun({ tabId, selection, settings, env }) {
                 }
 
                 /* harvest instrumentation before we navigate away */
-                const drained = await drainInstrument(tabId);
+                const drained = await clock.time('pageFixed', 0, () => drainInstrument(tabId));
                 record(mapEvents(drained.events, { page: page.url, lang, settings, enabledChannels }));
                 if (drained.apis.length) state.addApis(drained.apis.map((a) => ({ ...a, lang })));
                 if (drained.dropped) {
                     state.note(`${page.url}: ${drained.dropped} event(s) dropped (buffer full)`);
                 }
 
-                state.patch({ cursor: state.get().cursor + 1 });
+                state.patch({ cursor: state.get().cursor + 1, checks });
 
                 if (settings.stopOnError) {
                     const counts = state.countBySeverity(state.get().results);
@@ -347,8 +395,15 @@ export async function startRun({ tabId, selection, settings, env }) {
         await unregisterInstrument();
 
         if (settings.returnPage) {
-            await navigateAndWait(tabId, `${origin}/${settings.returnPage}`, 10000).catch(() => {});
+            await clock
+                .time('returnNav', 1, () =>
+                    navigateAndWait(tabId, `${origin}/${settings.returnPage}`, 10000)
+                )
+                .catch(() => {});
         }
+
+        // Feeds the next run's estimate.
+        await mergeTimings(clock.totals()).catch(() => {});
 
         state.patch(
             {

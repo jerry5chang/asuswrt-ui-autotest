@@ -11,6 +11,45 @@
 
 import { SEV, SEV_ORDER, SEV_LABEL } from './const.js';
 import { SUITE_BY_ID } from '../suites/registry.js';
+import { formatDuration } from './estimate.js';
+
+/** Shared costs, named for a reader rather than by collector key. */
+const COST_LABELS = {
+    navigate: 'Navigating to pages',
+    pageFixed: 'Instrumenting and harvesting pages',
+    pageSuiteInjection: 'Injecting page suites',
+    settle: 'Waiting for pages to settle',
+    langSwitch: 'Switching UI language',
+    preflight: 'Session checks',
+    returnNav: 'Returning to the start page',
+};
+
+/**
+ * Where the run's time went, biggest first. The shared lines matter as much as
+ * the per-item ones: navigating and settling is usually the bulk of a sweep,
+ * which is why adding another passive check costs nothing.
+ */
+function timingRows(run) {
+    const timings = run.timings || {};
+    const rows = Object.entries(timings)
+        .filter(([, v]) => v && v.ms > 0)
+        .map(([key, v]) => ({
+            label: key.startsWith('suite:') ? suiteName(key.slice(6)) : COST_LABELS[key] || key,
+            item: key.startsWith('suite:'),
+            ms: v.ms,
+            n: v.n,
+        }));
+
+    // The settle sleep is a setting rather than something measured, so the
+    // collector never sees it; without it the total is wildly short.
+    const visits = (timings.navigate && timings.navigate.n) || 0;
+    const settleMs = ((run.settings && run.settings.pageSettleMs) || 0) * visits;
+    if (settleMs > 0) rows.push({ label: COST_LABELS.settle, item: false, ms: settleMs, n: visits });
+
+    rows.sort((a, b) => b.ms - a.ms);
+    const total = rows.reduce((sum, r) => sum + r.ms, 0);
+    return { rows, total };
+}
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -65,6 +104,11 @@ function header(run) {
         counts: c,
         passRate: graded ? Math.round(((c[SEV.PASS] || 0) / graded) * 100) : null,
         verdict: c[SEV.ERROR] || c[SEV.FAIL] ? 'FAIL' : 'PASS',
+        estimateMs: run.estimateMs || 0,
+        // Rows are one per test; checks are the assertions behind them.
+        checks: run.checks || 0,
+        items: ((run.selection && run.selection.suiteIds) || []).length,
+        rows: (run.results || []).length,
     };
 }
 
@@ -82,6 +126,7 @@ export function buildJson(run) {
             settings: run.settings ? { ...run.settings, password: run.settings.password ? '***' : '' } : null,
             results: run.results,
             apis: run.apis,
+            timings: run.timings || {},
             notes: run.notes,
         },
         null,
@@ -107,6 +152,8 @@ export function buildMarkdown(run) {
         `| Origin | ${h.origin} |`,
         `| Languages | ${h.languages} |`,
         `| Work items | ${h.pageCount} |`,
+        `| Test items | ${h.items} |`,
+        `| Result rows | ${h.rows}${h.checks ? ` (from ${h.checks} assertions)` : ''} |`,
         `| Started | ${h.started} |`,
         `| Duration | ${h.duration} |`,
         `| Pass rate | ${h.passRate === null ? 'n/a' : h.passRate + '%'} |`,
@@ -127,6 +174,20 @@ export function buildMarkdown(run) {
         for (const r of rows) {
             lines.push(
                 `| ${suiteName(r.suite)} | ${r.page || '-'} | ${r.lang || '-'} | ${String(r.message).replace(/\|/g, '\\|')} |`
+            );
+        }
+        lines.push('');
+    }
+
+    const timing = timingRows(run);
+    if (timing.rows.length) {
+        lines.push(`## Where the time went (${formatDuration(timing.total)})`, '');
+        lines.push('| | Cost | Share | Each | Count |', '|---|---|---:|---:|---:|');
+        for (const row of timing.rows) {
+            lines.push(
+                `| ${row.item ? 'item' : 'shared'} | ${row.label} | ` +
+                    `${Math.round((row.ms / timing.total) * 100)}% | ` +
+                    `${Math.round(row.ms / Math.max(row.n, 1))} ms | ${row.n} |`
             );
         }
         lines.push('');
@@ -174,8 +235,10 @@ export function buildTxt(run) {
         `Origin: ${h.origin}`,
         `Languages: ${h.languages}`,
         `Work items: ${h.pageCount}`,
+        `Test items: ${h.items}`,
+        `Result rows: ${h.rows}${h.checks ? ` (from ${h.checks} assertions)` : ''}`,
         `Started: ${h.started}`,
-        `Test Duration: ${h.duration}`,
+        `Test Duration: ${h.duration}${h.estimateMs ? ` (estimated ${formatDuration(h.estimateMs)})` : ''}`,
         `Pass rate: ${h.passRate === null ? 'n/a' : h.passRate + '%'}`,
         '',
         'Counts: ' + SEV_ORDER.filter((s) => h.counts[s]).map((s) => `${SEV_LABEL[s]}=${h.counts[s]}`).join('  '),
@@ -183,6 +246,17 @@ export function buildTxt(run) {
 
     for (const [title, rows] of sections) {
         out.push('', `=== ${title} (${rows.length}) ===`, ...rows);
+    }
+
+    const timing = timingRows(run);
+    if (timing.rows.length) {
+        out.push('', `=== WHERE THE TIME WENT (${formatDuration(timing.total)}) ===`);
+        for (const row of timing.rows) {
+            out.push(
+                `[${row.item ? 'item  ' : 'shared'}] ${String(Math.round((row.ms / timing.total) * 100)).padStart(3)}%  ` +
+                    `${formatDuration(row.ms).padEnd(8)} ${String(Math.round(row.ms / Math.max(row.n, 1))).padStart(6)} ms x ${row.n}  ${row.label}`
+            );
+        }
     }
 
     const risky = (run.apis || []).filter((a) => a.risk);
@@ -297,6 +371,8 @@ footer{color:var(--mut);font-size:12px;margin-top:34px}
   <div class="meta"><span>Origin</span><b>${esc(h.origin)}</b></div>
   <div class="meta"><span>Languages</span><b>${esc(h.languages)}</b></div>
   <div class="meta"><span>Work items</span><b>${h.pageCount}</b></div>
+  <div class="meta"><span>Test items</span><b>${h.items}</b></div>
+  <div class="meta"><span>Result rows</span><b>${h.rows}${h.checks ? ` / ${h.checks} checks` : ''}</b></div>
   <div class="meta"><span>Duration</span><b>${esc(h.duration)}</b></div>
   <div class="meta"><span>Pass rate</span><b>${h.passRate === null ? 'n/a' : h.passRate + '%'}</b></div>
 </div>
@@ -321,6 +397,22 @@ footer{color:var(--mut);font-size:12px;margin-top:34px}
 <thead><tr><th>Severity</th><th>Suite</th><th>Page</th><th>Lang</th><th>Message</th></tr></thead>
 <tbody>${rows || '<tr><td colspan="5" class="empty">No results.</td></tr>'}</tbody>
 </table></div>
+
+${(() => {
+    const timing = timingRows(run);
+    if (!timing.rows.length) return '';
+    return `<h2>Where the time went (${esc(formatDuration(timing.total))})</h2>
+<div class="tablewrap"><table>
+<thead><tr><th></th><th>Cost</th><th>Share</th><th>Each</th><th>Count</th></tr></thead>
+<tbody>${timing.rows
+        .map(
+            (row) => `<tr><td><span class="pill ${row.item ? 'info' : 'skip'}">${row.item ? 'item' : 'shared'}</span></td>
+      <td>${esc(row.label)}</td><td class="num">${Math.round((row.ms / timing.total) * 100)}%</td>
+      <td class="num">${Math.round(row.ms / Math.max(row.n, 1))} ms</td><td class="num">${row.n}</td></tr>`
+        )
+        .join('\n')}</tbody>
+</table></div>`;
+})()}
 
 <h2>Recorded API calls (${(run.apis || []).length})</h2>
 <div class="tablewrap"><table>

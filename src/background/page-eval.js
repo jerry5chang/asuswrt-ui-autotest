@@ -182,20 +182,27 @@ export async function drainInstrument(tabId) {
  * `func` call drives them and returns the results in one hop.
  */
 export async function runPageSuites(tabId, files, suiteIds, timeoutMs) {
-    if (!suiteIds.length) return [];
+    if (!suiteIds.length) return { rows: [], timings: {}, injectMs: 0 };
+
+    const injectStarted = Date.now();
     await chrome.scripting.executeScript({
         target: { tabId },
         world: 'MAIN',
         files: ['src/page/runtime.js', ...files],
     });
-    return (
-        (await evalInPage(
-            tabId,
-            (ids, timeout) =>
-                window.__AUT__ && window.__AUT__.runSuites
-                    ? window.__AUT__.runSuites(ids, timeout)
-                    : [],
-            [suiteIds, timeoutMs]
-        )) || []
+    const injectMs = Date.now() - injectStarted;
+
+    const result = await evalInPage(
+        tabId,
+        (ids, timeout) => {
+            if (!window.__AUT__ || !window.__AUT__.runSuites) return { rows: [], timings: {} };
+            return window.__AUT__.runSuites(ids, timeout).then((rows) => ({
+                rows,
+                timings: window.__AUT__.suiteTimings || {},
+            }));
+        },
+        [suiteIds, timeoutMs]
     );
+
+    return { rows: (result && result.rows) || [], timings: (result && result.timings) || {}, injectMs };
 }

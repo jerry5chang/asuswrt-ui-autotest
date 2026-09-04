@@ -504,3 +504,53 @@ body:not(.is-empty) #emptyState { display: none; }
     padding: 4px 6px;
     font-size: 11px;
 }
+
+/* ------------------------------------------------------------- estimate bar */
+
+.estimate {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    padding: 7px 12px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+    position: sticky;
+    top: 76px;
+    z-index: 3;
+}
+
+.estimate .elabel {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--mut);
+    flex: 0 0 auto;
+}
+
+.estimate .etime {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+}
+
+.estimate .edetail {
+    color: var(--mut);
+    font-size: 11px;
+    margin-left: auto;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Rough while it still rests on seed figures rather than measurements. */
+.estimate.is-seed .etime::after {
+    content: '~';
+    color: var(--mut);
+    margin-left: 1px;
+}
+
+body.on-report .estimate { display: none; }

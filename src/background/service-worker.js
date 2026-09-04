@@ -19,6 +19,7 @@ import {
     navigateAndWait,
 } from './runner.js';
 import { loginAuthV2 } from './auth.js';
+import { getTimings } from './timings.js';
 
 /* ------------------------------------------------------------- lifecycle */
 
@@ -67,6 +68,8 @@ async function snapshot({ full = false } = {}) {
         settings: await getSettings(),
         selection: await getSelection(),
         suites: SUITES,
+        /** Measured run costs from previous runs; feeds the time estimate. */
+        measured: await getTimings(),
     };
 }
 

@@ -18,6 +18,13 @@
  *   file        for where:'page' -- extension-relative path of the injected file
  *   pages       for scope:'pages' -- page URLs this item applies to
  *   defaultOn   whether the checkbox starts ticked
+ *   cost        rough time this item adds, for the run-time estimate:
+ *               shape 'none'    passive; the shared per-page work already
+ *                               covers it, so ticking it changes nothing
+ *               shape 'perPage' `ms` per page it runs on
+ *               shape 'fixed'   `ms` once per language pass
+ *               These are seeds. Once a run has measured the real figures for
+ *               this DUT they take over -- see src/background/timings.js.
  */
 
 export const SUITES = [
@@ -29,6 +36,7 @@ export const SUITES = [
         description: 'Probe every page over HTTP; report 404 / 5xx / unreachable.',
         where: 'driver',
         scope: 'run',
+        cost: { shape: 'perPage', ms: 35 },
         defaultOn: true,
     },
     {
@@ -39,6 +47,7 @@ export const SUITES = [
         where: 'instrument',
         scope: 'each-page',
         channel: 'jsError',
+        cost: { shape: 'none' },
         defaultOn: true,
     },
     {
@@ -49,6 +58,7 @@ export const SUITES = [
         where: 'instrument',
         scope: 'each-page',
         channel: 'console',
+        cost: { shape: 'none' },
         defaultOn: true,
     },
     {
@@ -59,6 +69,7 @@ export const SUITES = [
         where: 'instrument',
         scope: 'each-page',
         channel: 'resource',
+        cost: { shape: 'none' },
         defaultOn: true,
     },
     {
@@ -69,6 +80,7 @@ export const SUITES = [
         where: 'instrument',
         scope: 'each-page',
         channel: 'uiLog',
+        cost: { shape: 'none' },
         defaultOn: true,
     },
     {
@@ -79,6 +91,7 @@ export const SUITES = [
         where: 'page',
         scope: 'each-page',
         file: 'src/suites/page/dom-sanity.js',
+        cost: { shape: 'perPage', ms: 15 },
         defaultOn: true,
     },
     {
@@ -89,6 +102,7 @@ export const SUITES = [
         where: 'page',
         scope: 'each-page',
         file: 'src/suites/page/layout-overflow.js',
+        cost: { shape: 'perPage', ms: 45 },
         defaultOn: false,
     },
 
@@ -101,6 +115,7 @@ export const SUITES = [
         where: 'page',
         scope: 'each-page',
         file: 'src/suites/page/i18n-token.js',
+        cost: { shape: 'perPage', ms: 20 },
         defaultOn: true,
     },
 
@@ -112,6 +127,7 @@ export const SUITES = [
         description: 'Derive Support / Not Support from whether a feature page exists.',
         where: 'driver',
         scope: 'run',
+        cost: { shape: 'fixed', ms: 600 },
         defaultOn: true,
     },
 
@@ -123,6 +139,7 @@ export const SUITES = [
         description: 'Call every known appGet.cgi hook and report the ones with no response.',
         where: 'driver',
         scope: 'run',
+        cost: { shape: 'fixed', ms: 1200 },
         defaultOn: true,
     },
     {
@@ -133,6 +150,7 @@ export const SUITES = [
         where: 'instrument',
         scope: 'each-page',
         channel: 'api',
+        cost: { shape: 'none' },
         defaultOn: true,
     },
 
@@ -146,6 +164,7 @@ export const SUITES = [
         scope: 'pages',
         pages: ['QIS_wizard.htm'],
         file: 'src/suites/page/qis-wizard.js',
+        cost: { shape: 'perPage', ms: 350 },
         defaultOn: true,
     },
     {
@@ -157,6 +176,7 @@ export const SUITES = [
         scope: 'pages',
         pages: ['Advanced_VLAN_Switch_Content.asp'],
         file: 'src/suites/page/vlan-switch.js',
+        cost: { shape: 'perPage', ms: 250 },
         defaultOn: true,
     },
     {
@@ -168,6 +188,7 @@ export const SUITES = [
         scope: 'pages',
         pages: ['Main_TrafficMonitor_realtime.asp', 'index.html?page=trafficmonitor'],
         file: 'src/suites/page/traffic-monitor.js',
+        cost: { shape: 'perPage', ms: 550 },
         defaultOn: true,
     },
     {
@@ -181,6 +202,7 @@ export const SUITES = [
         scope: 'pages',
         pages: ['Advanced_LAN_Content.asp', 'Advanced_Wireless_Content.asp'],
         file: 'src/suites/page/apply-button.js',
+        cost: { shape: 'perPage', ms: 1200 },
         defaultOn: false,
     },
 
@@ -199,6 +221,7 @@ export const SUITES = [
         where: 'page',
         scope: 'each-page',
         file: 'src/suites/page/eaa-skip-link.js',
+        cost: { shape: 'perPage', ms: 180 },
         defaultOn: true,
     },
     {
@@ -212,6 +235,7 @@ export const SUITES = [
         scope: 'pages',
         pages: ['index.asp'],
         file: 'src/suites/page/eaa-client-dialog.js',
+        cost: { shape: 'perPage', ms: 1800 },
         defaultOn: true,
     },
 ];

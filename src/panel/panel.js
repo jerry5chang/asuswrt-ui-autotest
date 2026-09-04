@@ -12,6 +12,7 @@
 import { MSG, RUN, SEV_ORDER, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
 import { SUITES, GROUPS, SUITE_BY_ID } from '../suites/registry.js';
 import { BUILDERS, reportFilename } from '../lib/report.js';
+import { estimateRemaining, estimateRun, formatDuration } from '../lib/estimate.js';
 import {
     LOCALES,
     applyTo,
@@ -82,6 +83,8 @@ function applyLocale(code) {
 function showTab(name) {
     $$('.tab').forEach((t) => t.classList.toggle('is-active', t.dataset.tab === name));
     $$('.panel').forEach((p) => p.classList.toggle('is-active', p.dataset.panel === name));
+    // The estimate belongs with configuring and running, not with reading results.
+    document.body.classList.toggle('on-report', name === 'report');
     if (name === 'report') loadReport();
 }
 
@@ -129,6 +132,7 @@ async function refresh() {
 
 function renderAll() {
     renderEnv();
+    renderEstimate();
     renderSettings();
     renderSuites();
     renderPages();
@@ -380,6 +384,7 @@ function renderSuites() {
 
 function updateSuiteCount() {
     $('#suiteCount').textContent = `${sel.suiteIds.size}/${SUITES.length}`;
+    renderEstimate();
 }
 
 function initPresets() {
@@ -493,6 +498,7 @@ function renderLangs() {
  */
 function updateLangCount(total) {
     $('#langCount').textContent = `${sel.langs.size}/${total}`;
+    renderEstimate();
 
     const passes = Math.max(sel.langs.size, 1);
     const pages = sel.pages.size;
@@ -524,6 +530,61 @@ function initLangControls() {
     });
 }
 
+/* -------------------------------------------------------------- estimate */
+
+/**
+ * How long the current selection will take. Deliberately not a sum of the
+ * ticked items: navigating and settling each page is paid once however many
+ * items want that page, and the instrumentation channels ride along for free.
+ * See src/lib/estimate.js.
+ *
+ * While a run is in flight the pace it is actually keeping replaces the
+ * model, because that is strictly better information.
+ */
+function renderEstimate() {
+    const bar = $('#estimateBar');
+    const run = snap.run || {};
+    const env = run.env || {};
+    const probed = !!env.ok;
+
+    bar.hidden = !probed;
+    if (!probed) return;
+
+    const estimate = estimateRun({
+        suiteIds: [...sel.suiteIds],
+        pages: [...sel.pages],
+        langs: [...sel.langs],
+        settings: snap.settings,
+        timings: snap.measured || {},
+    });
+
+    const running = run.status === RUN.RUNNING || run.status === RUN.PAUSED;
+
+    if (running) {
+        const remaining = estimateRemaining({
+            startedAt: run.startedAt,
+            cursor: run.cursor,
+            total: run.total,
+            fallbackMs: run.estimateMs || estimate.totalMs,
+        });
+        $('#estimateLabel').textContent = t('estimate.remaining');
+        $('#estimateTime').textContent = formatDuration(remaining);
+        $('#estimateDetail').textContent = t('estimate.elapsed', {
+            elapsed: formatDuration(Date.now() - run.startedAt),
+        });
+        bar.classList.remove('is-seed');
+        return;
+    }
+
+    $('#estimateLabel').textContent = t('estimate.label');
+    $('#estimateTime').textContent = formatDuration(estimate.totalMs);
+    $('#estimateDetail').textContent = estimate.pageLoop
+        ? t('estimate.detail', { pages: estimate.pages, passes: estimate.passes })
+        : t('estimate.noPages');
+    // A tilde until real measurements outweigh the shipped seed figures.
+    bar.classList.toggle('is-seed', estimate.measuredShare < 0.5);
+}
+
 /* ------------------------------------------------------------------- run */
 
 function renderRun() {
@@ -550,6 +611,7 @@ function renderRun() {
     $('#btnResume').hidden = !paused;
     $('#btnStop').hidden = !busy && !paused;
 
+    renderEstimate();
     renderCards($('#counters'), run.counts || {});
     renderResultList($('#liveResults'), (run.results || []).slice(-80).reverse());
     $('#runLog').textContent = (run.notes || []).join('\n');
@@ -614,6 +676,8 @@ function renderReport() {
 
     applyReportFilter();
 
+    renderTimings(run);
+
     const apis = run.apis || [];
     $('#apiCount').textContent = String(apis.length);
     const host = $('#apiRows');
@@ -639,6 +703,65 @@ function renderReport() {
             item.append(body);
             host.append(item);
         }
+    }
+}
+
+/**
+ * What the run actually spent, per item. The shared costs are listed too --
+ * navigating, settling and harvesting are usually the bulk of a sweep, and
+ * seeing that is what makes it obvious why ticking a sixth passive item
+ * changes nothing.
+ */
+function renderTimings(run) {
+    const host = $('#timingRows');
+    host.textContent = '';
+
+    const timings = run.timings || {};
+    const rows = Object.entries(timings)
+        .filter(([, v]) => v && v.ms > 0)
+        .map(([key, v]) => ({
+            key,
+            ms: v.ms,
+            n: v.n,
+            isSuite: key.startsWith('suite:'),
+            label: key.startsWith('suite:') ? suiteName(key.slice(6)) : t(`cost.${key}`),
+        }))
+        .sort((a, b) => b.ms - a.ms);
+
+    // The settle sleep is a setting, not a measurement, so it is not in the
+    // collector -- add it here or the total looks impossibly small.
+    const settleMs = (run.settings?.pageSettleMs || 0) * (timings.navigate?.n || 0);
+    if (settleMs > 0) {
+        rows.push({ key: 'settle', ms: settleMs, n: timings.navigate.n, isSuite: false, label: t('cost.settle') });
+        rows.sort((a, b) => b.ms - a.ms);
+    }
+
+    const total = rows.reduce((sum, r) => sum + r.ms, 0);
+    $('#timingTotal').textContent = total ? formatDuration(total) : '—';
+
+    if (!rows.length) {
+        host.append(el('p', 'empty', t('run.nothingRecorded')));
+        return;
+    }
+
+    for (const row of rows) {
+        const item = el('div', 'item');
+        item.append(el('span', `pill ${row.isSuite ? 'info' : 'skip'}`, formatDuration(row.ms)));
+        const body = el('span', 'grow');
+        body.append(el('span', 'msg', row.label));
+        body.append(
+            el(
+                'span',
+                'path',
+                t('cost.detail', {
+                    share: total ? Math.round((row.ms / total) * 100) : 0,
+                    each: Math.round(row.ms / Math.max(row.n, 1)),
+                    n: row.n,
+                })
+            )
+        );
+        item.append(body);
+        host.append(item);
     }
 }
 

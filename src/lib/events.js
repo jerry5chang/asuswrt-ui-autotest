@@ -79,3 +79,49 @@ export function mapEvents(events, { page, lang, settings, enabledChannels }) {
     }
     return out;
 }
+
+/**
+ * One row per test, not one per assertion.
+ *
+ * A page suite makes many assertions -- eaa.skip-link makes twelve -- and
+ * emitting each as its own row meant a single item on 75 pages produced 899
+ * "pass" rows, which drowned every other item and made the severity totals
+ * impossible to read against the number of test items.
+ *
+ * So each suite invocation collapses to one row:
+ *   all assertions passed  -> one pass row saying how many
+ *   anything else          -> only the rows that were not passes, since the
+ *                             passes alongside a failure are not the story
+ *
+ * The raw assertion count is returned separately, so the report can still say
+ * "899 checks across 75 pages" without spending 899 rows on it.
+ *
+ * @param {Array<object>} rows results from one page's suites
+ * @returns {{rows: Array<object>, checks: number}}
+ */
+export function collapseSuiteRows(rows) {
+    const bySuite = new Map();
+    for (const row of rows || []) {
+        if (!bySuite.has(row.suite)) bySuite.set(row.suite, []);
+        bySuite.get(row.suite).push(row);
+    }
+
+    const out = [];
+    for (const [suite, group] of bySuite) {
+        const notPass = group.filter((r) => r.severity !== SEV.PASS);
+        if (notPass.length === 0) {
+            out.push({
+                suite,
+                severity: SEV.PASS,
+                message: `${group.length} check${group.length === 1 ? '' : 's'} passed`,
+                detail: { checks: group.map((r) => r.message) },
+            });
+        } else {
+            const passed = group.length - notPass.length;
+            for (const row of notPass) {
+                out.push(passed ? { ...row, detail: { ...(row.detail || {}), alsoPassed: passed } } : row);
+            }
+        }
+    }
+    return { rows: out, checks: (rows || []).length };
+}
