@@ -246,6 +246,43 @@ export const SUITES = [
         cost: { shape: 'perPage', ms: 180 },
         defaultOn: true,
     },
+    /*
+     * The generic items, derived from the audit lists in docs/EAA-TEST-PLAN.md.
+     * Each covers a *class* of defect across every page rather than one
+     * control on one page, because that is what the 187 findings are: the
+     * same missing label or missing state, repeated in twenty modules.
+     *
+     * They ship `defaultOn: false` until they have produced a correct verdict
+     * against a real DUT -- which is a different state from `draft`. Draft
+     * means "tried, and the result cannot be trusted"; these mean "new, and
+     * nobody has confirmed the result yet". Turning one on is the confirmation.
+     */
+    {
+        id: 'eaa.a11y-name',
+        name: 'Accessible names',
+        group: 'EAA',
+        description:
+            'Every control and image has a usable accessible name, and none is named twice ' +
+            'or named something other than what you can see (9.1.1.1 / 9.4.1.2).',
+        where: 'page',
+        scope: 'each-page',
+        file: 'src/suites/page/eaa-a11y-name.js',
+        cost: { shape: 'perPage', ms: 260 },
+        defaultOn: false,
+    },
+    {
+        id: 'eaa.form-labels',
+        name: 'Form labels',
+        group: 'EAA',
+        description:
+            'Every field has a programmatic label, not just text beside it or a placeholder, ' +
+            'and required / read-only state is in attributes (9.1.3.1 / 9.3.3.2).',
+        where: 'page',
+        scope: 'each-page',
+        file: 'src/suites/page/eaa-form-labels.js',
+        cost: { shape: 'perPage', ms: 240 },
+        defaultOn: false,
+    },
     {
         id: 'eaa.client-dialog',
         name: 'Client dialog keyboard operation',

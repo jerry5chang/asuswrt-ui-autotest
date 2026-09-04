@@ -211,6 +211,14 @@ const MESSAGES = {
         'suite.eaa.skip-link.desc':
             'Tab reveals the bypass link, and activating it moves focus past the banner and ' +
             'menus into the page content (WCAG 2.4.1).',
+        'suite.eaa.a11y-name.name': 'Accessible names',
+        'suite.eaa.a11y-name.desc':
+            'Controls and images must have a usable name — not missing, not read twice, not '
+            + 'different from the visible text.',
+        'suite.eaa.form-labels.name': 'Form labels',
+        'suite.eaa.form-labels.desc':
+            'Fields need a real label, not text beside them or a placeholder; required and '
+            + 'read-only belong in attributes.',
         'suite.eaa.client-dialog.name': 'Client dialog keyboard operation',
         'suite.eaa.client-dialog.desc':
             'Network Map: opening a client must move focus into the dialog, Tab must reach ' +
@@ -402,6 +410,10 @@ const MESSAGES = {
         'suite.eaa.skip-link.desc':
             '按 Tab 會叫出這個略過導覽的連結，點下去要讓焦點越過橫幅與選單、' +
             '進入頁面主要內容（WCAG 2.4.1）。',
+        'suite.eaa.a11y-name.name': '可存取名稱',
+        'suite.eaa.a11y-name.desc': '控件與圖片要有可用的名稱：不缺、不重複朗讀、不與看到的文字不同。',
+        'suite.eaa.form-labels.name': '表單標籤',
+        'suite.eaa.form-labels.desc': '欄位要有真正關聯的標籤，不能只靠旁邊的文字或 placeholder；必填與唯讀要寫在屬性裡。',
         'suite.eaa.client-dialog.name': 'Client 對話框鍵盤操作',
         'suite.eaa.client-dialog.desc':
             '網路地圖：點開某個 client 後，焦點要進到對話框內，Tab 要能依序走到每個元件' +
@@ -593,6 +605,10 @@ const MESSAGES = {
         'suite.eaa.skip-link.desc':
             '按 Tab 会唤出这个跳过导航的链接，点击后应让焦点越过横幅与菜单、' +
             '进入页面主要内容（WCAG 2.4.1）。',
+        'suite.eaa.a11y-name.name': '可访问名称',
+        'suite.eaa.a11y-name.desc': '控件与图片要有可用的名称：不缺、不重复朗读、不与看到的文字不同。',
+        'suite.eaa.form-labels.name': '表单标签',
+        'suite.eaa.form-labels.desc': '字段要有真正关联的标签，不能只靠旁边的文字或 placeholder；必填与只读要写在属性里。',
         'suite.eaa.client-dialog.name': 'Client 对话框键盘操作',
         'suite.eaa.client-dialog.desc':
             '网络地图：点开某个 client 后，焦点要进到对话框内，Tab 要能依序走到每个元件' +

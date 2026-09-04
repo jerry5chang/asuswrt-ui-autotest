@@ -232,7 +232,9 @@ export async function runPageSuites(tabId, files, suiteIds, timeoutMs) {
     await chrome.scripting.executeScript({
         target: { tabId },
         world: 'MAIN',
-        files: ['src/page/runtime.js', ...files],
+        // a11y.js after the runtime and before the suites: the EAA items all
+        // ask the same questions about an element, and must get one answer.
+        files: ['src/page/runtime.js', 'src/page/a11y.js', ...files],
     });
     const injectMs = Date.now() - injectStarted;
 

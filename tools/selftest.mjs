@@ -14,6 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { installChromeStub } from './chrome-stub.mjs';
 import { connect } from './dut-session.mjs';
+import { installDom } from './mini-dom.mjs';
 
 const [, , origin, username, password] = process.argv;
 
@@ -126,6 +127,23 @@ function pageSandbox() {
 
 function loadIntoSandbox(ctx, file) {
     vm.runInContext(fs.readFileSync(file, 'utf8'), ctx, { filename: file });
+}
+
+/**
+ * A page sandbox with a real parsed DOM, for the EAA suites.
+ *
+ * These items are DOM-shaped -- "is this input labelled", "is this div in the
+ * tab order" -- so a selector-keyed stub would only assert the answers written
+ * into the fixture. tools/mini-dom.mjs parses the HTML instead.
+ */
+function a11yPage(html, suiteFiles) {
+    const { sandbox, ctx } = pageSandbox();
+    installDom(sandbox, html);
+    loadIntoSandbox(ctx, 'src/page/instrument.js');
+    loadIntoSandbox(ctx, 'src/page/runtime.js');
+    loadIntoSandbox(ctx, 'src/page/a11y.js');
+    for (const file of suiteFiles || []) loadIntoSandbox(ctx, file);
+    return sandbox;
 }
 
 /* ------------------------------------------------------- offline: instrument */
@@ -1179,6 +1197,185 @@ function eaaDom({
     return sandbox;
 }
 
+/* ------------------------------------------------- offline: EAA a11y names */
+
+async function testEaaNames() {
+    section('EAA accessible names (src/suites/page/eaa-a11y-name.js)');
+
+    const run = async (html) => {
+        const sandbox = a11yPage(html, ['src/suites/page/eaa-a11y-name.js']);
+        return sandbox.__AUT__.runSuites(['eaa.a11y-name'], 8000);
+    };
+    const pick = (rows, sev) => rows.filter((r) => r.severity === sev);
+    const msgs = (rows, sev) => pick(rows, sev).map((r) => r.message);
+
+    const clean = await run(`
+        <div>
+            <button id="apply">Apply</button>
+            <button id="help" aria-label="About this feature"><img src="q.png" alt=""></button>
+            <a href="/x.asp">Network Map</a>
+            <img src="logo.png" alt="ASUS">
+            <img src="spacer.gif" alt="">
+        </div>`);
+    check('a correctly named page reports no failure',
+        pick(clean, 'fail').length === 0, msgs(clean, 'fail').join(' | '));
+    check('...and says how many controls it checked',
+        /all 3 control\(s\) have an accessible name/.test(msgs(clean, 'pass').join(' ')),
+        msgs(clean, 'pass').join(' | '));
+
+    /*
+     * The finding has to name the element and what it lacks. "control-state
+     * failed" sends the reader hunting through a 76-page sweep.
+     */
+    const iconOnly = await run('<div><button id="edit_btn"><img src="images/edit.png"></button></div>');
+    const first = pick(iconOnly, 'fail')[0];
+    check('an icon-only button with no name fails', !!first, JSON.stringify(iconOnly));
+    check('...naming the element in the message',
+        /button#edit_btn/.test(first.message), first.message);
+    check('...and what it is missing',
+        /has no accessible name/.test(first.message), first.message);
+    check('...with a pasteable selector in the detail',
+        first.detail.selector === '#edit_btn', JSON.stringify(first.detail));
+    check('...and the unnamed icon inside it, which is the actual fix',
+        (first.detail.unnamedImagesInside || []).join() === 'images/edit.png',
+        JSON.stringify(first.detail));
+    check('the icon is not also reported on its own, because it is one defect',
+        pick(iconOnly, 'fail').length === 1, msgs(iconOnly, 'fail').join(' | '));
+
+    // alt="" is a decision -- decorative -- and must not be reported.
+    const decorative = await run('<div><img src="a.png"><img src="b.png" alt=""></div>');
+    check('an image with no alt fails', msgs(decorative, 'fail').some((m) => /img «a.png»/.test(m)),
+        msgs(decorative, 'fail').join(' | '));
+    check('...and alt="" is accepted as decorative',
+        !msgs(decorative, 'fail').some((m) => /b\.png/.test(m)), msgs(decorative, 'fail').join(' | '));
+
+    // Straight from the audit: every combobox carried aria-label="Select Option".
+    const placeholderLabel = await run('<div><button aria-label="Select Option">2.4 GHz</button></div>');
+    check('a placeholder aria-label from the audit is a failure',
+        msgs(placeholderLabel, 'fail').some((m) => /adds nothing/.test(m)),
+        msgs(placeholderLabel, 'fail').join(' | '));
+
+    const doubled = await run('<div><button title="WPS">WPS</button></div>');
+    check('a title duplicating the visible text is a warning',
+        msgs(doubled, 'warn').some((m) => /title identical/.test(m)), msgs(doubled, 'warn').join(' | '));
+
+    const mismatch = await run('<div><button aria-label="Submit the form">Apply</button></div>');
+    check('a name that does not contain the visible text is a warning',
+        msgs(mismatch, 'warn').some((m) => /announced differently/.test(m)),
+        msgs(mismatch, 'warn').join(' | '));
+
+    // The pointer cursor inherits, so an icon inside a button used to be
+    // reported as an improvised control of its own.
+    const inherited = await run('<div><button id="ok" aria-label="OK"><img src="i.png" alt=""></button></div>');
+    check('an image inside a real button is not called an improvised control',
+        !msgs(inherited, 'warn').some((m) => /looks clickable/.test(m)),
+        msgs(inherited, 'warn').join(' | '));
+
+    const improvised = await run('<div><div class="button_gen" onclick="applyRule()"></div></div>');
+    check('a div acting as a button with no name is a warning',
+        msgs(improvised, 'warn').some((m) => /looks clickable but has no accessible name/.test(m)),
+        msgs(improvised, 'warn').join(' | '));
+
+    // A page of forty unlabelled controls must not produce forty rows.
+    const many = await run('<div>' + Array.from({ length: 20 },
+        (_, i) => `<button id="b${i}"><img src="i${i}.png"></button>`).join('') + '</div>');
+    const failRows = pick(many, 'fail');
+    check('findings are capped per page', failRows.length === 13, String(failRows.length));
+    check('...and the last row says how many were left out',
+        /8 more element\(s\)/.test(failRows[failRows.length - 1].message),
+        failRows[failRows.length - 1].message);
+    check('...listing their selectors in its detail',
+        (failRows[failRows.length - 1].detail.selectors || []).length === 8,
+        JSON.stringify(failRows[failRows.length - 1].detail).slice(0, 120));
+}
+
+/* ------------------------------------------------- offline: EAA form labels */
+
+async function testEaaFormLabels() {
+    section('EAA form labels (src/suites/page/eaa-form-labels.js)');
+
+    const run = async (html) => {
+        const sandbox = a11yPage(html, ['src/suites/page/eaa-form-labels.js']);
+        return sandbox.__AUT__.runSuites(['eaa.form-labels'], 8000);
+    };
+    const pick = (rows, sev) => rows.filter((r) => r.severity === sev);
+    const msgs = (rows, sev) => pick(rows, sev).map((r) => r.message);
+
+    const labelled = await run(`
+        <form>
+            <label for="ip">LAN IP</label><input id="ip" type="text">
+            <label><input type="checkbox" id="dhcp"> Enable DHCP</label>
+            <label for="mode">Mode</label><select id="mode"><option>Auto</option></select>
+        </form>`);
+    check('a properly labelled form reports no failure',
+        pick(labelled, 'fail').length === 0, msgs(labelled, 'fail').join(' | '));
+    check('...and says how many fields it checked',
+        /all 3 field\(s\)/.test(msgs(labelled, 'pass').join(' ')), msgs(labelled, 'pass').join(' | '));
+
+    // The ASUSWRT pattern: the label is a table cell, associated with nothing.
+    const tableLabel = await run(`
+        <table><tr>
+            <td>Host Name</td>
+            <td><input id="hostname_x" type="text" name="hostname"></td>
+        </tr></table>`);
+    const row = pick(tableLabel, 'fail')[0];
+    check('a field whose label is just a table cell fails', !!row, JSON.stringify(tableLabel));
+    check('...naming the field', /input#hostname_x/.test(row.message), row.message);
+    check('...and saying what is missing', /has no label/.test(row.message), row.message);
+    check('...and quoting the text that should have been the label',
+        row.detail.visibleTextNearby === 'Host Name', JSON.stringify(row.detail));
+    check('...and offering the fix', /label\[for\]/.test(row.message), row.message);
+
+    const placeholderOnly = await run('<div><input id="pw" type="password" placeholder="Password"></div>');
+    check('a placeholder as the only label fails',
+        msgs(placeholderOnly, 'fail').some((m) => /labelled only by its placeholder/.test(m)),
+        msgs(placeholderOnly, 'fail').join(' | '));
+    check('...and says why, since it looks fine until you type',
+        msgs(placeholderOnly, 'fail').some((m) => /disappears/.test(m)),
+        msgs(placeholderOnly, 'fail').join(' | '));
+
+    const looseTick = await run('<div><input type="checkbox" id="mon"> <span>Mon</span></div>');
+    check('a checkbox whose text is not a label fails',
+        msgs(looseTick, 'fail').some((m) => /not a <label>/.test(m)),
+        msgs(looseTick, 'fail').join(' | '));
+
+    const starRequired = await run(`
+        <div><label for="mail">Your e-mail Address*</label><input id="mail" type="text"></div>`);
+    check('required marked only with an asterisk is a warning',
+        msgs(starRequired, 'warn').some((m) => /required only visually/.test(m)),
+        msgs(starRequired, 'warn').join(' | '));
+
+    const fakeReadonly = await run(`
+        <div><label for="ro">WAN IP</label><input id="ro" class="input_25_table readonly" type="text"></div>`);
+    check('read-only expressed as a class is a warning',
+        msgs(fakeReadonly, 'warn').some((m) => /looks read-only/.test(m)),
+        msgs(fakeReadonly, 'warn').join(' | '));
+
+    // The IPv6 finding: four octets announced as four unrelated blank fields.
+    const segmented = await run(`
+        <div class="ipv6_prefix">
+            <input type="text" maxlength="3"><input type="text" maxlength="3">
+            <input type="text" maxlength="3"><input type="text" maxlength="3">
+        </div>`);
+    check('segmented inputs with no group semantics are reported',
+        msgs(segmented, 'warn').some((m) => /no group semantics/.test(m)),
+        msgs(segmented, 'warn').join(' | '));
+
+    const grouped = await run(`
+        <fieldset><legend>LAN IPv6 Address</legend>
+            <input type="text" maxlength="3" aria-label="octet 1">
+            <input type="text" maxlength="3" aria-label="octet 2">
+            <input type="text" maxlength="3" aria-label="octet 3">
+        </fieldset>`);
+    check('...and a fieldset with named parts is accepted',
+        pick(grouped, 'fail').length === 0 && !msgs(grouped, 'warn').some((m) => /group semantics/.test(m)),
+        [...msgs(grouped, 'fail'), ...msgs(grouped, 'warn')].join(' | '));
+
+    const empty = await run('<div><p>Nothing to fill in here</p></div>');
+    check('a page with no fields is skipped, not passed',
+        pick(empty, 'skip').length === 1, JSON.stringify(empty));
+}
+
 async function testEaaSkipLink() {
     section('EAA skip link (src/suites/page/eaa-skip-link.js)');
 
@@ -1930,6 +2127,8 @@ await testI18n();
 await testEstimate();
 await testTimings();
 await testReport();
+await testEaaNames();
+await testEaaFormLabels();
 await testEaaSkipLink();
 await testEaaClientDialog();
 await testRealInput();
