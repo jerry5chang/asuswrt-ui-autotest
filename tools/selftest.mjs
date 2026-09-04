@@ -439,6 +439,101 @@ async function testHookList() {
         gated.map((h) => h.name).join(', '));
 }
 
+/* ------------------------------------------------------ offline: i18n */
+
+async function testI18n() {
+    section('panel localisation (src/lib/i18n.js)');
+
+    const i18n = await import('../src/lib/i18n.js');
+    const { SUITES } = await import('../src/suites/registry.js');
+    const { SEV_ORDER } = await import('../src/lib/const.js');
+    const { LOCALES, FALLBACK_LOCALE, setLocale, t, suiteText, groupLabel, detectLocale } = i18n;
+    const dicts = i18n._dictionaries();
+
+    check('the three locales appear in the order asked for',
+        LOCALES.map((l) => l.code).join(',') === 'zh-TW,zh-CN,en',
+        LOCALES.map((l) => l.code).join(','));
+    check('each locale carries its own name, not an English one',
+        LOCALES[0].label === '繁體中文' && LOCALES[1].label === '简体中文' && LOCALES[2].label === 'English');
+
+    // English is authoritative: a gap in any other locale must fail here
+    // rather than surface as English text inside a Chinese panel.
+    const enKeys = Object.keys(dicts[FALLBACK_LOCALE]);
+    check('the English dictionary is non-trivial', enKeys.length > 80, `${enKeys.length} keys`);
+    for (const { code } of LOCALES) {
+        const missing = enKeys.filter((k) => !(k in dicts[code]));
+        const extra = Object.keys(dicts[code]).filter((k) => !enKeys.includes(k));
+        check(`${code} translates every key`, missing.length === 0, missing.slice(0, 8).join(', '));
+        check(`${code} has no keys English lacks`, extra.length === 0, extra.slice(0, 8).join(', '));
+    }
+
+    // Every vocabulary the panel looks up by computed key.
+    for (const { code } of LOCALES) {
+        const gaps = [
+            ...SEV_ORDER.map((sev) => `sev.${sev}`),
+            ...['idle', 'running', 'paused', 'stopping', 'done', 'aborted'].map((x) => `run.status.${x}`),
+            ...[...new Set(SUITES.map((x) => x.group))].map((g) => `group.${g}`),
+            ...SUITES.flatMap((x) => [`suite.${x.id}.name`, `suite.${x.id}.desc`]),
+        ].filter((k) => !(k in dicts[code]));
+        check(`${code} covers every severity, status, group and suite`, gaps.length === 0,
+            gaps.slice(0, 6).join(', '));
+    }
+
+    // Keys referenced by the markup have to exist.
+    const html = fs.readFileSync('src/panel/panel.html', 'utf8');
+    const htmlKeys = [...html.matchAll(/data-i18n(?:-placeholder|-title)?="([^"]+)"/g)].map((m) => m[1]);
+    check('panel.html references at least 50 keys', htmlKeys.length >= 50, `${htmlKeys.length}`);
+    const unknownInHtml = [...new Set(htmlKeys)].filter((k) => !(k in dicts[FALLBACK_LOCALE]));
+    check('every key in panel.html exists in the dictionary', unknownInHtml.length === 0,
+        unknownInHtml.join(', '));
+
+    // And keys nobody uses are dead weight.
+    const js = fs.readFileSync('src/panel/panel.js', 'utf8');
+    const DYNAMIC = ['sev.', 'run.status.', 'group.', 'suite.'];
+    const unused = enKeys.filter(
+        (k) => !DYNAMIC.some((prefix) => k.startsWith(prefix)) && !htmlKeys.includes(k) && !js.includes(`'${k}'`)
+    );
+    check('no dictionary key is unused', unused.length === 0, unused.join(', '));
+
+    /* behaviour */
+    setLocale('zh-TW');
+    check('a translated key returns the translation', t('tab.run') === '執行', t('tab.run'));
+    check('interpolation fills placeholders',
+        t('login.failed', { reason: 'X' }) === '登入失敗：X', t('login.failed', { reason: 'X' }));
+
+    setLocale('zh-CN');
+    check('Simplified is written as Simplified, not converted Traditional',
+        t('dut.firmware') === '固件版本' && t('tab.setup') === '设置',
+        `${t('dut.firmware')} / ${t('tab.setup')}`);
+
+    setLocale('nope');
+    check('an unknown locale falls back to English', t('tab.run') === 'Run', t('tab.run'));
+    check('an unknown key returns the key, so a gap is visible', t('no.such.key') === 'no.such.key');
+
+    setLocale('zh-TW');
+    check('suiteText prefers the translation', suiteText(SUITES[0], 'name') === '頁面可達性',
+        suiteText(SUITES[0], 'name'));
+    check('suiteText falls back to the registry for an unknown suite',
+        suiteText({ id: 'x.y', name: 'Reg name', description: 'Reg desc' }, 'name') === 'Reg name');
+    check('groupLabel translates a group', groupLabel('Core') === '核心', groupLabel('Core'));
+
+    /* detection */
+    const realChrome = globalThis.chrome;
+    const detectWith = (ui) => {
+        globalThis.chrome = { i18n: { getUILanguage: () => ui } };
+        return detectLocale();
+    };
+    check('zh-TW browsers get Traditional', detectWith('zh-TW') === 'zh-TW');
+    check('zh-HK browsers get Traditional', detectWith('zh-HK') === 'zh-TW');
+    check('zh-CN browsers get Simplified', detectWith('zh-CN') === 'zh-CN');
+    check('zh-Hans browsers get Simplified', detectWith('zh-Hans') === 'zh-CN');
+    check('anything else gets English', detectWith('de-DE') === 'en' && detectWith('') === 'en');
+    globalThis.chrome = realChrome;
+    if (realChrome === undefined) delete globalThis.chrome;
+
+    setLocale(FALLBACK_LOCALE);
+}
+
 /* --------------------------------------------------- offline: EAA suite */
 
 /**
@@ -742,6 +837,7 @@ await testRuntime();
 await testRegistry();
 await testHookList();
 await testEvents();
+await testI18n();
 await testReport();
 await testEaaSkipLink();
 await testProbeReporting();

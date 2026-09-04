@@ -464,3 +464,21 @@ body:not(.is-empty) #emptyState { display: none; }
     opacity: .38;
     cursor: default;
 }
+
+/* -------------------------------------------------------- language picker */
+
+.brandtext { min-width: 0; }
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+}
+
+/* Sized to its content so the DUT line keeps the rest of the bar. */
+.locale {
+    width: auto;
+    padding: 4px 6px;
+    font-size: 11px;
+}

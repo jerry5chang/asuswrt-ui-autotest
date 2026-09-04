@@ -9,9 +9,23 @@
  * and written back through MSG.SAVE_SETTINGS.
  */
 
-import { MSG, RUN, SEV_ORDER, SEV_LABEL, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
+import { MSG, RUN, SEV_ORDER, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
 import { SUITES, GROUPS, SUITE_BY_ID } from '../suites/registry.js';
 import { BUILDERS, reportFilename } from '../lib/report.js';
+import {
+    LOCALES,
+    applyTo,
+    detectLocale,
+    getLocale,
+    groupLabel,
+    isLocale,
+    setLocale,
+    suiteText,
+    t,
+} from '../lib/i18n.js';
+
+/** Severity label in the panel's language; the report keeps English. */
+const sevLabel = (severity) => t(`sev.${severity}`);
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
@@ -31,6 +45,36 @@ function el(tag, className, text) {
     if (className) node.className = className;
     if (text !== undefined) node.textContent = text;
     return node;
+}
+
+/* ---------------------------------------------------------------- locale */
+
+/**
+ * Options appear in the order LOCALES declares, which is the order asked for:
+ * Traditional Chinese, Simplified Chinese, English.
+ */
+function initLocaleSelect() {
+    const select = $('#uiLocale');
+    for (const { code, label } of LOCALES) {
+        const option = el('option', null, label);
+        option.value = code;
+        select.append(option);
+    }
+
+    select.addEventListener('change', async () => {
+        applyLocale(select.value);
+        snap = await send(MSG.SAVE_SETTINGS, { settings: { locale: select.value } });
+        renderAll();
+    });
+}
+
+/** Switch language and repaint the static chrome. Callers repaint the rest. */
+function applyLocale(code) {
+    const resolved = setLocale(isLocale(code) ? code : detectLocale());
+    applyTo(document);
+    document.documentElement.lang = resolved;
+    $('#uiLocale').value = resolved;
+    return resolved;
 }
 
 /* ------------------------------------------------------------------ tabs */
@@ -70,6 +114,7 @@ function setRunTabsEnabled(enabled) {
 async function refresh() {
     snap = await send(MSG.GET_SNAPSHOT);
     if (!snap) return;
+    applyLocale(snap.settings.locale);
     sel.suiteIds = new Set(snap.selection.suiteIds || []);
     sel.langs = new Set(snap.selection.langs || []);
     const pages = (snap.run.env && snap.run.env.pages) || [];
@@ -111,14 +156,14 @@ function renderEnv() {
     $('#dutLine').title = env.origin;
 
     addKv(table, {
-        Origin: env.origin,
-        Model: env.model,
-        Firmware: env.firmware,
-        Theme: env.theme,
-        Territory: env.territory || '-',
-        Language: env.lang || '-',
-        Pages: String((env.pages || []).length),
-        'Languages available': String((env.langs || []).length || '-'),
+        [t('dut.origin')]: env.origin,
+        [t('dut.model')]: env.model,
+        [t('dut.firmware')]: env.firmware,
+        [t('dut.theme')]: env.theme,
+        [t('dut.territory')]: env.territory || '-',
+        [t('dut.language')]: env.lang || '-',
+        [t('dut.pages')]: String((env.pages || []).length),
+        [t('dut.langsAvailable')]: String((env.langs || []).length || '-'),
     });
 }
 
@@ -139,14 +184,14 @@ function renderEmptyState(env) {
         if (env.probedUrl !== undefined || env.origin) {
             saw.hidden = false;
             addKv(saw, {
-                'Active tab': env.probedUrl || '(none)',
-                'Logged in': env.loggedIn ? 'yes' : 'no',
+                [t('dut.activeTab')]: env.probedUrl || t('common.none'),
+                [t('dut.loggedIn')]: env.loggedIn ? t('common.yes') : t('common.no'),
             });
         } else {
             saw.hidden = true;
         }
     } else {
-        $('#dutLine').textContent = 'no DUT probed yet';
+        $('#dutLine').textContent = t('topbar.noDut');
         reason.hidden = true;
         saw.hidden = true;
     }
@@ -221,7 +266,7 @@ function initJsonEditors() {
             return;
         }
         snap = await send(MSG.SAVE_SETTINGS, { settings: { ...collectSettings(), ...parsed.values } });
-        status.textContent = 'Saved.';
+        status.textContent = t('adv.saved');
         status.className = 'hint good';
     });
 
@@ -231,7 +276,7 @@ function initJsonEditors() {
             $('#' + id).value = JSON.stringify(DEFAULT_SETTINGS[id], null, 2);
             $('#' + id).classList.remove('invalid');
         }
-        status.textContent = 'Reset to defaults — press Apply lists to save.';
+        status.textContent = t('adv.resetHint');
         status.className = 'hint';
     });
 }
@@ -278,7 +323,7 @@ function renderSuites() {
 
     for (const group of GROUPS) {
         const box = el('div', 'subgroup');
-        box.append(el('h3', null, group));
+        box.append(el('h3', null, groupLabel(group)));
         for (const suite of SUITES.filter((s) => s.group === group)) {
             const label = el('label', 'check');
             const input = el('input');
@@ -291,7 +336,10 @@ function renderSuites() {
                 persist();
             });
             const text = el('span', 'grow');
-            text.append(el('span', 'name', suite.name), el('span', 'desc', suite.description));
+            text.append(
+                el('span', 'name', suiteText(suite, 'name')),
+                el('span', 'desc', suiteText(suite, 'desc'))
+            );
             label.append(input, text);
             box.append(label);
         }
@@ -326,7 +374,7 @@ function renderPages() {
     host.textContent = '';
 
     if (!pages.length) {
-        host.append(el('p', 'empty', 'Probe the DUT to list its pages.'));
+        host.append(el('p', 'empty', t('pages.empty')));
         $('#pageCount').textContent = '0';
         return;
     }
@@ -359,7 +407,7 @@ function renderPages() {
         host.append(label);
     }
 
-    if (!shown.length) host.append(el('p', 'empty', 'No page matches that filter.'));
+    if (!shown.length) host.append(el('p', 'empty', t('pages.noMatch')));
     updatePageCount();
 }
 
@@ -417,10 +465,15 @@ function renderRun() {
     $('#progressBar').style.width = `${run.progress || 0}%`;
     $('#progressText').textContent =
         run.status === RUN.IDLE
-            ? 'idle'
-            : `${statusLabel(run.status)} — ${run.progress || 0}% (${run.cursor}/${run.total})`;
+            ? t('run.status.idle')
+            : t('run.progress', {
+                  status: statusLabel(run.status),
+                  percent: run.progress || 0,
+                  done: run.cursor,
+                  total: run.total,
+              });
     $('#currentItem').textContent = run.current
-        ? `${run.current.lang} · ${run.current.page || '(driver suites)'}`
+        ? `${run.current.lang} · ${run.current.page || t('run.driverSuites')}`
         : '—';
 
     $('#btnStart').hidden = busy || paused;
@@ -434,19 +487,19 @@ function renderRun() {
 }
 
 function statusLabel(status) {
-    return { idle: 'Idle', running: 'Running', paused: 'Paused', stopping: 'Stopping', done: 'Done', aborted: 'Stopped' }[status] || status;
+    return t(`run.status.${status}`);
 }
 
 function renderCards(host, counts) {
     host.textContent = '';
     const present = SEV_ORDER.filter((s) => counts[s]);
     if (!present.length) {
-        host.append(el('p', 'empty', 'No results yet.'));
+        host.append(el('p', 'empty', t('run.noResults')));
         return;
     }
     for (const severity of present) {
         const card = el('div', `card ${severity}`);
-        card.append(el('b', null, String(counts[severity])), el('span', null, SEV_LABEL[severity]));
+        card.append(el('b', null, String(counts[severity])), el('span', null, sevLabel(severity)));
         host.append(card);
     }
 }
@@ -454,12 +507,12 @@ function renderCards(host, counts) {
 function renderResultList(host, rows) {
     host.textContent = '';
     if (!rows.length) {
-        host.append(el('p', 'empty', 'Nothing recorded yet.'));
+        host.append(el('p', 'empty', t('run.nothingRecorded')));
         return;
     }
     for (const r of rows) {
         const item = el('div', 'item');
-        item.append(el('span', `pill ${r.severity}`, r.severity));
+        item.append(el('span', `pill ${r.severity}`, sevLabel(r.severity)));
         const body = el('span', 'grow');
         body.append(el('span', 'msg', r.message));
         const meta = [suiteName(r.suite), r.page, r.lang].filter(Boolean).join(' · ');
@@ -470,7 +523,7 @@ function renderResultList(host, rows) {
 }
 
 function suiteName(id) {
-    return (SUITE_BY_ID[id] && SUITE_BY_ID[id].name) || id;
+    return SUITE_BY_ID[id] ? suiteText(SUITE_BY_ID[id], 'name') : id;
 }
 
 /* ---------------------------------------------------------------- report */
@@ -487,7 +540,7 @@ function renderReport() {
 
     renderCards($('#reportSummary'), run.counts || {});
 
-    fillSelect($('#filterSev'), SEV_ORDER.filter((s) => (run.counts || {})[s]), (s) => [s, SEV_LABEL[s]]);
+    fillSelect($('#filterSev'), SEV_ORDER.filter((s) => (run.counts || {})[s]), (s) => [s, sevLabel(s)]);
     fillSelect($('#filterSuite'), [...new Set((run.results || []).map((r) => r.suite))].sort(), (s) => [s, suiteName(s)]);
 
     applyReportFilter();
@@ -497,11 +550,17 @@ function renderReport() {
     const host = $('#apiRows');
     host.textContent = '';
     if (!apis.length) {
-        host.append(el('p', 'empty', 'No API calls recorded.'));
+        host.append(el('p', 'empty', t('report.noApis')));
     } else {
         for (const a of apis.slice().reverse()) {
             const item = el('div', 'item');
-            item.append(el('span', `pill ${a.blocked ? 'blocked' : a.risk ? 'warn' : 'info'}`, a.blocked ? 'held' : a.risk ? 'risky' : 'sent'));
+            item.append(
+                el(
+                    'span',
+                    `pill ${a.blocked ? 'blocked' : a.risk ? 'warn' : 'info'}`,
+                    a.blocked ? t('api.held') : a.risk ? t('api.risky') : t('api.sent')
+                )
+            );
             const body = el('span', 'grow');
             body.append(el('span', 'msg', `${a.via} ${a.path}`));
             const bits = [a.page, a.params?.action_mode && `mode=${a.params.action_mode}`, a.params?.action_script && `script=${a.params.action_script}`]
@@ -517,7 +576,7 @@ function renderReport() {
 function fillSelect(node, values, map) {
     const keep = node.value;
     node.textContent = '';
-    const first = el('option', null, node.id === 'filterSev' ? 'All severities' : 'All suites');
+    const first = el('option', null, node.id === 'filterSev' ? t('report.allSeverities') : t('report.allSuites'));
     first.value = '';
     node.append(first);
     for (const v of values) {
@@ -554,7 +613,7 @@ function initExport() {
         chip.addEventListener('click', async () => {
             if (!reportCache) await loadReport();
             if (!reportCache || !(reportCache.results || []).length) {
-                flash('#runError', 'Nothing to export yet — run a test first.');
+                flash('#runError', t('report.nothingToExport'));
                 return;
             }
             const format = chip.dataset.export;
@@ -592,7 +651,7 @@ function initActions() {
         const label = btn.textContent;
         btn.addEventListener('click', async () => {
             btn.disabled = true;
-            btn.textContent = 'Probing…';
+            btn.textContent = t('topbar.probing');
             try {
                 await send(MSG.PROBE_ENV);
                 await refresh();
@@ -606,8 +665,8 @@ function initActions() {
     $('#btnLogin').addEventListener('click', async () => {
         await send(MSG.SAVE_SETTINGS, { settings: collectSettings() });
         const res = await send(MSG.LOGIN, {});
-        if (res && res.ok) flash('#probeReason', 'Logged in — now press Probe.', 'ok');
-        else flash('#probeReason', `Login failed: ${(res && res.reason) || 'unknown error'}`);
+        if (res && res.ok) flash('#probeReason', t('login.ok'), 'ok');
+        else flash('#probeReason', t('login.failed', { reason: (res && res.reason) || '?' }));
     });
 
     $('#btnStart').addEventListener('click', async () => {
@@ -647,6 +706,8 @@ chrome.runtime.onMessage.addListener((msg) => {
     }
 });
 
+initLocaleSelect();
+applyLocale(detectLocale()); // paint something readable before the snapshot lands
 initTabs();
 initPresets();
 initPageControls();

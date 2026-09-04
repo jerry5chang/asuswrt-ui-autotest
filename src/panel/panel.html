@@ -8,22 +8,30 @@
 </head>
 <body>
 
+<!-- Every user-visible string carries data-i18n (or -placeholder / -title) and
+     is filled in by src/lib/i18n.js. Sentences are kept whole rather than split
+     around <b>/<code>, so a translator gets the whole clause and the panel
+     still needs no innerHTML. -->
+
 <header class="topbar">
     <div class="brand">
-        <span class="logo">A</span>
-        <div>
-            <h1>UI Autotest</h1>
-            <p id="dutLine" class="dut">no DUT probed yet</p>
+        <span class="logo" aria-hidden="true">A</span>
+        <div class="brandtext">
+            <h1 data-i18n="topbar.short">UI Autotest</h1>
+            <p id="dutLine" class="dut" data-i18n="topbar.noDut">no DUT probed yet</p>
         </div>
     </div>
-    <button id="btnProbe" class="btn ghost sm" data-when="probed"
-            title="Re-read the page inventory from the active tab">Probe</button>
+    <div class="topbar-actions">
+        <select id="uiLocale" class="locale" data-i18n-title="topbar.language"></select>
+        <button id="btnProbe" class="btn ghost sm" data-when="probed"
+                data-i18n="topbar.probe" data-i18n-title="topbar.probeTitle">Probe</button>
+    </div>
 </header>
 
 <nav class="tabs" role="tablist">
-    <button class="tab is-active" data-tab="setup" role="tab">Setup</button>
-    <button class="tab" data-tab="run" role="tab">Run</button>
-    <button class="tab" data-tab="report" role="tab">Report</button>
+    <button class="tab is-active" data-tab="setup" role="tab" data-i18n="tab.setup">Setup</button>
+    <button class="tab" data-tab="run" role="tab" data-i18n="tab.run">Run</button>
+    <button class="tab" data-tab="report" role="tab" data-i18n="tab.report">Report</button>
 </nav>
 
 <main>
@@ -33,112 +41,109 @@
         <!-- Shown until a probe succeeds; everything marked data-when="probed"
              stays hidden until then, because none of it is usable yet. -->
         <section id="emptyState" class="onboard">
-            <h2>No router probed yet</h2>
+            <h2 data-i18n="empty.title">No router probed yet</h2>
             <ol class="steps">
-                <li>Open the router UI in a tab — <code>http://192.168.8.1</code> — and sign in.</li>
-                <li>Leave that tab in front and press <b>Probe</b>. It reads the router's own
-                    menu, so the page list matches what this model actually ships.</li>
+                <li data-i18n="empty.step1"></li>
+                <li data-i18n="empty.step2"></li>
             </ol>
             <p id="probeReason" class="note warn" hidden></p>
             <dl id="probeSaw" class="kv" hidden></dl>
-            <button id="btnProbeBig" class="btn primary">Probe the active tab</button>
+            <button id="btnProbeBig" class="btn primary" data-i18n="empty.probe">Probe the active tab</button>
         </section>
 
         <details class="group" data-when="probed" open>
-            <summary>DUT</summary>
+            <summary data-i18n="dut.title">DUT</summary>
             <dl id="envTable" class="kv"></dl>
         </details>
 
         <details class="group">
-            <summary>Login (auth v2)</summary>
+            <summary data-i18n="login.title">Login (auth v2)</summary>
             <div class="field">
-                <label for="username">Username</label>
+                <label for="username" data-i18n="login.username">Username</label>
                 <input id="username" type="text" autocomplete="off" spellcheck="false">
             </div>
             <div class="field">
-                <label for="password">Password</label>
+                <label for="password" data-i18n="login.password">Password</label>
                 <input id="password" type="password" autocomplete="off">
             </div>
             <label class="check"><input id="autoLogin" type="checkbox">
-                <span>Re-login automatically if the session expires mid-run</span></label>
-            <button id="btnLogin" class="btn ghost sm">Log in now</button>
-            <p class="hint">Uses <code>get_Nonce.cgi</code> + <code>login_v2.cgi</code>.
-                Credentials stay in this browser profile's extension storage.</p>
+                <span data-i18n="login.autoRelogin"></span></label>
+            <button id="btnLogin" class="btn ghost sm" data-i18n="login.now">Log in now</button>
+            <p class="hint" data-i18n="login.hint"></p>
         </details>
 
         <details class="group" open data-when="probed">
-            <summary>Test items <span id="suiteCount" class="badge"></span></summary>
+            <summary><span data-i18n="suites.title">Test items</span>
+                <span id="suiteCount" class="badge"></span></summary>
             <div class="chips" id="presets">
-                <button class="chip" data-preset="full">All</button>
-                <button class="chip" data-preset="smoke">Smoke</button>
-                <button class="chip" data-preset="api">API only</button>
-                <button class="chip" data-preset="none">None</button>
+                <button class="chip" data-preset="full" data-i18n="preset.all">All</button>
+                <button class="chip" data-preset="smoke" data-i18n="preset.smoke">Smoke</button>
+                <button class="chip" data-preset="api" data-i18n="preset.api">API only</button>
+                <button class="chip" data-preset="none" data-i18n="preset.none">None</button>
             </div>
             <div id="suiteTree"></div>
         </details>
 
         <details class="group" open data-when="probed">
-            <summary>Pages <span id="pageCount" class="badge"></span></summary>
+            <summary><span data-i18n="pages.title">Pages</span>
+                <span id="pageCount" class="badge"></span></summary>
             <div class="row">
-                <input id="pageSearch" type="search" placeholder="Filter pages…">
-                <button id="pagesAll" class="btn ghost xs">All</button>
-                <button id="pagesNone" class="btn ghost xs">None</button>
+                <input id="pageSearch" type="search" data-i18n-placeholder="pages.filter">
+                <button id="pagesAll" class="btn ghost xs" data-i18n="pages.all">All</button>
+                <button id="pagesNone" class="btn ghost xs" data-i18n="pages.none">None</button>
             </div>
             <div id="pageList" class="scroller"></div>
         </details>
 
         <details class="group" data-when="probed">
-            <summary>Languages <span id="langCount" class="badge"></span></summary>
-            <p class="hint">Leave empty to test only the language the DUT is set to.
-                Each extra language repeats the whole sweep.</p>
+            <summary><span data-i18n="langs.title">Languages</span>
+                <span id="langCount" class="badge"></span></summary>
+            <p class="hint" data-i18n="langs.hint"></p>
             <div class="chips" id="langChips"></div>
         </details>
 
         <details class="group" data-when="probed">
-            <summary>Options</summary>
+            <summary data-i18n="opts.title">Options</summary>
             <label class="check"><input id="safeMode" type="checkbox">
-                <span><b>Safe Mode</b> — intercept reboot / restart / restore requests
-                    instead of sending them</span></label>
+                <span class="grow"><span class="name" data-i18n="opts.safeMode"></span>
+                    <span class="desc" data-i18n="opts.safeModeDesc"></span></span></label>
             <label class="check"><input id="stopOnError" type="checkbox">
-                <span>Stop at the first error</span></label>
+                <span data-i18n="opts.stopOnError"></span></label>
             <div class="field">
-                <label for="pageSettleMs">Settle after load (ms)</label>
+                <label for="pageSettleMs" data-i18n="opts.settle"></label>
                 <input id="pageSettleMs" type="number" min="0" step="250">
             </div>
             <div class="field">
-                <label for="pageTimeoutMs">Page timeout (ms)</label>
+                <label for="pageTimeoutMs" data-i18n="opts.timeout"></label>
                 <input id="pageTimeoutMs" type="number" min="2000" step="1000">
             </div>
             <div class="field">
-                <label for="timeScale">Timer scale</label>
+                <label for="timeScale" data-i18n="opts.timeScale"></label>
                 <input id="timeScale" type="number" min="0.1" max="2" step="0.1">
             </div>
-            <p class="hint">Timer scale below 1 speeds the UI's own
-                <code>setTimeout</code>/<code>setInterval</code> up. v2.x hard-coded 0.5, which
-                could itself provoke races — 1.0 leaves the page alone.</p>
+            <p class="hint" data-i18n="opts.timeScaleHint"></p>
             <div class="field">
-                <label for="returnPage">Return to page</label>
+                <label for="returnPage" data-i18n="opts.returnPage"></label>
                 <input id="returnPage" type="text" spellcheck="false">
             </div>
         </details>
 
         <details class="group" data-when="probed">
-            <summary>Advanced lists</summary>
-            <p class="hint">v2.x kept these in <code>config/config.js</code>, so changing one
-                meant editing the extension and reloading it. Edit them here instead.</p>
+            <summary data-i18n="adv.title">Advanced lists</summary>
+            <p class="hint" data-i18n="adv.hint"></p>
 
-            <label class="lbl" for="specMap">Feature → page map (SPEC check)</label>
+            <label class="lbl" for="specMap" data-i18n="adv.specMap"></label>
             <textarea id="specMap" class="json" spellcheck="false" rows="7"></textarea>
 
-            <label class="lbl" for="knownIssues">Known issues (filtered to <i>skip</i>)</label>
+            <label class="lbl" for="knownIssues" data-i18n="adv.knownIssues"></label>
             <textarea id="knownIssues" class="json" spellcheck="false" rows="5"></textarea>
 
-            <label class="lbl" for="riskyActions">Risky action_script values (Safe Mode)</label>
+            <label class="lbl" for="riskyActions" data-i18n="adv.riskyActions"></label>
             <textarea id="riskyActions" class="json" spellcheck="false" rows="5"></textarea>
 
             <div class="row">
-                <button id="jsonApply" class="btn ghost sm">Apply lists</button>
-                <button id="jsonReset" class="btn ghost sm">Reset to defaults</button>
+                <button id="jsonApply" class="btn ghost sm" data-i18n="adv.apply">Apply lists</button>
+                <button id="jsonReset" class="btn ghost sm" data-i18n="adv.reset">Reset to defaults</button>
             </div>
             <p id="jsonStatus" class="hint"></p>
         </details>
@@ -148,16 +153,16 @@
     <section class="panel" data-panel="run">
         <div class="runhead">
             <div class="progress"><div id="progressBar" class="bar"></div>
-                <span id="progressText" class="ptext">idle</span></div>
-            <p id="currentItem" class="mono current">—</p>
+                <span id="progressText" class="ptext"></span></div>
+            <p id="currentItem" class="mono current">&mdash;</p>
         </div>
 
         <div class="controls">
-            <button id="btnStart" class="btn primary">Start</button>
-            <button id="btnPause" class="btn ghost" hidden>Pause</button>
-            <button id="btnResume" class="btn ghost" hidden>Resume</button>
-            <button id="btnStop" class="btn danger" hidden>Stop</button>
-            <button id="btnClear" class="btn ghost sm">Clear</button>
+            <button id="btnStart" class="btn primary" data-i18n="run.start">Start</button>
+            <button id="btnPause" class="btn ghost" hidden data-i18n="run.pause">Pause</button>
+            <button id="btnResume" class="btn ghost" hidden data-i18n="run.resume">Resume</button>
+            <button id="btnStop" class="btn danger" hidden data-i18n="run.stop">Stop</button>
+            <button id="btnClear" class="btn ghost sm" data-i18n="run.clear">Clear</button>
         </div>
 
         <div id="runError" class="note error" hidden></div>
@@ -165,12 +170,12 @@
         <div id="counters" class="cards"></div>
 
         <details class="group" open>
-            <summary>Latest results</summary>
+            <summary data-i18n="run.latest">Latest results</summary>
             <div id="liveResults" class="scroller tall"></div>
         </details>
 
         <details class="group">
-            <summary>Run log</summary>
+            <summary data-i18n="run.log">Run log</summary>
             <pre id="runLog" class="log"></pre>
         </details>
     </section>
@@ -180,25 +185,26 @@
         <div id="reportSummary" class="cards"></div>
 
         <div class="chips">
-            <button class="chip solid" data-export="html">Export HTML</button>
-            <button class="chip" data-export="json">JSON</button>
-            <button class="chip" data-export="md">Markdown</button>
-            <button class="chip" data-export="txt">TXT</button>
+            <button class="chip solid" data-export="html" data-i18n="report.exportHtml">Export HTML</button>
+            <button class="chip" data-export="json" data-i18n="report.exportJson">JSON</button>
+            <button class="chip" data-export="md" data-i18n="report.exportMd">Markdown</button>
+            <button class="chip" data-export="txt" data-i18n="report.exportTxt">TXT</button>
         </div>
 
         <div class="row">
-            <select id="filterSev"><option value="">All severities</option></select>
-            <select id="filterSuite"><option value="">All suites</option></select>
+            <select id="filterSev"></select>
+            <select id="filterSuite"></select>
         </div>
         <div class="row">
-            <input id="filterQuery" type="search" placeholder="Filter message / page…">
+            <input id="filterQuery" type="search" data-i18n-placeholder="report.filter">
             <span id="filterCount" class="badge"></span>
         </div>
 
         <div id="reportRows" class="scroller tall"></div>
 
         <details class="group">
-            <summary>Recorded API calls <span id="apiCount" class="badge"></span></summary>
+            <summary><span data-i18n="report.apiCalls">Recorded API calls</span>
+                <span id="apiCount" class="badge"></span></summary>
             <div id="apiRows" class="scroller"></div>
         </details>
     </section>
