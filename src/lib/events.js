@@ -26,7 +26,11 @@ export const EVENT_MAP = {
  * would shadow them permanently.
  */
 export function activeIgnoreRules(settings = {}) {
-    return [...(settings.knownIssues || []), ...(settings.ignoredExtra || [])];
+    return [...(settings.knownIssues || []), ...(settings.ignoredExtra || [])].filter(
+        // Unticking one in the panel disables it without losing it, so it can
+        // be put back. Shipped rules carry no flag and are always on.
+        (rule) => rule && rule.enabled !== false
+    );
 }
 
 /** Is this event a known false alarm? */

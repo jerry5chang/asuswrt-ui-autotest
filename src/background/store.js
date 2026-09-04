@@ -36,8 +36,9 @@ function sameAsDefault(key, value) {
  * then shipping a new value could never reach anyone who had saved anything.
  * `knownIssues` is the curated ignore list; local additions go to
  * `ignoredExtra`, which is unioned with it rather than replacing it.
+ * `specMap` is the feature-to-page mapping, maintained in development.
  */
-const SHIPPED_ONLY = ['knownIssues'];
+const SHIPPED_ONLY = ['knownIssues', 'specMap'];
 
 export async function saveSettings(patch) {
     const effective = { ...(await getSettings()), ...patch };

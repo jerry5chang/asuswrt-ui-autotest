@@ -9,7 +9,7 @@
  * and written back through MSG.SAVE_SETTINGS.
  */
 
-import { MSG, RUN, SEV_ORDER, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
+import { MSG, RISKY_ACTIONS, RUN, SEV_ORDER, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
 import { SUITES, GROUPS, SUITE_BY_ID, pagesInScope } from '../suites/registry.js';
 import { BUILDERS, reportFilename } from '../lib/report.js';
 import { activeIgnoreRules, ignoreRuleFor, knownIssue, rulesMatching } from '../lib/events.js';
@@ -280,74 +280,118 @@ const SETTING_FIELDS = {
     returnPage: 'value',
 };
 
-/** Settings held as JSON in a textarea rather than a single input. */
-const JSON_FIELDS = ['specMap', 'ignoredExtra', 'riskyActions'];
-
 function renderSettings() {
     for (const [id, prop] of Object.entries(SETTING_FIELDS)) {
         const node = $('#' + id);
         if (node) node[prop] = snap.settings[id];
     }
-    for (const id of JSON_FIELDS) {
-        const node = $('#' + id);
-        if (node) node.value = JSON.stringify(snap.settings[id], null, 2);
-    }
+    renderIgnoreList();
+    renderRiskyList();
 
     // These rules are what silences findings, so say how many are in force
     // without having to open the section.
     const shipped = (snap.settings.knownIssues || []).length;
-    const local = (snap.settings.ignoredExtra || []).length;
-    $('#advCount').textContent = t('adv.rules', { count: shipped + local });
-    $('#advShipped').textContent = t('adv.shipped', { count: shipped });
+    const staged = (snap.settings.ignoredExtra || []).length;
+    $('#advCount').textContent = t('adv.rules', { count: shipped + staged });
+}
+
+/* ------------------------------------------------------- advanced lists */
+
+async function saveList(patch) {
+    snap = await send(MSG.SAVE_SETTINGS, { settings: patch });
+    renderSettings();
+    renderReport();
 }
 
 /**
- * Parse the JSON editors. Returns null (and marks the offender) if any is
- * malformed, so a typo cannot quietly wipe the SPEC map on the next save.
+ * Rules staged on this machine, one per row.
+ *
+ * Reports have to be comparable between people, so what actually filters is
+ * the list shipped in source, identical for everyone and tied to the tool
+ * version. These are the maintainer's staging area: they apply here, so the
+ * effect is visible while curating, and Copy hands them over to be folded
+ * into DEFAULT_KNOWN_ISSUES. With maintainer mode off nobody has any.
+ *
+ * Unticking disables a rule rather than deleting it, so it can be put back.
  */
-function collectJsonFields() {
-    const out = {};
-    const bad = [];
-    for (const id of JSON_FIELDS) {
-        const node = $('#' + id);
-        if (!node) continue;
-        try {
-            const value = JSON.parse(node.value);
-            const wantArray = id !== 'specMap';
-            if (Array.isArray(value) !== wantArray) throw new Error(wantArray ? 'expected an array' : 'expected an object');
-            out[id] = value;
-            node.classList.remove('invalid');
-        } catch (e) {
-            node.classList.add('invalid');
-            bad.push(`${id}: ${e.message}`);
-        }
-    }
-    return bad.length ? { error: bad.join('; ') } : { values: out };
-}
+function renderIgnoreList() {
+    const host = $('#ignoreList');
+    host.textContent = '';
 
-function initJsonEditors() {
-    const status = $('#jsonStatus');
-
-    $('#jsonApply').addEventListener('click', async () => {
-        const parsed = collectJsonFields();
-        if (parsed.error) {
-            status.textContent = parsed.error;
-            status.className = 'hint bad';
-            return;
-        }
-        snap = await send(MSG.SAVE_SETTINGS, { settings: { ...collectSettings(), ...parsed.values } });
-        status.textContent = t('adv.saved');
-        status.className = 'hint good';
+    $('#advShipped').textContent = t('adv.shipped', {
+        count: (snap.settings.knownIssues || []).length,
     });
 
-    $('#jsonReset').addEventListener('click', async () => {
-        const { DEFAULT_SETTINGS } = await import('../lib/const.js');
-        for (const id of JSON_FIELDS) {
-            $('#' + id).value = JSON.stringify(DEFAULT_SETTINGS[id], null, 2);
-            $('#' + id).classList.remove('invalid');
+    const staged = snap.settings.ignoredExtra || [];
+    $('#ignoreCopy').hidden = staged.length === 0;
+
+    if (!staged.length) {
+        host.append(el('p', 'empty', t('adv.noStaged')));
+        return;
+    }
+
+    staged.forEach((rule, index) => {
+        const label = el('label', 'check');
+        const box = el('input');
+        box.type = 'checkbox';
+        box.checked = rule.enabled !== false;
+        box.addEventListener('change', () => {
+            saveList({
+                ignoredExtra: staged.map((r, i) => (i === index ? { ...r, enabled: box.checked } : r)),
+            });
+        });
+        const text = el('span', 'grow');
+        text.append(el('span', 'name mono', rule.where || t('adv.anyPage')));
+        text.append(el('span', 'desc', rule.match));
+        label.append(box, text);
+        host.append(label);
+    });
+}
+
+/**
+ * Every action_script Safe Mode knows how to hold back, grouped by what it
+ * does to the DUT. Ticked means intercepted rather than sent.
+ */
+function renderRiskyList() {
+    const host = $('#riskyList');
+    host.textContent = '';
+    const on = new Set(snap.settings.riskyActions || []);
+
+    for (const [group, actions] of Object.entries(RISKY_ACTIONS)) {
+        const box = el('div', 'subgroup');
+        box.append(el('h3', null, t(`adv.risky.${group}`)));
+        for (const action of actions) {
+            const label = el('label', 'check');
+            const input = el('input');
+            input.type = 'checkbox';
+            input.checked = on.has(action);
+            input.addEventListener('change', () => {
+                const next = new Set(snap.settings.riskyActions || []);
+                if (input.checked) next.add(action);
+                else next.delete(action);
+                saveList({ riskyActions: [...next] });
+            });
+            label.append(input, el('span', 'grow mono', action));
+            box.append(label);
         }
-        status.textContent = t('adv.resetHint');
-        status.className = 'hint';
+        host.append(box);
+    }
+}
+
+function initAdvancedLists() {
+    $('#riskyAll').addEventListener('click', () =>
+        saveList({ riskyActions: Object.values(RISKY_ACTIONS).flat() })
+    );
+    $('#riskyNone').addEventListener('click', () => saveList({ riskyActions: [] }));
+
+    // Shaped exactly as DEFAULT_KNOWN_ISSUES expects, so it pastes straight
+    // in; a disabled rule is left out.
+    $('#ignoreCopy').addEventListener('click', async () => {
+        const staged = (snap.settings.ignoredExtra || [])
+            .filter((r) => r.enabled !== false)
+            .map(({ where, match }) => ({ where, match }));
+        await navigator.clipboard.writeText(JSON.stringify(staged, null, 4));
+        flash('#runError', t('adv.copied', { count: staged.length }), 'ok');
     });
 }
 
@@ -1115,6 +1159,6 @@ initPresets();
 initPageControls();
 initLangControls();
 initActions();
-initJsonEditors();
+initAdvancedLists();
 initExport();
 refresh();

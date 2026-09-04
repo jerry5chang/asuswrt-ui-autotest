@@ -120,19 +120,20 @@ const MESSAGES = {
 
         'adv.title': 'Advanced lists',
         'adv.hint':
-            'v2.x kept these in config/config.js, so changing one meant editing the extension ' +
-            'and reloading it. Edit them here instead.',
-        'adv.specMap': 'Feature → page map (SPEC check)',
-        'adv.localIgnores': 'Ignored on this machine (reported as skip)',
+            'The feature-to-page SPEC map lives in source and is maintained in development. ' +
+            'What is here is the ignore list and what Safe Mode holds back.',
+        'adv.staged': 'Staged here, not yet shipped',
+        'adv.noStaged': 'Nothing staged. Ignore a finding in the report to add one.',
+        'adv.anyPage': '(any page)',
+        'adv.copy': 'Copy for the maintainer',
+        'adv.copied': '{count} rule(s) copied — paste them in to ship them.',
+        'adv.risky.destructive': 'Destructive',
+        'adv.risky.disconnect': 'Disconnects',
         'adv.shipped':
-            '{count} more ship with the extension and update with it, so they are not listed '
-            + 'here; these are added to those, never replacing them.',
+            '{count} ship with the extension and do the filtering, so every report matches. '
+            + 'They are maintained in source and not editable here.',
         'adv.riskyActions': 'Risky action_script values (Safe Mode)',
-        'adv.apply': 'Apply lists',
-        'adv.reset': 'Reset to defaults',
         'adv.rules': '{count} rules',
-        'adv.saved': 'Saved.',
-        'adv.resetHint': 'Reset to defaults — press Apply lists to save.',
 
         'run.start': 'Start',
         'run.pause': 'Pause',
@@ -341,18 +342,19 @@ const MESSAGES = {
 
         'adv.title': '進階清單',
         'adv.hint':
-            'v2.x 把這些放在 config/config.js，改一次就得動擴充套件再重新載入。現在直接在這裡改。',
-        'adv.specMap': '功能 → 頁面對應（SPEC 檢查）',
-        'adv.localIgnores': '本機忽略的項目（回報為 skip）',
+            '功能 → 頁面的 SPEC 對應放在原始碼、開發階段維護。這裡是忽略清單和安全模式要攔的東西。',
+        'adv.staged': '暫存在這台，還沒發行',
+        'adv.noStaged': '沒有暫存項目。在報告裡按「忽略」就會加進來。',
+        'adv.anyPage': '（任何頁面）',
+        'adv.copy': '複製給維護者',
+        'adv.copied': '已複製 {count} 條 —— 貼給我就能發行。',
+        'adv.risky.destructive': '破壞性',
+        'adv.risky.disconnect': '會斷線',
         'adv.shipped':
-            '另有 {count} 條隨套件發行、會跟著更新，所以不列在這裡；' +
-            '這裡的是疊加在那些之上，不會取代它們。',
+            '有 {count} 條隨套件發行、負責實際過濾，所以每個人的報告一致。' +
+            '它們在原始碼裡維護，這裡不能改。',
         'adv.riskyActions': '危險的 action_script 清單（安全模式）',
-        'adv.apply': '套用清單',
-        'adv.reset': '回復預設值',
         'adv.rules': '{count} 條規則',
-        'adv.saved': '已儲存。',
-        'adv.resetHint': '已回復預設值 —— 請按「套用清單」儲存。',
 
         'run.start': '開始',
         'run.pause': '暫停',
@@ -558,18 +560,19 @@ const MESSAGES = {
 
         'adv.title': '高级清单',
         'adv.hint':
-            'v2.x 把这些放在 config/config.js，改一次就得修改扩展并重新加载。现在可直接在这里改。',
-        'adv.specMap': '功能 → 页面映射（SPEC 检查）',
-        'adv.localIgnores': '本机忽略的项目（报告为 skip）',
+            '功能 → 页面的 SPEC 映射放在源码、开发阶段维护。这里是忽略清单和安全模式要拦的东西。',
+        'adv.staged': '暂存在这台，还没发行',
+        'adv.noStaged': '没有暂存项目。在报告里点「忽略」就会加进来。',
+        'adv.anyPage': '（任何页面）',
+        'adv.copy': '复制给维护者',
+        'adv.copied': '已复制 {count} 条 —— 贴给我就能发行。',
+        'adv.risky.destructive': '破坏性',
+        'adv.risky.disconnect': '会断线',
         'adv.shipped':
-            '另有 {count} 条随扩展发行、会跟着更新，所以不列在这里；' +
-            '这里的是叠加在那些之上，不会取代它们。',
+            '有 {count} 条随扩展发行、负责实际过滤，所以每个人的报告一致。' +
+            '它们在源码里维护，这里不能改。',
         'adv.riskyActions': '危险的 action_script 清单（安全模式）',
-        'adv.apply': '应用清单',
-        'adv.reset': '恢复默认值',
         'adv.rules': '{count} 条规则',
-        'adv.saved': '已保存。',
-        'adv.resetHint': '已恢复默认值 —— 请点「应用清单」保存。',
 
         'run.start': '开始',
         'run.pause': '暂停',

@@ -164,21 +164,19 @@
                 <span id="advCount" class="badge"></span></summary>
             <p class="hint" data-i18n="adv.hint"></p>
 
-            <label class="lbl" for="specMap" data-i18n="adv.specMap"></label>
-            <textarea id="specMap" class="json" spellcheck="false" rows="7"></textarea>
-
-            <label class="lbl" for="ignoredExtra" data-i18n="adv.localIgnores"></label>
+            <label class="lbl" data-i18n="adv.staged"></label>
             <p id="advShipped" class="hint"></p>
-            <textarea id="ignoredExtra" class="json" spellcheck="false" rows="5"></textarea>
-
-            <label class="lbl" for="riskyActions" data-i18n="adv.riskyActions"></label>
-            <textarea id="riskyActions" class="json" spellcheck="false" rows="5"></textarea>
-
             <div class="row">
-                <button id="jsonApply" class="btn ghost sm" data-i18n="adv.apply">Apply lists</button>
-                <button id="jsonReset" class="btn ghost sm" data-i18n="adv.reset">Reset to defaults</button>
+                <button id="ignoreCopy" class="btn ghost xs" hidden data-i18n="adv.copy">Copy</button>
             </div>
-            <p id="jsonStatus" class="hint"></p>
+            <div id="ignoreList" class="scroller"></div>
+
+            <label class="lbl" data-i18n="adv.riskyActions"></label>
+            <div class="row">
+                <button id="riskyAll" class="btn ghost xs" data-i18n="common.selectAll">All</button>
+                <button id="riskyNone" class="btn ghost xs" data-i18n="common.selectNone">None</button>
+            </div>
+            <div id="riskyList" class="scroller"></div>
         </details>
     </section>
 

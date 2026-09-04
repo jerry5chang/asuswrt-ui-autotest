@@ -872,7 +872,7 @@ async function testI18n() {
 
     const i18n = await import('../src/lib/i18n.js');
     const { SUITES } = await import('../src/suites/registry.js');
-    const { SEV_ORDER } = await import('../src/lib/const.js');
+    const { SEV_ORDER, RISKY_ACTIONS } = await import('../src/lib/const.js');
     const { LOCALES, FALLBACK_LOCALE, setLocale, t, suiteText, groupLabel, detectLocale } = i18n;
     const dicts = i18n._dictionaries();
 
@@ -900,6 +900,8 @@ async function testI18n() {
             // Each cost line the timing breakdown can show needs a label, or
             // the report shows a raw key like "cost.pageFixed".
             ...[...Object.keys(SEED), 'settle', 'detail'].map((k) => `cost.${k}`),
+            // Each Safe Mode group heading in the checklist.
+            ...Object.keys(RISKY_ACTIONS).map((g) => `adv.risky.${g}`),
             ...SEV_ORDER.map((sev) => `sev.${sev}`),
             ...['idle', 'running', 'paused', 'stopping', 'done', 'aborted'].map((x) => `run.status.${x}`),
             ...[...new Set(SUITES.map((x) => x.group))].map((g) => `group.${g}`),
@@ -919,7 +921,7 @@ async function testI18n() {
 
     // And keys nobody uses are dead weight.
     const js = fs.readFileSync('src/panel/panel.js', 'utf8');
-    const DYNAMIC = ['sev.', 'run.status.', 'group.', 'suite.', 'cost.'];
+    const DYNAMIC = ['sev.', 'run.status.', 'group.', 'suite.', 'cost.', 'adv.risky.'];
     const unused = enKeys.filter(
         (k) => !DYNAMIC.some((prefix) => k.startsWith(prefix)) && !htmlKeys.includes(k) && !js.includes(`'${k}'`)
     );
