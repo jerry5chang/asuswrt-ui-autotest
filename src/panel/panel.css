@@ -768,3 +768,22 @@ body.on-report .estimate { display: none; }
     font-variant-numeric: tabular-nums;
     color: var(--warn);
 }
+
+/* --------------------------------------------------------- ignore action */
+
+/* Offered on the findings that read as defects, in the Report tab only. */
+.item > .ignore {
+    flex: 0 0 auto;
+    align-self: center;
+    padding: 2px 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--mut);
+    font: inherit;
+    font-size: var(--fs-tiny);
+    cursor: pointer;
+}
+
+.item > .ignore:hover { color: var(--fg); border-color: var(--mut); }
+.item > .ignore:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

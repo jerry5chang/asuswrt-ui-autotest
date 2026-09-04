@@ -12,6 +12,7 @@
 import { MSG, RUN, SEV_ORDER, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
 import { SUITES, GROUPS, SUITE_BY_ID, pagesInScope } from '../suites/registry.js';
 import { BUILDERS, reportFilename } from '../lib/report.js';
+import { ignoreRuleFor } from '../lib/events.js';
 import { estimateRemaining, estimateRun, formatDuration } from '../lib/estimate.js';
 import {
     LOCALES,
@@ -734,6 +735,27 @@ function renderCards(host, counts) {
     }
 }
 
+/**
+ * Add a rule that suppresses this finding from now on, and re-render so it
+ * disappears immediately. The list is the same one Advanced lists edits, so a
+ * rule added here can be reviewed or removed there.
+ */
+async function ignoreFinding(row) {
+    const rule = ignoreRuleFor(row);
+    if (!rule) return;
+
+    const known = [...(snap.settings.knownIssues || [])];
+    const already = known.some((k) => k.where === rule.where && k.match === rule.match);
+    if (!already) known.push(rule);
+
+    snap = await send(MSG.SAVE_SETTINGS, { settings: { knownIssues: known } });
+    await loadReport();
+    flash('#runError', t('report.ignored', { count: known.length }), 'ok');
+}
+
+/** Findings worth offering to suppress: the ones that read as defects. */
+const SUPPRESSIBLE = new Set(['error', 'fail', 'warn']);
+
 function renderResultList(host, rows, current) {
     host.textContent = '';
 
@@ -759,6 +781,20 @@ function renderResultList(host, rows, current) {
         const meta = [suiteName(r.suite), r.page, r.lang].filter(Boolean).join(' · ');
         body.append(el('span', 'path', meta));
         item.append(body);
+
+        // Only in the Report tab: during a run the list is a feed, and a
+        // button that reflows it while results stream in is a nuisance.
+        if (host.id === 'reportRows' && SUPPRESSIBLE.has(r.severity) && ignoreRuleFor(r)) {
+            const ignore = el('button', 'ignore', t('report.ignore'));
+            ignore.type = 'button';
+            ignore.title = t('report.ignoreTitle');
+            ignore.addEventListener('click', (event) => {
+                event.stopPropagation();
+                ignoreFinding(r);
+            });
+            item.append(ignore);
+        }
+
         host.append(item);
     }
 }

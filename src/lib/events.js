@@ -34,6 +34,33 @@ export function knownIssue(settings, event) {
 }
 
 /**
+ * Turn a reported row into a known-issue rule that will suppress it.
+ *
+ * `where` is the asset or file the finding points at, stripped of the origin
+ * so the rule survives the DUT changing address; `match` is the message with
+ * URLs removed, so it survives a port or host change too. Together they are
+ * specific: the pair matches that finding and little else.
+ *
+ * @returns {{where: string, match: string}|null}
+ */
+export function ignoreRuleFor(row) {
+    if (!row || !row.message) return null;
+
+    const detail = row.detail || {};
+    const source = detail.src || detail.file || row.href || '';
+    // Everything after the origin, which is the part that identifies the file.
+    const where = String(source).replace(/^[a-z]+:\/\/[^/]+\//i, '') || row.page || '';
+
+    const match = row.message
+        .replace(/https?:\/\/\S+/gi, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+
+    if (!match) return null;
+    return { where, match };
+}
+
+/**
  * Severity for one event. Two cases have to differ from the baseline:
  *
  * - `console.warn` is not `console.error`.

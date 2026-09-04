@@ -324,6 +324,33 @@ async function testEvents() {
     check('a known issue becomes skip, not a silent drop', suppressed[0].severity === 'skip');
     check('a known issue is labelled as such', suppressed[0].message.startsWith('known issue:'));
 
+    /*
+     * A rule derived from a finding has to actually suppress it, or the Ignore
+     * button lies. The real case: QIS links a stylesheet that only ships with
+     * the business package, which is by design and had to stop being a Fail.
+     */
+    const { ignoreRuleFor } = await import('../src/lib/events.js');
+    const cssMiss = {
+        kind: 'resource',
+        message: 'link failed to load: http://192.168.8.1/mobile.customize/customize.css',
+        detail: { src: 'http://192.168.8.1/mobile.customize/customize.css' },
+        href: 'http://192.168.8.1/QIS_wizard.htm',
+    };
+    const rule = ignoreRuleFor(cssMiss);
+    check('a derived rule drops the origin, so it survives the DUT moving',
+        rule.where === 'mobile.customize/customize.css', JSON.stringify(rule));
+    check('...and drops URLs from the message, so a port change does not break it',
+        !/https?:/.test(rule.match), rule.match);
+    check('...and the rule it derives actually suppresses that finding',
+        knownIssue({ knownIssues: [rule] }, cssMiss));
+    check('...without suppressing a different asset',
+        !knownIssue({ knownIssues: [rule] }, {
+            ...cssMiss,
+            message: 'link failed to load: http://192.168.8.1/other/thing.css',
+            detail: { src: 'http://192.168.8.1/other/thing.css' },
+        }));
+    check('a finding with no message yields no rule', ignoreRuleFor({ message: '' }) === null);
+
     check('known-issue matching can key off a resource src',
         knownIssue({ knownIssues: [{ where: 'www.asus.com', match: 'failed to load' }] },
             { kind: 'resource', message: 'external script failed to load: x', detail: { src: 'https://www.asus.com/x' } }));
@@ -1517,6 +1544,48 @@ async function testRealInput() {
     delete globalThis.chrome;
 }
 
+/* ------------------------------------------------ offline: settings store */
+
+/**
+ * Storing the whole merged object froze the defaults as they stood at the
+ * first write, so later additions to DEFAULT_SETTINGS never reached anyone who
+ * had ever changed a setting. Only deviations are stored now.
+ */
+async function testSettingsStore() {
+    section('settings persistence (src/background/store.js)');
+
+    const stub = installChromeStub({ origin: 'http://dut', fetch: async () => ({ ok: false }) });
+    const { getSettings, saveSettings } = await import('../src/background/store.js');
+    const { DEFAULT_SETTINGS } = await import('../src/lib/const.js');
+
+    await saveSettings({ theme: 'dark' });
+    const stored = stub.local.get('settings');
+    check('only the changed setting is written', Object.keys(stored).join() === 'theme',
+        JSON.stringify(stored));
+    check('...and reading back still yields every default',
+        Object.keys(await getSettings()).length === Object.keys(DEFAULT_SETTINGS).length);
+    check('...with the change applied', (await getSettings()).theme === 'dark');
+
+    // The regression this prevents: a new default reaching an existing user.
+    const withNewDefault = { ...DEFAULT_SETTINGS, knownIssues: [{ where: 'new', match: 'thing' }] };
+    stub.local.set('settings', { theme: 'dark' });
+    const merged = { ...withNewDefault, ...stub.local.get('settings') };
+    check('a default the user never touched flows through to them',
+        merged.knownIssues[0].where === 'new');
+
+    // A value the user really did change must survive, even back to a default.
+    await saveSettings({ knownIssues: [] });
+    check('an emptied list is kept, because empty differs from the default',
+        JSON.stringify(stub.local.get('settings').knownIssues) === '[]',
+        JSON.stringify(stub.local.get('settings')));
+
+    await saveSettings({ theme: DEFAULT_SETTINGS.theme });
+    check('setting a value back to its default removes the override',
+        !('theme' in stub.local.get('settings')), JSON.stringify(stub.local.get('settings')));
+
+    delete globalThis.chrome;
+}
+
 /* ------------------------------------------------- offline: probe reporting */
 
 /**
@@ -1674,6 +1743,7 @@ await testReport();
 await testEaaSkipLink();
 await testEaaClientDialog();
 await testRealInput();
+await testSettingsStore();
 await testProbeReporting();
 
 if (origin) await testAgainstDut();

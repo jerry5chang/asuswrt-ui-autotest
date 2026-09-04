@@ -17,10 +17,30 @@ export async function getSettings() {
     return { ...DEFAULT_SETTINGS, ...(bag[SETTINGS_KEY] || {}) };
 }
 
+/** Plain-JSON deep equality; every setting is a JSON value. */
+function sameAsDefault(key, value) {
+    return JSON.stringify(value) === JSON.stringify(DEFAULT_SETTINGS[key]);
+}
+
+/**
+ * Store only what differs from the defaults.
+ *
+ * This used to store the whole merged object, so the first time any setting
+ * was written -- a theme toggle, a language change -- the defaults as they
+ * stood at that moment were frozen into storage. Every later change to
+ * DEFAULT_SETTINGS then failed to reach anyone who had ever touched a setting,
+ * which is how a new known-issue entry could be added and still not apply.
+ */
 export async function saveSettings(patch) {
-    const next = { ...(await getSettings()), ...patch };
-    await chrome.storage.local.set({ [SETTINGS_KEY]: next });
-    return next;
+    const effective = { ...(await getSettings()), ...patch };
+
+    const overrides = {};
+    for (const [key, value] of Object.entries(effective)) {
+        if (!sameAsDefault(key, value)) overrides[key] = value;
+    }
+
+    await chrome.storage.local.set({ [SETTINGS_KEY]: overrides });
+    return effective;
 }
 
 export async function getSelection() {
