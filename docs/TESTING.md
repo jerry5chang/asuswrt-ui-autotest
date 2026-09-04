@@ -1,5 +1,10 @@
 # Testing the tool itself
 
+> The full standard -- UI rules, component details, implementation rules
+> for test items and the pitfalls behind them -- is in
+> [AGENT-HANDBOOK.md](AGENT-HANDBOOK.md). This file is the narrower view.
+
+
 ```bash
 node tools/selftest.mjs                                     # offline
 node tools/selftest.mjs http://192.168.8.1 admin '<pass>'    # against a DUT

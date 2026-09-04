@@ -1,5 +1,10 @@
 # Writing a test item
 
+> The full standard -- UI rules, component details, implementation rules
+> for test items and the pitfalls behind them -- is in
+> [AGENT-HANDBOOK.md](AGENT-HANDBOOK.md). This file is the narrower view.
+
+
 Two files change: your suite, and one entry in the registry. **The manifest is
 never touched** — v3.0 injects through `chrome.scripting`, so there is no
 `web_accessible_resources` list to keep in sync (that was the third file you

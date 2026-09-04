@@ -11,6 +11,15 @@ buttons that would otherwise reboot the DUT.
 
 ---
 
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [docs/AGENT-HANDBOOK.md](docs/AGENT-HANDBOOK.md) | **Start here to change anything.** Architecture, UI rules, the implementation standard for test items, and every pitfall already hit |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The four worlds, the run loop, the result model |
+| [docs/WRITING-TESTS.md](docs/WRITING-TESTS.md) | The short version of adding a test item |
+| [docs/TESTING.md](docs/TESTING.md) | What the self-test covers, and what it does not |
+
 ## Install (unpacked)
 
 1. `chrome://extensions` → enable **Developer mode**

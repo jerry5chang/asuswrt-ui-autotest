@@ -143,7 +143,6 @@ export const DEFAULT_SETTINGS = {
      * would need, ready to paste, for whoever maintains that list.
      */
     devMode: false,
-    /** Allow chrome.debugger attach for suites that need real key presses. */
     autoLogin: false,
     username: 'admin',
     password: '',
