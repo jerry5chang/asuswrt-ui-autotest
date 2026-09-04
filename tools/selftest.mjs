@@ -439,6 +439,159 @@ async function testHookList() {
         gated.map((h) => h.name).join(', '));
 }
 
+/* --------------------------------------------------- offline: EAA suite */
+
+/**
+ * A DOM stub shaped for the skip-link suite. Only the calls that suite makes
+ * are implemented, and querySelector routes by literal selector string, so
+ * what is being faked stays visible rather than pretending to be a browser.
+ */
+function eaaDom({
+    hasPlugin = true,
+    hasLink = true,
+    linkCount = 1,
+    revealOnFocus = true,
+    targetFocusable = true,
+    targetContainsNav = false,
+    targetId = 'eaa-main-content',
+    href = '#eaa-main-content',
+    positiveTabindex = false,
+    firstFocusableIsLink = true,
+} = {}) {
+    const { sandbox, ctx } = pageSandbox();
+
+    const mk = (tagName, props = {}) => {
+        const attrs = props.attrs || {};
+        const el = {
+            tagName,
+            id: props.id || '',
+            className: props.className || '',
+            disabled: false,
+            children: props.children || [],
+            rect: props.rect || { left: 10, top: 10, right: 210, bottom: 50, width: 200, height: 40 },
+            getAttribute: (n) => (n in attrs ? attrs[n] : null),
+            setAttribute: (n, v) => { attrs[n] = v; },
+            hasAttribute: (n) => n in attrs,
+            getBoundingClientRect: () => el.rect,
+            contains: (other) => other === el || el.children.includes(other),
+            focus: () => { sandbox.document.activeElement = el; if (revealOnFocus) el.rect = revealed; },
+            click: () => { sandbox.document.activeElement = props.focusOnClick || el; },
+            parentElement: null,
+        };
+        return el;
+    };
+
+    const hidden = { left: -10000, top: 0, right: -9900, bottom: 30, width: 100, height: 30 };
+    const revealed = { left: 0, top: 0, right: 160, bottom: 30, width: 160, height: 30 };
+
+    const nav = mk('DIV', { id: 'tabMenu' });
+    const banner = mk('DIV', { id: 'TopBanner' });
+    const mainMenu = mk('DIV', { id: 'mainMenu' });
+
+    const target = mk('DIV', {
+        id: targetId,
+        attrs: targetFocusable ? { tabindex: '-1', role: 'main' } : { role: 'main' },
+        children: targetContainsNav ? [nav, banner, mainMenu] : [],
+    });
+
+    const link = mk('A', {
+        className: 'eaa-skip-link',
+        attrs: { href },
+        rect: hidden,
+        focusOnClick: target,
+    });
+
+    const otherFocusable = mk('BUTTON', { id: 'logout' });
+    const jumper = mk('INPUT', { id: 'jumpy', attrs: { tabindex: '3' } });
+
+    const links = hasLink ? Array(linkCount).fill(link) : [];
+    const focusOrder = firstFocusableIsLink ? [...links, otherFocusable] : [otherFocusable, ...links];
+
+    const byId = { [targetId]: target, tabMenu: nav, TopBanner: banner, mainMenu: mainMenu };
+    const bySelector = {
+        'a.eaa-skip-link, a.skip-to-main': links,
+        'a[href], button, input:not([type="hidden"]), select, textarea, [tabindex]': focusOrder,
+        '[tabindex]': positiveTabindex ? [jumper] : [],
+        '#TopBanner': [banner],
+        '#mainMenu': [mainMenu],
+        '#tabMenu': [nav],
+    };
+
+    sandbox.document.querySelectorAll = (sel) => {
+        if (!(sel in bySelector)) throw new Error(`eaaDom: unstubbed selector ${sel}`);
+        return bySelector[sel];
+    };
+    sandbox.document.querySelector = (sel) => sandbox.document.querySelectorAll(sel)[0] || null;
+    sandbox.document.getElementById = (id) => byId[id] || null;
+    sandbox.document.body = mk('BODY');
+    sandbox.document.documentElement = mk('HTML');
+    sandbox.document.activeElement = null;
+    sandbox.getComputedStyle = () => ({ display: 'block', visibility: 'visible' });
+    sandbox.innerWidth = 1280;
+    sandbox.innerHeight = 800;
+    if (hasPlugin) sandbox.EAAPlugin = { addSkipToContentLink() {} };
+
+    loadIntoSandbox(ctx, 'src/page/instrument.js');
+    loadIntoSandbox(ctx, 'src/page/runtime.js');
+    loadIntoSandbox(ctx, 'src/suites/page/eaa-skip-link.js');
+    return sandbox;
+}
+
+async function testEaaSkipLink() {
+    section('EAA skip link (src/suites/page/eaa-skip-link.js)');
+
+    const run = async (opts) => {
+        const sandbox = eaaDom(opts);
+        return sandbox.__AUT__.runSuites(['eaa.skip-link'], 20000);
+    };
+    const sevs = (rows) => rows.map((r) => r.severity);
+    const failures = (rows) => rows.filter((r) => r.severity === 'fail').map((r) => r.message);
+
+    // A build without the plugin must not report a defect on all 76 pages.
+    const noPlugin = await run({ hasPlugin: false });
+    check('a build without the EAA plugin is skipped, not failed',
+        sevs(noPlugin).join() === 'skip', JSON.stringify(noPlugin));
+    check('...and says the plugin is missing', /no EAA plugin/.test(noPlugin[0].message));
+
+    const good = await run({});
+    check('a correct skip link passes every assertion',
+        failures(good).length === 0, failures(good).join(' | '));
+    check('...and actually asserts something', good.length >= 8, `${good.length} results`);
+
+    // Requirement: it must be the first thing Tab reaches.
+    const notFirst = await run({ firstFocusableIsLink: false });
+    check('a link that is not the first tab stop fails',
+        failures(notFirst).some((m) => /first element Tab reaches/.test(m)), failures(notFirst).join(' | '));
+
+    const jumped = await run({ positiveTabindex: true });
+    check('a positive tabindex elsewhere is flagged as jumping the queue',
+        failures(jumped).some((m) => /explicit tab position ahead/.test(m)), failures(jumped).join(' | '));
+
+    // Requirement: focusing it must reveal it.
+    const stayedHidden = await run({ revealOnFocus: false });
+    check('a link that stays off-screen when focused fails',
+        failures(stayedHidden).some((m) => /brings it on screen/.test(m)), failures(stayedHidden).join(' | '));
+
+    // Requirement: it must land on the content, past the navigation.
+    const notBypassed = await run({ targetContainsNav: true });
+    check('a target that still contains the banner and menus fails',
+        failures(notBypassed).some((m) => /past the banner and the menus/.test(m)),
+        failures(notBypassed).join(' | '));
+
+    const notFocusable = await run({ targetFocusable: false });
+    check('a target with no tabindex fails — focus() would silently do nothing',
+        failures(notFocusable).some((m) => /programmatically focusable/.test(m)),
+        failures(notFocusable).join(' | '));
+
+    const dangling = await run({ href: '#nope' });
+    check('an href that resolves to nothing fails',
+        failures(dangling).some((m) => /does not resolve/.test(m)), failures(dangling).join(' | '));
+
+    const duplicated = await run({ linkCount: 2 });
+    check('two skip links fail — that is an extra Tab stop',
+        failures(duplicated).some((m) => /exactly one skip link/.test(m)), failures(duplicated).join(' | '));
+}
+
 /* ------------------------------------------------- offline: probe reporting */
 
 /**
@@ -590,6 +743,7 @@ await testRegistry();
 await testHookList();
 await testEvents();
 await testReport();
+await testEaaSkipLink();
 await testProbeReporting();
 
 if (origin) await testAgainstDut();

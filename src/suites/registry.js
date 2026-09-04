@@ -183,6 +183,24 @@ export const SUITES = [
         file: 'src/suites/page/apply-button.js',
         defaultOn: false,
     },
+
+    /* -------------------------------------------------------------- EAA
+     * Accessibility items, for the European Accessibility Act work. These run
+     * last so their side effects -- moving focus, scrolling to the content --
+     * cannot disturb the geometry the Core suites measure.
+     */
+    {
+        id: 'eaa.skip-link',
+        name: 'Skip to main content link',
+        group: 'EAA',
+        description:
+            'Tab reveals the bypass link, and activating it moves focus past the banner ' +
+            'and menus into the page content (WCAG 2.4.1).',
+        where: 'page',
+        scope: 'each-page',
+        file: 'src/suites/page/eaa-skip-link.js',
+        defaultOn: true,
+    },
 ];
 
 export const SUITE_BY_ID = Object.fromEntries(SUITES.map((s) => [s.id, s]));
