@@ -1,45 +1,35 @@
 {
     "manifest_version": 3,
     "name": "ASUSWRT UI Autotest",
-    "version": "2.1",
-    "description": "Sequentially navigate to ASUSWRT UI pages",
+    "version": "3.0",
+    "version_name": "3.0",
+    "description": "Sweep every ASUSWRT Web UI page, run selectable test items, and export a structured report.",
+    "minimum_chrome_version": "114",
     "icons": {
         "16": "resource/icon.png",
         "48": "resource/icon.png",
         "128": "resource/icon.png"
     },
     "action": {
-        "default_popup": "popup.html",
         "default_title": "ASUSWRT UI Autotest"
     },
-    "permissions": ["downloads", "tabs", "activeTab", "scripting"],
-    "host_permissions": ["<all_urls>"],
-    "background": {
-        "service_worker": "background.js",
-        "type": "module"
+    "side_panel": {
+        "default_path": "src/panel/panel.html"
     },
-    "content_scripts": [
-        {
-            "matches": ["http://*/*", "https://*/*"],
-            "js": ["content.js"],
-            "run_at": "document_start"
-        }
+    "permissions": [
+        "downloads",
+        "tabs",
+        "scripting",
+        "storage",
+        "sidePanel",
+        "webNavigation"
     ],
-    "web_accessible_resources": [
-        {
-            "resources": [
-                "inject/setupLang.js", 
-                "inject/setupTesting.js", 
-                "inject/setupTesting-dev.js", 
-                "inject/endTesting.js", 
-                "inject/startTesting.js", 
-                "inject/injected-error-handler.js",
-                "test/test-Advanced_VLAN_Switch_Content.js",
-                "test/test-trafficmonitor.js",
-                "test/test-QIS_wizard.js",
-                "test/test-API.js"
-            ],
-            "matches": ["<all_urls>"]
-        }
-    ]
+    "host_permissions": [
+        "http://*/*",
+        "https://*/*"
+    ],
+    "background": {
+        "service_worker": "src/background/service-worker.js",
+        "type": "module"
+    }
 }

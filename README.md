@@ -1,63 +1,131 @@
-### Message Exchange in the Project
+# ASUSWRT UI Autotest
 
-#### `popup.js`
-- **Receives:**
-  - `progressUpdate`: Updates the progress bar with the current testing progress and language.
-- **Sends:**
-  - `resetUrlQueue`: Resets the URL queue to only include "UI".
-  - `resetAllLangUrlQueue`: Resets the URL queue to include all supported languages.
-  - `startTesting`: Notifies `content.js` to start the testing process.
-  - `downloadLogs`: Requests `background.js` to download the test logs.
+A Chrome extension that sweeps every page of an ASUSWRT router Web UI, runs a
+set of **selectable** test items against each one, and exports a structured
+report.
 
-#### `background.js`
-- **Receives:**
-  - `startTesting`: Initializes the testing process, sets `startTime`, and begins processing the URL queue.
-  - `autotestlog`: Logs errors during testing, storing them in `logs` with URL, log message, and language.
-  - `downloadLogs`: Generates and downloads a test report, including errors, 404s, and successful logs.
-  - `resetUrlQueue`: Resets the URL queue to only include "UI".
-  - `resetAllLangUrlQueue`: Resets the URL queue to include all supported languages.
-  - `setupTesting`: Configures the testing environment by setting `menuTree` and `baseUrl`.
-- **Sends:**
-  - `progressUpdate`: Sends progress updates to `popup.js`.
-  - `setupLang`: Notifies `content.js` to set the language for testing.
+Version 3.0 is a rewrite. It keeps everything v2.x did and adds test-item
+selection, a side panel that survives navigation, an extensible suite registry,
+four report formats, and an API-interception layer that makes it safe to click
+buttons that would otherwise reboot the DUT.
 
-#### `content.js`
-- **Receives:**
-  - `downloadLogs`: Injects and executes `endTesting.js` to trigger the download of test logs.
-  - `startTesting`: Injects and executes `startTesting.js` to start the testing process.
-  - `loadSetupTestingScript`: Loads and executes `setupTesting.js` to initialize the testing environment.
-  - `setupLang`: Injects `setupLang.js` and posts a message with the language.
-- **Sends:**
-  - `autotestlog`: Sends error logs to `background.js`.
-  - `setupTesting`: Sends testing environment setup data to `background.js`.
-  - `startTesting`: Notifies `background.js` to start the testing process.
-- **Receives `window.addEventListener("message")`:**
-  - `FORM_UI_START_TESTING`: Starts the testing process by injecting `startTesting.js`.
-  - `FORM_UI_SETUP_TESTING`: Configures the testing environment by injecting `setupTesting.js`.
-  - `FORM_UI_ADD_ERRLOG`: Sends error logs to `background.js`.
+---
 
-#### `setupLang.js`
-- **Receives:**
-  - `SET_LANG`: Sets the language for testing.
-- **Sends:**
-  - `FORM_UI_START_TESTING`: Notifies `content.js` to start the testing process.
+## Install (unpacked)
 
-#### `setupTesting.js`
-- **Sends:**
-  - `FORM_UI_SETUP_TESTING`: Sends testing environment setup data to `content.js`.
+1. `chrome://extensions` → enable **Developer mode**
+2. **Load unpacked** → pick this directory
+3. Open the router UI in a tab and log in
+4. Click the extension icon — it opens in the **side panel**
 
-#### `injected-error-handler.js`
-- **Sends:**
-  - `FORM_UI_ADD_ERRLOG`: Sends error logs from the UI to `content.js`.
+Chrome 114 or newer (`sidePanel` API; MAIN-world content scripts need 111).
 
-#### `ToDo`
-  - Reopen the extension app to display the currently running progress bar. (v1.2)
-  - Fix the issue where the activeTabId of the window is lost. (v1.2)
-  - intergate ui logs (v1.3)
-  - support UI4 (v1.4)
-  - support 3004 - UI3 (v1.4)
-  - support ui SPEC check (v1.4)
-  - adds a framework that allows each page to be tested with its own `test-XXX.js` file. (v1.5)
-  - Adjusted file structure (v1.6)
-  - Support development mode (v1.6)
-  - Support API test. (v2.0)
+## Use
+
+| Tab | What you do there |
+|---|---|
+| **Setup** | Press **Probe** to read the DUT's page inventory, then tick the test items, pages and languages you want |
+| **Run** | Start / Pause / Stop, watch progress and results stream in |
+| **Report** | Filter the results, then export HTML / JSON / Markdown / TXT |
+
+**Probe** reads `Session.get("menuList.<lang>")` — the same menu tree the UI
+builds for its own navigation — so the page list always matches the DUT's real
+feature set rather than a hard-coded list.
+
+## Test items
+
+| Group | Item | What it catches |
+|---|---|---|
+| Core | Page reachability | 404 / 5xx / unreachable pages |
+| Core | JavaScript errors | `window.onerror`, unhandled rejections |
+| Core | console.error / warn | what the page complains about itself |
+| Core | Missing sub-resources | img / script / css / iframe that 404 |
+| Core | ASUSWRT UI log | `httpApi.log()` output |
+| Core | Page rendered something | white pages, stuck loading overlays |
+| Core | Layout overflow | horizontal overflow, elements off-viewport |
+| i18n | Untranslated tokens | `<#KEY#>` placeholders left in the DOM |
+| SPEC | Feature SPEC check | Support / Not Support, derived from page presence |
+| WebAPI | appGet.cgi hook sweep | hooks that return nothing |
+| WebAPI | Record outgoing API calls | every XHR / fetch / `nvramSet` the UI sends |
+| Page tests | QIS wizard, VLAN switch, Traffic monitor, Apply button | per-page assertions |
+
+Adding one is a two-file change and needs no manifest edit — see
+[docs/WRITING-TESTS.md](docs/WRITING-TESTS.md).
+
+## Safe Mode and button testing
+
+Testing a button is awkward on a router: clicking **Reboot** ends the session,
+and clicking **Apply** on a LAN page can drop the link the test is running over.
+
+Safe Mode (on by default) resolves that. Instrumentation installed at
+`document_start` records every outgoing request; when one carries a risky
+`action_script` (`reboot`, `restart_net`, `restore`, `upgrade`, …) the request
+is **re-pointed at a harmless read-only hook** instead of being sent. The click
+is fully exercised — validation, payload assembly, callbacks — but `rc_service`
+never sees it.
+
+Tests then assert on what was *sent* rather than on what the router *did*:
+
+```js
+window.__AUT__.suite('pages.my-button', async (t) => {
+    t.click('#applyButton');
+    const sent = await t.expectApi({ path: '/applyapp.cgi',
+                                     params: { action_script: 'restart_wireless' } });
+    t.check(!!sent, 'Apply sent restart_wireless');
+    t.check(sent.blocked, 'and Safe Mode held it back');
+});
+```
+
+`src/suites/page/apply-button.js` is a working example. Turning Safe Mode off
+makes every recorded call go through for real — do that only on a DUT you are
+willing to lose.
+
+## Login (auth v2)
+
+The DUT no longer accepts the old `login.cgi` + Base64 scheme. v3.0 implements
+auth v2:
+
+```
+POST /get_Nonce.cgi   {id}                              -> {nonce}
+     login_authorization = SHA256(user:nonce:pass:cnonce)
+POST /login_v2.cgi    {login_authorization, id, cnonce}
+```
+
+Turn on **Re-login automatically** and a session that expires mid-sweep is
+recovered without losing the run.
+
+## Layout
+
+```
+manifest.json
+src/
+  background/    service worker: message routing, run engine, driver suites
+  page/          MAIN-world scripts: instrument.js (hooks), runtime.js (test API)
+  panel/         the side panel
+  suites/        registry.js + one file per page suite
+  lib/           constants, report builders
+tools/           self-test harness (see docs/TESTING.md)
+docs/            architecture, how to write a test, how to test the tool
+plan.md          the v3.0 execution plan, by stage
+```
+
+## Self test
+
+```bash
+node tools/selftest.mjs                                    # offline
+node tools/selftest.mjs http://192.168.8.1 admin '<pass>'   # against a DUT
+```
+
+## What changed from v2.1
+
+| | v2.1 | v3.0 |
+|---|---|---|
+| UI | 300px popup, 4 buttons | side panel, three tabs, checkboxes |
+| Test selection | none — all or nothing | per item, per page, per language |
+| State | service-worker globals | `chrome.storage.session`, survives worker restart |
+| Instrumentation | `appendChild` after load | registered content script at `document_start` |
+| Reachability | unauthenticated `HEAD` from the worker | authenticated probe from the page world (the only way 404 is detectable) |
+| Adding a test | edit config + manifest + new file | new file + one registry entry |
+| Report | one `.txt` | HTML / JSON / Markdown / TXT, filterable in-panel |
+| Buttons | untestable | Safe Mode interception + `expectApi()` |
+| Timer speed-up | forced 0.5× | configurable, defaults to 1× |

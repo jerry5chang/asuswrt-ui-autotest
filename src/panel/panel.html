@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>ASUSWRT UI Autotest</title>
+    <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+
+<header class="topbar">
+    <div class="brand">
+        <span class="logo">A</span>
+        <div>
+            <h1>UI Autotest</h1>
+            <p id="dutLine" class="dut">no DUT probed yet</p>
+        </div>
+    </div>
+    <button id="btnProbe" class="btn ghost sm" title="Read the DUT page inventory from the active tab">Probe</button>
+</header>
+
+<nav class="tabs" role="tablist">
+    <button class="tab is-active" data-tab="setup" role="tab">Setup</button>
+    <button class="tab" data-tab="run" role="tab">Run</button>
+    <button class="tab" data-tab="report" role="tab">Report</button>
+</nav>
+
+<main>
+    <!-- ------------------------------------------------------------ SETUP -->
+    <section class="panel is-active" data-panel="setup">
+
+        <div id="probeHint" class="note warn">
+            Open the router UI in a tab, log in, then press <b>Probe</b>.
+        </div>
+
+        <details class="group" open>
+            <summary>DUT</summary>
+            <dl id="envTable" class="kv"></dl>
+        </details>
+
+        <details class="group">
+            <summary>Login (auth v2)</summary>
+            <div class="field">
+                <label for="username">Username</label>
+                <input id="username" type="text" autocomplete="off" spellcheck="false">
+            </div>
+            <div class="field">
+                <label for="password">Password</label>
+                <input id="password" type="password" autocomplete="off">
+            </div>
+            <label class="check"><input id="autoLogin" type="checkbox">
+                <span>Re-login automatically if the session expires mid-run</span></label>
+            <button id="btnLogin" class="btn ghost sm">Log in now</button>
+            <p class="hint">Uses <code>get_Nonce.cgi</code> + <code>login_v2.cgi</code>.
+                Credentials stay in this browser profile's extension storage.</p>
+        </details>
+
+        <details class="group" open>
+            <summary>Test items <span id="suiteCount" class="badge"></span></summary>
+            <div class="chips" id="presets">
+                <button class="chip" data-preset="full">All</button>
+                <button class="chip" data-preset="smoke">Smoke</button>
+                <button class="chip" data-preset="api">API only</button>
+                <button class="chip" data-preset="none">None</button>
+            </div>
+            <div id="suiteTree"></div>
+        </details>
+
+        <details class="group" open>
+            <summary>Pages <span id="pageCount" class="badge"></span></summary>
+            <div class="row">
+                <input id="pageSearch" type="search" placeholder="Filter pages…">
+                <button id="pagesAll" class="btn ghost xs">All</button>
+                <button id="pagesNone" class="btn ghost xs">None</button>
+            </div>
+            <div id="pageList" class="scroller"></div>
+        </details>
+
+        <details class="group">
+            <summary>Languages <span id="langCount" class="badge"></span></summary>
+            <p class="hint">Leave empty to test only the language the DUT is set to.
+                Each extra language repeats the whole sweep.</p>
+            <div class="chips" id="langChips"></div>
+        </details>
+
+        <details class="group">
+            <summary>Options</summary>
+            <label class="check"><input id="safeMode" type="checkbox">
+                <span><b>Safe Mode</b> — intercept reboot / restart / restore requests
+                    instead of sending them</span></label>
+            <label class="check"><input id="stopOnError" type="checkbox">
+                <span>Stop at the first error</span></label>
+            <div class="field">
+                <label for="pageSettleMs">Settle after load (ms)</label>
+                <input id="pageSettleMs" type="number" min="0" step="250">
+            </div>
+            <div class="field">
+                <label for="pageTimeoutMs">Page timeout (ms)</label>
+                <input id="pageTimeoutMs" type="number" min="2000" step="1000">
+            </div>
+            <div class="field">
+                <label for="timeScale">Timer scale</label>
+                <input id="timeScale" type="number" min="0.1" max="2" step="0.1">
+            </div>
+            <p class="hint">Timer scale below 1 speeds the UI's own
+                <code>setTimeout</code>/<code>setInterval</code> up. v2.x hard-coded 0.5, which
+                could itself provoke races — 1.0 leaves the page alone.</p>
+            <div class="field">
+                <label for="returnPage">Return to page</label>
+                <input id="returnPage" type="text" spellcheck="false">
+            </div>
+        </details>
+
+        <details class="group">
+            <summary>Advanced lists</summary>
+            <p class="hint">v2.x kept these in <code>config/config.js</code>, so changing one
+                meant editing the extension and reloading it. Edit them here instead.</p>
+
+            <label class="lbl" for="specMap">Feature → page map (SPEC check)</label>
+            <textarea id="specMap" class="json" spellcheck="false" rows="7"></textarea>
+
+            <label class="lbl" for="knownIssues">Known issues (filtered to <i>skip</i>)</label>
+            <textarea id="knownIssues" class="json" spellcheck="false" rows="5"></textarea>
+
+            <label class="lbl" for="riskyActions">Risky action_script values (Safe Mode)</label>
+            <textarea id="riskyActions" class="json" spellcheck="false" rows="5"></textarea>
+
+            <div class="row">
+                <button id="jsonApply" class="btn ghost sm">Apply lists</button>
+                <button id="jsonReset" class="btn ghost sm">Reset to defaults</button>
+            </div>
+            <p id="jsonStatus" class="hint"></p>
+        </details>
+    </section>
+
+    <!-- -------------------------------------------------------------- RUN -->
+    <section class="panel" data-panel="run">
+        <div class="runhead">
+            <div class="progress"><div id="progressBar" class="bar"></div>
+                <span id="progressText" class="ptext">idle</span></div>
+            <p id="currentItem" class="mono current">—</p>
+        </div>
+
+        <div class="controls">
+            <button id="btnStart" class="btn primary">Start</button>
+            <button id="btnPause" class="btn ghost" hidden>Pause</button>
+            <button id="btnResume" class="btn ghost" hidden>Resume</button>
+            <button id="btnStop" class="btn danger" hidden>Stop</button>
+            <button id="btnClear" class="btn ghost sm">Clear</button>
+        </div>
+
+        <div id="runError" class="note error" hidden></div>
+
+        <div id="counters" class="cards"></div>
+
+        <details class="group" open>
+            <summary>Latest results</summary>
+            <div id="liveResults" class="scroller tall"></div>
+        </details>
+
+        <details class="group">
+            <summary>Run log</summary>
+            <pre id="runLog" class="log"></pre>
+        </details>
+    </section>
+
+    <!-- ----------------------------------------------------------- REPORT -->
+    <section class="panel" data-panel="report">
+        <div id="reportSummary" class="cards"></div>
+
+        <div class="chips">
+            <button class="chip solid" data-export="html">Export HTML</button>
+            <button class="chip" data-export="json">JSON</button>
+            <button class="chip" data-export="md">Markdown</button>
+            <button class="chip" data-export="txt">TXT</button>
+        </div>
+
+        <div class="row">
+            <select id="filterSev"><option value="">All severities</option></select>
+            <select id="filterSuite"><option value="">All suites</option></select>
+        </div>
+        <div class="row">
+            <input id="filterQuery" type="search" placeholder="Filter message / page…">
+            <span id="filterCount" class="badge"></span>
+        </div>
+
+        <div id="reportRows" class="scroller tall"></div>
+
+        <details class="group">
+            <summary>Recorded API calls <span id="apiCount" class="badge"></span></summary>
+            <div id="apiRows" class="scroller"></div>
+        </details>
+    </section>
+</main>
+
+<script type="module" src="panel.js"></script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+.selftest/
+*.zip
+node_modules/
