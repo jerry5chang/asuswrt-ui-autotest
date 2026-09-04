@@ -1063,6 +1063,7 @@ function clientDialogDom(opts = {}) {
         positiveTabindex = false,
         trapWraps = true,
         escCloses = true,
+        realKeys = false,
     } = opts;
 
     const { sandbox, ctx } = pageSandbox();
@@ -1242,13 +1243,49 @@ function clientDialogDom(opts = {}) {
     loadIntoSandbox(ctx, 'src/page/instrument.js');
     loadIntoSandbox(ctx, 'src/page/runtime.js');
     loadIntoSandbox(ctx, 'src/suites/page/eaa-client-dialog.js');
+
+    /*
+     * With real keys the driver services the queue and the *browser* moves
+     * focus. Modelled here, because that is the behaviour the walk depends on
+     * and it cannot be observed from a synthetic event.
+     */
+    if (realKeys) {
+        sandbox.__AUT__.input.available = true;
+        const advance = (step) => {
+            const list = components.filter((c) => c.visible);
+            if (!list.length) return;
+            const at = list.indexOf(doc.activeElement);
+            const next = (at + step + list.length) % list.length;
+            list[next].focus();
+        };
+        const timer = setInterval(() => {
+            for (const request of sandbox.__AUT__.input.queue) {
+                if (request.done) continue;
+                if (request.key === 'Tab') advance(request.shift ? -1 : 1);
+                if (request.key === 'Escape' && escCloses) {
+                    dialog.visible = false;
+                    doc.activeElement = null;
+                }
+                request.done = true;
+            }
+        }, 0);
+        sandbox.__stopInput = () => clearInterval(timer);
+    }
+
     return sandbox;
 }
 
 async function testEaaClientDialog() {
     section('EAA client dialog (src/suites/page/eaa-client-dialog.js)');
 
-    const run = (opts) => clientDialogDom(opts).__AUT__.runSuites(['eaa.client-dialog'], 30000);
+    const run = async (opts) => {
+        const sandbox = clientDialogDom(opts);
+        try {
+            return await sandbox.__AUT__.runSuites(['eaa.client-dialog'], 30000);
+        } finally {
+            if (sandbox.__stopInput) sandbox.__stopInput();
+        }
+    };
     const sevs = (rows) => rows.map((r) => r.severity);
     const failed = (rows) =>
         rows.filter((r) => r.severity === 'fail' || r.severity === 'error').map((r) => r.message);
@@ -1348,10 +1385,127 @@ async function testEaaClientDialog() {
     check('a dialog Escape does not close fails',
         failed(stuck).some((m) => /Escape closes/.test(m)), failed(stuck).join(' | '));
 
+    /* real keys: the whole cycle is walked rather than inferred */
+    const walked = await run({ realKeys: true, componentCount: 4 });
+    check('with real keys the suite walks the whole Tab cycle',
+        failed(walked).length === 0, failed(walked).join(' | '));
+    check('...and says the keys were real',
+        walked.some((r) => r.severity === 'info' && /trusted input/.test(r.message)),
+        JSON.stringify(walked.filter((r) => r.severity === 'info').map((r) => r.message)));
+    check('...reporting that every component was reached',
+        walked.some((r) => /reaches all 4 components/.test(r.message)),
+        JSON.stringify(walked.map((r) => r.message)));
+    check('...and that the cycle came back round',
+        walked.some((r) => /returns to where it started/.test(r.message)));
+
+    check('without real keys it says so instead of pretending',
+        (await run({})).some((r) => r.severity === 'info' && /synthetic/.test(r.message)));
+
     const single = await run({ componentCount: 1 });
     check('a single-component dialog notes there is no wrap to check',
         single.some((r) => r.severity === 'info' && /no wrap/.test(r.message)),
         JSON.stringify(sevs(single)));
+}
+
+/* --------------------------------------------------- offline: real input */
+
+/**
+ * chrome.debugger is the only way a suite gets a key the browser acts on.
+ * These pin the wire format, because a wrong virtual key code produces an
+ * event that looks fine and moves nothing.
+ */
+async function testRealInput() {
+    section('trusted key input (src/background/input.js)');
+
+    const sent = [];
+    let attachError = null;
+    let attached = false;
+    globalThis.chrome = {
+        debugger: {
+            async attach() {
+                if (attachError) throw new Error(attachError);
+                attached = true;
+            },
+            async detach() {
+                attached = false;
+            },
+            async sendCommand(target, method, params) {
+                sent.push({ method, params });
+            },
+        },
+    };
+
+    const input = await import('../src/background/input.js');
+
+    check('the debugger API is detected', input.supportsRealKeys());
+    check('attaching succeeds', (await input.attach(1)).ok && attached);
+
+    sent.length = 0;
+    check('an unknown key is refused rather than guessed',
+        (await input.pressKey(1, 'F13')) === false && sent.length === 0);
+
+    sent.length = 0;
+    await input.pressKey(1, 'Tab');
+    check('Tab is one keyDown and one keyUp', sent.length === 2, JSON.stringify(sent.map((x) => x.params.type)));
+    check('...with the virtual key code the renderer needs',
+        sent.every((x) => x.params.windowsVirtualKeyCode === 9 && x.params.nativeVirtualKeyCode === 9),
+        JSON.stringify(sent[0].params));
+    check('...sent as keyDown carrying its text, since Tab produces one',
+        sent[0].params.type === 'keyDown' && sent[0].params.text === '\t');
+    check('...and named for both key and code', sent[0].params.key === 'Tab' && sent[0].params.code === 'Tab');
+
+    sent.length = 0;
+    await input.pressKey(1, 'Escape');
+    check('Escape is a rawKeyDown, producing no text',
+        sent[0].params.type === 'rawKeyDown' && sent[0].params.text === '',
+        JSON.stringify(sent[0].params));
+    check('...with its own key code', sent[0].params.windowsVirtualKeyCode === 27);
+
+    sent.length = 0;
+    await input.pressKey(1, 'Tab', { shift: true });
+    check('shift is the CDP modifier bit, not a separate press',
+        sent.length === 2 && sent.every((x) => x.params.modifiers === 8),
+        JSON.stringify(sent.map((x) => x.params.modifiers)));
+
+    // DevTools on the tab under test is the common case, and must not read as
+    // a broken suite.
+    attachError = 'Another debugger is already attached to the tab with id: 1.';
+    const busy = await input.attach(1);
+    check('an occupied tab reports why, in words a user can act on',
+        !busy.ok && /DevTools open/.test(busy.reason), busy.reason);
+    attachError = null;
+
+    /* the queue service */
+    const queue = [
+        { id: 1, key: 'Tab', shift: false, taken: false, done: false },
+        { id: 2, key: 'Escape', shift: false, taken: false, done: false },
+    ];
+    const fakeEval = async (tabId, fn, args = []) => {
+        globalThis.window = { __AUT__: { input: { queue } } };
+        try {
+            return fn(...args);
+        } finally {
+            delete globalThis.window;
+        }
+    };
+
+    sent.length = 0;
+    const service = input.startInputService(1, { evalInPage: fakeEval, intervalMs: 5 });
+    await new Promise((r) => setTimeout(r, 60));
+    await service.stop();
+
+    check('the service presses everything queued',
+        sent.filter((x) => x.params.type !== 'keyUp').map((x) => x.params.key).join() === 'Tab,Escape',
+        JSON.stringify(sent.map((x) => x.params.key)));
+    check('...and marks each request done, so the suite stops waiting',
+        queue.every((r) => r.done), JSON.stringify(queue));
+    check('...taking each one only once',
+        sent.filter((x) => x.params.key === 'Tab' && x.params.type !== 'keyUp').length === 1);
+
+    await input.detach(1);
+    check('detaching leaves nothing attached', !attached);
+
+    delete globalThis.chrome;
 }
 
 /* ------------------------------------------------- offline: probe reporting */
@@ -1510,6 +1664,7 @@ await testTimings();
 await testReport();
 await testEaaSkipLink();
 await testEaaClientDialog();
+await testRealInput();
 await testProbeReporting();
 
 if (origin) await testAgainstDut();

@@ -20,6 +20,8 @@
  *   defaultOn   whether the checkbox starts ticked
  *   timeoutMs   optional; overrides the shared per-suite allowance when an
  *               item legitimately needs longer
+ *   needsRealKeys  optional; the driver attaches chrome.debugger for this
+ *               page so t.pressKey() sends trusted events the browser acts on
  *   cost        rough time this item adds, for the run-time estimate:
  *               shape 'none'    passive; the shared per-page work already
  *                               covers it, so ticking it changes nothing
@@ -240,6 +242,9 @@ export const SUITES = [
         /* The client list arrives on a poll and a router rescan, so this one
            genuinely needs longer than the shared per-page allowance. */
         timeoutMs: 35000,
+        /* Wants real Tab presses, so the driver attaches the debugger for
+           this page only. Falls back to synthetic keys if it cannot. */
+        needsRealKeys: true,
         cost: { shape: 'perPage', ms: 4000 },
         defaultOn: true,
     },

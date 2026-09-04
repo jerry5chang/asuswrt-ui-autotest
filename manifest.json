@@ -22,7 +22,8 @@
         "scripting",
         "storage",
         "sidePanel",
-        "webNavigation"
+        "webNavigation",
+        "debugger"
     ],
     "host_permissions": [
         "http://*/*",

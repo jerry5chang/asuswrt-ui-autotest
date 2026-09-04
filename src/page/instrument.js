@@ -22,6 +22,15 @@
     AUT.suites = {};
     AUT.dropped = 0;
 
+    /*
+     * Trusted-input channel. A page cannot make the browser move focus: an
+     * event from dispatchEvent is untrusted, so Tab never traverses. The
+     * driver can, through chrome.debugger, so suites queue key presses here
+     * and the driver services them. `available` is set by the driver once it
+     * has attached; until then t.pressKey falls back to a synthetic event.
+     */
+    AUT.input = { queue: [], seq: 0, available: false };
+
     /**
      * Safe defaults: Safe Mode starts ON so there is no window between
      * document_start and the driver pushing the real config in which a

@@ -268,6 +268,7 @@ const SETTING_FIELDS = {
     autoLogin: 'checked',
     safeMode: 'checked',
     stopOnError: 'checked',
+    realKeys: 'checked',
     verboseConsole: 'checked',
     pageSettleMs: 'value',
     pageTimeoutMs: 'value',

@@ -13,6 +13,7 @@ import { SUITES, SUITE_BY_ID, appliesToPage, pagesInScope } from '../suites/regi
 import { collapseSuiteRows, mapEvents } from '../lib/events.js';
 import { estimateRun } from '../lib/estimate.js';
 import { createCollector, getTimings, mergeTimings } from './timings.js';
+import * as realInput from './input.js';
 import { DRIVER_RUN_SUITES } from './driver-suites.js';
 import * as state from './state.js';
 import { probeEnv } from './probe.js';
@@ -20,6 +21,7 @@ import { loginAuthV2, isLoggedIn } from './auth.js';
 import {
     configureInstrument,
     drainInstrument,
+    evalInPage,
     runPageSuites,
     setLanguage,
 } from './page-eval.js';
@@ -355,6 +357,28 @@ export async function startRun({ tabId, selection, settings, env }) {
 
                 /* page suites */
                 if (pageSuites.length) {
+                    /*
+                     * Only attach the debugger for a page whose suites asked
+                     * for real keys, and detach straight after: attaching puts
+                     * a "being debugged" banner on the tab.
+                     */
+                    const wantsRealKeys =
+                        settings.realKeys !== false && pageSuites.some((s) => s.needsRealKeys);
+                    let inputService = null;
+
+                    if (wantsRealKeys) {
+                        const attached = await realInput.attach(tabId);
+                        if (attached.ok) {
+                            await realInput.setRealKeysAvailable(tabId, true, { evalInPage });
+                            inputService = realInput.startInputService(tabId, { evalInPage });
+                        } else {
+                            state.note(
+                                `real key presses unavailable (${attached.reason}); ` +
+                                    'keyboard checks fall back to synthetic events'
+                            );
+                        }
+                    }
+
                     try {
                         // The batch runs sequentially, so it needs room for
                         // whichever suite asked for the most.
@@ -377,6 +401,12 @@ export async function startRun({ tabId, selection, settings, env }) {
                     } catch (e) {
                         record([{ suite: 'page', severity: SEV.ERROR, page: page.url, lang,
                             message: `page suites failed to run: ${e.message}` }]);
+                    } finally {
+                        if (inputService) await inputService.stop();
+                        if (wantsRealKeys) {
+                            await realInput.setRealKeysAvailable(tabId, false, { evalInPage });
+                            await realInput.detach(tabId);
+                        }
                     }
                 }
 

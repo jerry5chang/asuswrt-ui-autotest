@@ -41,33 +41,6 @@ window.__AUT__.suite('eaa.client-dialog', async function (t) {
 
     const isOpen = (el) => !!el && rendered(el);
 
-    /*
-     * ASUSWRT's own trap (state.js setDialogFocusTrap) switches on
-     * `e.keyCode`, not `e.key` -- so an event carrying only `key` matches
-     * nothing and every keyboard assertion fails on a dialog that works
-     * perfectly by hand. A real keypress sets both, so this does too.
-     */
-    const KEY_CODES = { Tab: 9, Escape: 27, Enter: 13, ' ': 32 };
-
-    const key = (target, name, extra = {}) => {
-        const code = KEY_CODES[name] || 0;
-        const event = new KeyboardEvent('keydown', {
-            key: name,
-            keyCode: code,
-            which: code,
-            bubbles: true,
-            cancelable: true,
-            ...extra,
-        });
-        // The constructor does not reliably carry the legacy fields, and they
-        // are read-only accessors on the prototype, so shadow them.
-        if (event.keyCode !== code) {
-            Object.defineProperty(event, 'keyCode', { value: code, configurable: true });
-            Object.defineProperty(event, 'which', { value: code, configurable: true });
-        }
-        return target.dispatchEvent(event);
-    };
-
     if (!window.EAAPlugin) {
         return t.skip('this build has no EAA plugin (js/eaa-plugin.js is not loaded)');
     }
@@ -233,30 +206,68 @@ window.__AUT__.suite('eaa.client-dialog', async function (t) {
     const first = components[0];
     const last = components[components.length - 1];
 
-    if (components.length > 1) {
-        last.focus();
-        key(last, 'Tab');
-        await t.sleep(80);
-        t.check(document.activeElement === first, 'Tab past the last component wraps to the first', {
-            focused: describe(document.activeElement),
-            expected: describe(first),
-        });
+    /*
+     * With the debugger attached the presses are trusted, so the browser
+     * really moves focus and the whole sequence can be walked. Without it only
+     * a handler sees the key, so the interior steps cannot be observed and
+     * just the wrap -- which the trap implements itself -- is checkable.
+     */
+    const real = t.realKeys();
+    t.info(real ? 'keys are real (trusted input)' : 'keys are synthetic; only handlers see them');
 
-        first.focus();
-        key(first, 'Tab', { shiftKey: true });
-        await t.sleep(80);
-        t.check(
-            document.activeElement === last,
-            'Shift+Tab before the first component wraps to the last',
-            { focused: describe(document.activeElement), expected: describe(last) }
-        );
+    if (components.length > 1) {
+        if (real) {
+            // Walk the whole cycle one press at a time and record where it
+            // actually went, so a skipped or out-of-order stop is visible.
+            first.focus();
+            const visited = [document.activeElement];
+            for (let i = 0; i < components.length; i++) {
+                await t.pressKey('Tab');
+                await t.sleep(60);
+                visited.push(document.activeElement);
+            }
+
+            const escaped = visited.filter((el) => el && !dialog.contains(el));
+            t.check(escaped.length === 0, 'Tab never leaves the dialog', {
+                left: escaped.map(describe).slice(0, 4),
+            });
+
+            const distinct = new Set(visited.filter((el) => dialog.contains(el)));
+            t.check(
+                distinct.size === components.length,
+                `Tab reaches all ${components.length} components in one cycle`,
+                { reached: distinct.size, order: visited.map(describe) }
+            );
+            t.check(
+                visited[visited.length - 1] === visited[0],
+                'the cycle returns to where it started',
+                { started: describe(visited[0]), ended: describe(visited[visited.length - 1]) }
+            );
+        } else {
+            last.focus();
+            await t.pressKey('Tab');
+            await t.sleep(80);
+            t.check(document.activeElement === first, 'Tab past the last component wraps to the first', {
+                focused: describe(document.activeElement),
+                expected: describe(first),
+            });
+
+            first.focus();
+            await t.pressKey('Tab', { shift: true });
+            await t.sleep(80);
+            t.check(
+                document.activeElement === last,
+                'Shift+Tab before the first component wraps to the last',
+                { focused: describe(document.activeElement), expected: describe(last) }
+            );
+        }
     } else {
         t.info('only one focusable component, so there is no wrap to check');
     }
 
     /* --- Escape closes it ----------------------------------------------- */
 
-    key(dialog, 'Escape');
+    await t.pressKey('Escape', { target: dialog });
     const closed = await t.waitFor(() => (isOpen(dialog) ? null : true), 2500);
 
     if (!t.check(!!closed, 'Escape closes the dialog')) {

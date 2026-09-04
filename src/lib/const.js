@@ -138,6 +138,8 @@ export const DEFAULT_SETTINGS = {
     stopOnError: false,
     /** Echo every assertion to the DUT page's console, for diagnosis. */
     verboseConsole: false,
+    /** Allow chrome.debugger attach for suites that need real key presses. */
+    realKeys: true,
     autoLogin: false,
     username: 'admin',
     password: '',

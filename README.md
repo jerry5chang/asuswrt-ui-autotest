@@ -51,6 +51,21 @@ feature set rather than a hard-coded list.
 | EAA | Skip to main content link | the bypass link is the first Tab stop, reveals itself, and lands focus past the navigation (WCAG 2.4.1) |
 | EAA | Client dialog keyboard operation | Network Map: focus enters the dialog, Tab reaches every component without escaping, Escape closes it (WCAG 2.1.2 / 2.4.3) |
 
+### Real key presses
+
+A page cannot make the browser move focus: `dispatchEvent` produces an
+untrusted event, so a handler sees the key but Tab does not traverse. With the
+`debugger` permission the driver sends the key through CDP's
+`Input.dispatchKeyEvent` instead, which **is** trusted — so a suite can walk a
+whole Tab cycle and record where focus actually landed at each step.
+
+It attaches only for a page whose suites declare `needsRealKeys`, and detaches
+immediately after, because attaching puts a *"being debugged"* banner on the
+tab. A tab admits one debugger client, so it cannot attach while DevTools is
+open on the page under test; that is reported and the suite falls back to
+synthetic keys, saying which it used. Turn it off entirely under
+**Options → Real key presses**.
+
 Adding one is a two-file change and needs no manifest edit — see
 [docs/WRITING-TESTS.md](docs/WRITING-TESTS.md).
 

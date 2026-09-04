@@ -13,10 +13,12 @@
  *   3. the target really is the content region -- a link whose target still
  *      contains the navigation has bypassed nothing.
  *
- * Note on (1): a synthetic KeyboardEvent cannot move focus, so this checks the
- * tab order the browser would follow -- the link must be the first
- * keyboard-reachable element in the document, with nothing jumping ahead of it
- * via a positive tabindex -- and then focuses it to observe the reveal.
+ * Note on (1): this checks the tab order the browser would follow -- the link
+ * must be the first keyboard-reachable element in the document, with nothing
+ * jumping ahead of it via a positive tabindex -- and then focuses it to
+ * observe the reveal. Walking it with real presses would need the debugger
+ * attached on every page of the sweep, which is not worth a banner on all of
+ * them for a first-stop check; see eaa.client-dialog for that approach.
  */
 window.__AUT__.suite('eaa.skip-link', async function (t) {
     const SKIP_LINK = 'a.eaa-skip-link, a.skip-to-main';

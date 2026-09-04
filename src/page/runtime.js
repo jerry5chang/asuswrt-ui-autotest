@@ -25,6 +25,32 @@
         return new Promise(function (r) { setTimeout(r, ms); });
     }
 
+    /*
+     * ASUSWRT reads e.keyCode (state.js setDialogFocusTrap switches on it), so
+     * a synthetic event carrying only `key` matches nothing. A real press sets
+     * both; so does this.
+     */
+    var KEY_CODES = { Tab: 9, Escape: 27, Enter: 13, ' ': 32, ArrowUp: 38, ArrowDown: 40 };
+
+    function dispatchSynthetic(target, name, options) {
+        var code = KEY_CODES[name] || 0;
+        var event = new KeyboardEvent('keydown', {
+            key: name,
+            keyCode: code,
+            which: code,
+            shiftKey: !!options.shift,
+            bubbles: true,
+            cancelable: true,
+        });
+        // Legacy fields are read-only accessors and the constructor does not
+        // always carry them, so shadow them.
+        if (event.keyCode !== code) {
+            Object.defineProperty(event, 'keyCode', { value: code, configurable: true });
+            Object.defineProperty(event, 'which', { value: code, configurable: true });
+        }
+        return target.dispatchEvent(event);
+    }
+
     function makeContext(suiteId) {
         var results = [];
 
@@ -140,6 +166,44 @@
 
             /** Is Safe Mode currently intercepting risky calls? */
             safeMode: function () { return !!(AUT.cfg && AUT.cfg.safeMode); },
+
+            /**
+             * Are key presses real? With the debugger attached the driver
+             * sends trusted events, which the browser acts on -- so Tab
+             * actually traverses. Without it, only handlers see the key.
+             */
+            realKeys: function () { return !!(AUT.input && AUT.input.available); },
+
+            /**
+             * Press a key. Trusted through the driver where possible, else a
+             * synthetic keydown, which a handler still sees but which cannot
+             * move focus.
+             *
+             * @returns {Promise<{trusted: boolean}>}
+             */
+            pressKey: function (name, opts) {
+                var options = opts || {};
+
+                if (!AUT.input || !AUT.input.available) {
+                    var target = options.target || document.activeElement || document.body;
+                    dispatchSynthetic(target, name, options);
+                    return Promise.resolve({ trusted: false });
+                }
+
+                var id = ++AUT.input.seq;
+                AUT.input.queue.push({ id: id, key: name, shift: !!options.shift, done: false });
+
+                return t
+                    .waitFor(function () {
+                        for (var i = 0; i < AUT.input.queue.length; i++) {
+                            if (AUT.input.queue[i].id === id && AUT.input.queue[i].done) return true;
+                        }
+                        return null;
+                    }, options.timeout || 4000)
+                    .then(function (ok) {
+                        return { trusted: !!ok };
+                    });
+            },
         };
 
         return { t: t, results: results };

@@ -97,6 +97,11 @@ const MESSAGES = {
         'opts.safeMode': 'Safe Mode',
         'opts.safeModeDesc': 'intercept reboot / restart / restore requests instead of sending them',
         'opts.stopOnError': 'Stop at the first error',
+        'opts.realKeys': 'Real key presses',
+        'opts.realKeysDesc':
+            'attach the debugger for pages whose tests need a key the browser acts on, so Tab '
+            + 'really traverses. Shows a "being debugged" banner on that tab while it runs, and '
+            + 'cannot attach if DevTools is already open on it.',
         'opts.verbose': 'Verbose console output',
         'opts.verboseDesc':
             'echo every assertion to the router page’s own console, prefixed [AUT] — open '
@@ -295,6 +300,10 @@ const MESSAGES = {
         'opts.safeMode': '安全模式',
         'opts.safeModeDesc': '攔下 reboot / restart / restore 等請求，不真的送出',
         'opts.stopOnError': '遇到第一個錯誤就停止',
+        'opts.realKeys': '真實按鍵',
+        'opts.realKeysDesc':
+            '對需要「瀏覽器真的會反應的按鍵」的測項附加 debugger，讓 Tab 真的移動焦點。' +
+            '執行時該分頁會出現「正在偵錯」橫幅；如果那個分頁已經開著 DevTools 就無法附加。',
         'opts.verbose': '詳細 console 輸出',
         'opts.verboseDesc':
             '把每一條斷言印到路由器頁面自己的 console，前綴 [AUT] —— 在那個分頁開 DevTools ' +
@@ -491,6 +500,10 @@ const MESSAGES = {
         'opts.safeMode': '安全模式',
         'opts.safeModeDesc': '拦截 reboot / restart / restore 等请求，不真正发出',
         'opts.stopOnError': '遇到第一个错误就停止',
+        'opts.realKeys': '真实按键',
+        'opts.realKeysDesc':
+            '对需要「浏览器真的会响应的按键」的测试项附加 debugger，让 Tab 真的移动焦点。' +
+            '运行时该标签页会出现「正在调试」横幅；如果那个标签页已经打开 DevTools 就无法附加。',
         'opts.verbose': '详细 console 输出',
         'opts.verboseDesc':
             '把每一条断言打印到路由器页面自身的 console，前缀 [AUT] —— 在那个标签页打开 DevTools ' +
