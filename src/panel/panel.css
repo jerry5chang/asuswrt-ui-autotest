@@ -449,12 +449,10 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
     mix-blend-mode: normal;
 }
 
-.current {
-    margin: 6px 0 0;
-    color: var(--mut);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+/* The row for whatever is being visited right now, pinned above the results. */
+.item.is-current {
+    border-left: 2px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 
 /* ---------------------------------------------------------------- cards */

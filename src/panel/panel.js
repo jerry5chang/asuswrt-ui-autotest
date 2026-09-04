@@ -693,10 +693,6 @@ function renderRun() {
         run.status === RUN.IDLE
             ? t('run.status.idle')
             : t('run.progress', { status: statusLabel(run.status), percent: run.progress || 0 });
-    $('#currentItem').textContent = run.current
-        ? `${run.current.lang} · ${run.current.page || t('run.driverSuites')}`
-        : '—';
-
     $('#btnStart').hidden = busy || paused;
     $('#btnPause').hidden = !busy;
     $('#btnResume').hidden = !paused;
@@ -704,28 +700,14 @@ function renderRun() {
 
     renderEstimate();
     renderCards($('#counters'), run.counts || {});
-    renderResultList($('#liveResults'), liveResultOrder(run.results || []));
+    // What is happening right now belongs at the top of the live list rather
+    // than on a line of its own above the controls.
+    renderResultList(
+        $('#liveResults'),
+        (run.results || []).slice(-80).reverse(),
+        busy || paused ? run.current : null
+    );
     $('#runLog').textContent = (run.notes || []).join('\n');
-}
-
-/**
- * What to show in "Latest results" during a run.
- *
- * Newest-first alone buries failures: a sweep produces hundreds of rows and
- * the one that matters scrolls out of the window within a page or two. So
- * every error and failure is pinned to the top and never dropped, whatever
- * else arrives; the rest of the space goes to the most recent activity, so
- * you can still see it is making progress.
- */
-function liveResultOrder(results) {
-    const bad = [];
-    const rest = [];
-    for (const row of results) {
-        (row.severity === 'error' || row.severity === 'fail' ? bad : rest).push(row);
-    }
-    // Worst first, then most recent within each severity.
-    bad.sort((a, b) => SEV_ORDER.indexOf(a.severity) - SEV_ORDER.indexOf(b.severity) || (b.ts || 0) - (a.ts || 0));
-    return [...bad, ...rest.slice(-60).reverse()];
 }
 
 function statusLabel(status) {
@@ -746,10 +728,21 @@ function renderCards(host, counts) {
     }
 }
 
-function renderResultList(host, rows) {
+function renderResultList(host, rows, current) {
     host.textContent = '';
+
+    if (current) {
+        const item = el('div', 'item is-current');
+        item.append(el('span', 'pill info', statusLabel(RUN.RUNNING)));
+        const body = el('span', 'grow');
+        body.append(el('span', 'msg', current.page || t('run.driverSuites')));
+        body.append(el('span', 'path', current.lang));
+        item.append(body);
+        host.append(item);
+    }
+
     if (!rows.length) {
-        host.append(el('p', 'empty', t('run.nothingRecorded')));
+        if (!current) host.append(el('p', 'empty', t('run.nothingRecorded')));
         return;
     }
     for (const r of rows) {
