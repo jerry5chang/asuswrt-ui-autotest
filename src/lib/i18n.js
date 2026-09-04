@@ -54,7 +54,7 @@ const MESSAGES = {
             'page list matches what this model actually ships.',
         'empty.probe': 'Probe the active tab',
 
-        'dut.title': 'Device info',
+        'dut.title': 'Device',
         'dut.origin': 'Origin',
         'dut.model': 'Model',
         'dut.firmware': 'Firmware',
@@ -111,7 +111,7 @@ const MESSAGES = {
 
         'adv.risky.destructive': 'Destructive',
         'adv.risky.disconnect': 'Disconnects',
-        'adv.riskyActions': 'Risky action_script values (Safe Mode)',
+        'adv.title': 'Advanced',
 
         'run.start': 'Start',
         'run.pause': 'Pause',
@@ -246,7 +246,7 @@ const MESSAGES = {
             '所以頁面清單會與這台機器實際出貨的功能一致。',
         'empty.probe': '探測目前分頁',
 
-        'dut.title': '設備資訊',
+        'dut.title': '設備',
         'dut.origin': '來源網址',
         'dut.model': '型號',
         'dut.firmware': '韌體版本',
@@ -300,7 +300,7 @@ const MESSAGES = {
 
         'adv.risky.destructive': '破壞性',
         'adv.risky.disconnect': '會斷線',
-        'adv.riskyActions': '危險的 action_script 清單（安全模式）',
+        'adv.title': '進階',
 
         'run.start': '開始',
         'run.pause': '暫停',
@@ -434,7 +434,7 @@ const MESSAGES = {
             '因此页面清单会与这台设备实际提供的功能一致。',
         'empty.probe': '探测当前标签页',
 
-        'dut.title': '设备信息',
+        'dut.title': '设备',
         'dut.origin': '源地址',
         'dut.model': '型号',
         'dut.firmware': '固件版本',
@@ -488,7 +488,7 @@ const MESSAGES = {
 
         'adv.risky.destructive': '破坏性',
         'adv.risky.disconnect': '会断线',
-        'adv.riskyActions': '危险的 action_script 清单（安全模式）',
+        'adv.title': '高级',
 
         'run.start': '开始',
         'run.pause': '暂停',

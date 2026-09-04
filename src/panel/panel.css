@@ -141,14 +141,14 @@ main {
 
 .topbar h1 { font-size: var(--fs-body); margin: 0; font-weight: 650; }
 
+/* Model, firmware and theme in full. It was clamped to 240px with an
+   ellipsis, which cut the firmware build off exactly where it identifies the
+   image; wrapping costs a line of header at narrow widths and is worth it. */
 .dut {
     margin: 0;
     font-size: var(--fs-tiny);
     color: var(--mut);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 240px;
+    overflow-wrap: anywhere;
 }
 
 /* --------------------------------------------------------------- tabs */
