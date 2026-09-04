@@ -1197,6 +1197,154 @@ function eaaDom({
     return sandbox;
 }
 
+/* ---------------------------------------------- offline: EAA control state */
+
+async function testEaaControlState() {
+    section('EAA control roles and states (src/suites/page/eaa-control-state.js)');
+
+    const run = async (html) => {
+        const sandbox = a11yPage(html, ['src/suites/page/eaa-control-state.js']);
+        return sandbox.__AUT__.runSuites(['eaa.control-state'], 8000);
+    };
+    const pick = (rows, sev) => rows.filter((r) => r.severity === sev);
+    const msgs = (rows, sev) => pick(rows, sev).map((r) => r.message);
+
+    // The exact ASUSWRT pattern from the findings: a div switch with a class.
+    const bareSwitch = await run(
+        '<div id="wps_enable_switch" class="iconSwitch" onclick="toggleWPS()"></div>');
+    const row = pick(bareSwitch, 'fail').find((r) => /switch with no programmatic state/.test(r.message));
+    check('a class-only switch fails', !!row, msgs(bareSwitch, 'fail').join(' | '));
+    check('...naming the element', /#wps_enable_switch/.test(row.message), row.message);
+    check('...and listing exactly what is missing',
+        (row.detail.missing || []).join() === 'role="switch",aria-checked', JSON.stringify(row.detail));
+
+    const properSwitch = await run(
+        '<div id="ok_switch" class="iconSwitch" role="switch" aria-checked="false" tabindex="0"></div>');
+    check('a switch with role and state passes',
+        !msgs(properSwitch, 'fail').some((m) => /switch/.test(m)), msgs(properSwitch, 'fail').join(' | '));
+
+    // A styled label wrapping a real checkbox is correct and must not be flagged.
+    const nativeInside = await run(
+        '<label class="switch_container"><input type="checkbox" id="dhcp"> DHCP</label>');
+    check('a switch built around a real checkbox is accepted',
+        pick(nativeInside, 'fail').length === 0, msgs(nativeInside, 'fail').join(' | '));
+
+    const tabs = await run(`
+        <ul id="tabMenu">
+            <li class="tabclick menu_clicked">General</li>
+            <li class="tabclick">WPS</li>
+        </ul>`);
+    check('tabs without aria-selected fail',
+        msgs(tabs, 'fail').some((m) => /tab with no selected state/.test(m)), msgs(tabs, 'fail').join(' | '));
+    check('...and the container is reported as not being a tablist',
+        msgs(tabs, 'warn').some((m) => /not a tablist/.test(m)), msgs(tabs, 'warn').join(' | '));
+
+    const current = await run('<div id="mainMenu"><a href="/x.asp" class="menu_clicked">Wireless</a></div>');
+    check('the current menu item marked only by a class fails',
+        msgs(current, 'fail').some((m) => /current item by a class only/.test(m)),
+        msgs(current, 'fail').join(' | '));
+
+    // A silent typo: nothing warns, and the state simply never arrives.
+    const typo = await run('<div role="switch" aria-cheked="true" tabindex="0">On</div>');
+    check('a misspelled ARIA attribute fails',
+        msgs(typo, 'fail').some((m) => /looks like ARIA but is not in the vocabulary/.test(m)),
+        msgs(typo, 'fail').join(' | '));
+
+    const badValue = await run('<div role="switch" aria-checked="on" tabindex="0">On</div>');
+    check('an ARIA state whose value is not true/false/mixed fails',
+        msgs(badValue, 'fail').some((m) => /not true\/false\/mixed/.test(m)),
+        msgs(badValue, 'fail').join(' | '));
+
+    const nestedRole = await run('<div role="button" tabindex="0">Edit <button>Delete</button></div>');
+    check('an interactive role containing a control is a warning',
+        msgs(nestedRole, 'warn').some((m) => /containing another interactive element/.test(m)),
+        msgs(nestedRole, 'warn').join(' | '));
+
+    const roleless = await run('<div class="button_gen" onclick="applyRule()">Apply</div>');
+    check('a div with a click handler and no role fails',
+        msgs(roleless, 'fail').some((m) => /declares no role/.test(m)), msgs(roleless, 'fail').join(' | '));
+
+    const nothing = await run('<div><p>Just text</p></div>');
+    check('a page with no custom controls is skipped',
+        pick(nothing, 'skip').length === 1, JSON.stringify(nothing));
+}
+
+/* -------------------------------------------------- offline: EAA keyboard */
+
+async function testEaaKeyboard() {
+    section('EAA keyboard operability (src/suites/page/eaa-keyboard.js)');
+
+    const run = async (html) => {
+        const sandbox = a11yPage(html, ['src/suites/page/eaa-keyboard.js']);
+        return sandbox.__AUT__.runSuites(['eaa.keyboard'], 8000);
+    };
+    const pick = (rows, sev) => rows.filter((r) => r.severity === sev);
+    const msgs = (rows, sev) => pick(rows, sev).map((r) => r.message);
+
+    // The 「無焦點」 finding: a table action button built from a div.
+    const noFocus = await run(
+        '<table><tr><td><div id="del_1" class="icon_del" onclick="delRow(1)"></div></td></tr></table>');
+    const row = pick(noFocus, 'fail').find((r) => /cannot be focused/.test(r.message));
+    check('a clickable div that cannot be focused fails', !!row, msgs(noFocus, 'fail').join(' | '));
+    check('...naming the element', /#del_1/.test(row.message), row.message);
+    check('...and offering both fixes', /tabindex="0"/.test(row.message), row.message);
+    check('...and recording its handler in the detail',
+        /delRow/.test(row.detail.onclick || ''), JSON.stringify(row.detail));
+
+    // Focusable, but only the mouse works: 「點擊事件與鍵盤事件不一致」.
+    const mouseOnly = await run(
+        '<div id="add_btn" class="button_gen" onclick="addRule()" tabindex="0">Add</div>');
+    check('a focusable div with no key handler fails',
+        msgs(mouseOnly, 'fail').some((m) => /click handler and no keyboard handler/.test(m)),
+        msgs(mouseOnly, 'fail').join(' | '));
+    const withKeys = await run(
+        '<div id="ok" class="button_gen" role="button" onclick="ok()" onkeydown="ok()" tabindex="0">OK</div>');
+    check('...and one with a key handler is accepted',
+        !msgs(withKeys, 'fail').some((m) => /no keyboard handler/.test(m)),
+        msgs(withKeys, 'fail').join(' | '));
+
+    const jumper = await run('<div><input id="a" tabindex="3"><input id="b"></div>');
+    check('a positive tabindex fails',
+        msgs(jumper, 'fail').some((m) => /explicit position in the tab order/.test(m)),
+        msgs(jumper, 'fail').join(' | '));
+
+    const disabledish = await run('<div><button id="apply" aria-disabled="true">Apply</button></div>');
+    check('aria-disabled but still tabbable is a warning',
+        msgs(disabledish, 'warn').some((m) => /announced as disabled but still takes focus/.test(m)),
+        msgs(disabledish, 'warn').join(' | '));
+
+    /*
+     * Focus visibility is measured, not inferred: the fixture declares the
+     * focused appearance and the suite reads the computed style before and
+     * after focusing.
+     */
+    const noFocusRing = await run('<div><button id="p" data-rect="0,0,80,24">Apply</button></div>');
+    check('a control that changes nothing on focus is a warning',
+        msgs(noFocusRing, 'warn').some((m) => /shows nothing when it is focused/.test(m)),
+        msgs(noFocusRing, 'warn').join(' | '));
+    const focusRing = await run(
+        '<div><button id="p" data-rect="0,0,80,24" data-focus-style="outline-width: 2px">Apply</button></div>');
+    check('...and one that draws an outline passes',
+        msgs(focusRing, 'pass').some((m) => /focus is visible/.test(m)),
+        [...msgs(focusRing, 'warn'), ...msgs(focusRing, 'pass')].join(' | '));
+
+    // Space on a checkbox cannot be faked, so without trusted keys it is
+    // skipped with the reason rather than passed.
+    const tick = await run('<div><input type="checkbox" id="mon" data-rect="0,0,16,16"> Mon</div>');
+    check('Space on a checkbox is skipped without trusted keys',
+        msgs(tick, 'skip').some((m) => /trusted key events/.test(m)), msgs(tick, 'skip').join(' | '));
+
+    const offScreen = await run(
+        '<div><button id="hidden_btn" data-rect="-500,-500,80,24">Ghost</button></div>');
+    check('a tab stop off the side of the page is a warning',
+        msgs(offScreen, 'warn').some((m) => /in the tab order but not visible/.test(m)),
+        msgs(offScreen, 'warn').join(' | '));
+
+    const empty = await run('<div><p>Text only</p></div>');
+    check('a page with nothing focusable is skipped',
+        pick(empty, 'skip').length === 1, JSON.stringify(empty).slice(0, 200));
+}
+
 /* ------------------------------------------------- offline: EAA a11y names */
 
 async function testEaaNames() {
@@ -2128,6 +2276,8 @@ await testEstimate();
 await testTimings();
 await testReport();
 await testEaaNames();
+await testEaaControlState();
+await testEaaKeyboard();
 await testEaaFormLabels();
 await testEaaSkipLink();
 await testEaaClientDialog();

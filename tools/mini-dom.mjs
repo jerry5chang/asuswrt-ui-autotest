@@ -175,6 +175,9 @@ class Element {
     hasAttribute(name) {
         return this.attributes.has(name.toLowerCase());
     }
+    getAttributeNames() {
+        return [...this.attributes.keys()];
+    }
 
     get id() {
         return this.getAttribute('id') || '';
@@ -575,6 +578,22 @@ export function computedStyleFor(el) {
         if (!isSelf) continue;
     }
     if (el.hasAttribute && el.hasAttribute('hidden')) style.display = 'none';
+
+    /*
+     * There is no cascade here, so `:focus` rules cannot apply -- but "does
+     * focusing this change anything visible" is exactly what one EAA check
+     * asks. A fixture declares the focused appearance with
+     * data-focus-style="outline: 2px solid blue", applied while this element
+     * is the active element.
+     */
+    const focusStyle = el.getAttribute && el.getAttribute('data-focus-style');
+    if (focusStyle && el.ownerDocument && el.ownerDocument.activeElement === el) {
+        for (const decl of focusStyle.split(';')) {
+            const i = decl.indexOf(':');
+            if (i === -1) continue;
+            style[decl.slice(0, i).trim().toLowerCase()] = decl.slice(i + 1).trim();
+        }
+    }
 
     // Expose both `font-size` and `fontSize`, like a real CSSStyleDeclaration.
     const out = { getPropertyValue: (p) => style[p] ?? '' };

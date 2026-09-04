@@ -284,6 +284,36 @@ export const SUITES = [
         defaultOn: false,
     },
     {
+        id: 'eaa.control-state',
+        name: 'Control roles and states',
+        group: 'EAA',
+        description:
+            'Switches, tabs and menu items declare their role and their state, so on/off and ' +
+            'which-one-is-selected are readable, not just visible (9.4.1.2).',
+        where: 'page',
+        scope: 'each-page',
+        file: 'src/suites/page/eaa-control-state.js',
+        cost: { shape: 'perPage', ms: 220 },
+        defaultOn: false,
+    },
+    {
+        id: 'eaa.keyboard',
+        name: 'Keyboard operability',
+        group: 'EAA',
+        description:
+            'Anything clickable can be focused and operated from the keyboard, the tab order ' +
+            'follows the page, and focus is visible (9.2.1.1 / 9.2.4.3 / 9.2.4.7).',
+        where: 'page',
+        scope: 'each-page',
+        file: 'src/suites/page/eaa-keyboard.js',
+        /* Focuses a sample of controls and, with the debugger attached,
+           presses Space on a checkbox -- so it wants a little more room. */
+        timeoutMs: 20000,
+        needsRealKeys: true,
+        cost: { shape: 'perPage', ms: 900 },
+        defaultOn: false,
+    },
+    {
         id: 'eaa.client-dialog',
         name: 'Client dialog keyboard operation',
         group: 'EAA',

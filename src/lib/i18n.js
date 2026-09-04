@@ -219,6 +219,14 @@ const MESSAGES = {
         'suite.eaa.form-labels.desc':
             'Fields need a real label, not text beside them or a placeholder; required and '
             + 'read-only belong in attributes.',
+        'suite.eaa.control-state.name': 'Control roles and states',
+        'suite.eaa.control-state.desc':
+            'Switches, tabs and menu items must declare their role and state — on/off cannot '
+            + 'live in a CSS class.',
+        'suite.eaa.keyboard.name': 'Keyboard operability',
+        'suite.eaa.keyboard.desc':
+            'Anything clickable must be focusable and operable by keyboard, in a sane order, '
+            + 'with visible focus.',
         'suite.eaa.client-dialog.name': 'Client dialog keyboard operation',
         'suite.eaa.client-dialog.desc':
             'Network Map: opening a client must move focus into the dialog, Tab must reach ' +
@@ -414,6 +422,10 @@ const MESSAGES = {
         'suite.eaa.a11y-name.desc': '控件與圖片要有可用的名稱：不缺、不重複朗讀、不與看到的文字不同。',
         'suite.eaa.form-labels.name': '表單標籤',
         'suite.eaa.form-labels.desc': '欄位要有真正關聯的標籤，不能只靠旁邊的文字或 placeholder；必填與唯讀要寫在屬性裡。',
+        'suite.eaa.control-state.name': '控件角色與狀態',
+        'suite.eaa.control-state.desc': '開關、頁籤、選單項目要宣告角色與狀態；開/關不能只存在 CSS class 裡。',
+        'suite.eaa.keyboard.name': '鍵盤可操作性',
+        'suite.eaa.keyboard.desc': '可點擊的都要能聚焦並用鍵盤操作，順序合理，而且看得出焦點在哪。',
         'suite.eaa.client-dialog.name': 'Client 對話框鍵盤操作',
         'suite.eaa.client-dialog.desc':
             '網路地圖：點開某個 client 後，焦點要進到對話框內，Tab 要能依序走到每個元件' +
@@ -609,6 +621,10 @@ const MESSAGES = {
         'suite.eaa.a11y-name.desc': '控件与图片要有可用的名称：不缺、不重复朗读、不与看到的文字不同。',
         'suite.eaa.form-labels.name': '表单标签',
         'suite.eaa.form-labels.desc': '字段要有真正关联的标签，不能只靠旁边的文字或 placeholder；必填与只读要写在属性里。',
+        'suite.eaa.control-state.name': '控件角色与状态',
+        'suite.eaa.control-state.desc': '开关、页签、菜单项要声明角色与状态；开/关不能只存在 CSS class 里。',
+        'suite.eaa.keyboard.name': '键盘可操作性',
+        'suite.eaa.keyboard.desc': '可点击的都要能聚焦并用键盘操作，顺序合理，而且看得出焦点在哪。',
         'suite.eaa.client-dialog.name': 'Client 对话框键盘操作',
         'suite.eaa.client-dialog.desc':
             '网络地图：点开某个 client 后，焦点要进到对话框内，Tab 要能依序走到每个元件' +

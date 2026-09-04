@@ -331,10 +331,19 @@
 
     var NATIVE_FOCUSABLE = /^(A|BUTTON|INPUT|SELECT|TEXTAREA|SUMMARY|AUDIO|VIDEO|IFRAME)$/;
 
+    /**
+     * Only the native attribute. `aria-disabled` *claims* a control is
+     * disabled without making it so: the browser still gives it focus and
+     * still fires its handlers. Treating the two as equivalent here hid the
+     * "announced as disabled but still takes focus" finding entirely, because
+     * the element was excluded from the tab order this file computed.
+     */
     A.isDisabled = function (el) {
-        if (el.disabled) return true;
-        if (el.getAttribute && el.getAttribute('aria-disabled') === 'true') return true;
-        return false;
+        return !!el.disabled;
+    };
+
+    A.isAriaDisabled = function (el) {
+        return !!(el.getAttribute && el.getAttribute('aria-disabled') === 'true');
     };
 
     /** Can this element hold focus? */
@@ -492,6 +501,95 @@
         var weight = String(cs.fontWeight);
         var bold = weight === 'bold' || weight === 'bolder' || Number(weight) >= 700;
         return size >= 24 || (bold && size >= 18.66);
+    };
+
+    /* -------------------------------------------------- focus appearance */
+
+    var FOCUS_PROPS = [
+        'outline-style', 'outline-width', 'outline-color', 'box-shadow',
+        'border-color', 'border-width', 'background-color', 'color', 'text-decoration-line',
+    ];
+
+    function appearance(el) {
+        var cs = getComputedStyle(el);
+        var out = {};
+        for (var i = 0; i < FOCUS_PROPS.length; i++) {
+            out[FOCUS_PROPS[i]] = cs.getPropertyValue
+                ? cs.getPropertyValue(FOCUS_PROPS[i])
+                : cs[FOCUS_PROPS[i]];
+        }
+        return out;
+    }
+
+    /**
+     * Does focusing this element change anything you can see?
+     *
+     * Measured rather than inferred: read the computed style, focus, read it
+     * again. A CSS `:focus` rule, an `outline` the theme did not remove, a
+     * class the page adds on focus -- all of them show up here, and a page
+     * that removed the outline without replacing it shows up as no change.
+     */
+    A.focusChangesAppearance = function (el) {
+        var before = appearance(el);
+        var wasFocused = document.activeElement;
+        try {
+            el.focus({ preventScroll: true });
+        } catch (e) {
+            try {
+                el.focus();
+            } catch (e2) {
+                return { changed: false, error: 'element refused focus' };
+            }
+        }
+        if (document.activeElement !== el) {
+            return { changed: false, error: 'element did not take focus' };
+        }
+        var after = appearance(el);
+        var differences = [];
+        for (var i = 0; i < FOCUS_PROPS.length; i++) {
+            var prop = FOCUS_PROPS[i];
+            if (String(before[prop]) !== String(after[prop])) {
+                differences.push(prop + ': ' + before[prop] + ' -> ' + after[prop]);
+            }
+        }
+        // Leave the page as it was found; EAA items run last, but not alone.
+        if (wasFocused && wasFocused.focus) {
+            try {
+                wasFocused.focus({ preventScroll: true });
+            } catch (e3) {
+                /* the previous element may have gone away */
+            }
+        }
+        return { changed: differences.length > 0, differences: differences };
+    };
+
+    /* ------------------------------------------------------ aria vocabulary */
+
+    /** Every ARIA attribute in the 1.2 vocabulary, for typo detection. */
+    var ARIA_ATTRS = (
+        'activedescendant atomic autocomplete braillelabel brailleroledescription busy checked colcount ' +
+        'colindex colindextext colspan controls current describedby description details disabled ' +
+        'errormessage expanded flowto haspopup hidden invalid keyshortcuts label labelledby level live ' +
+        'modal multiline multiselectable orientation owns placeholder posinset pressed readonly relevant ' +
+        'required roledescription rowcount rowindex rowindextext rowspan selected setsize sort ' +
+        'valuemax valuemin valuenow valuetext'
+    ).split(' ');
+
+    A.isKnownAriaAttribute = function (name) {
+        var m = /^aria-([a-z]+)$/.exec(String(name).toLowerCase());
+        return !!m && ARIA_ATTRS.indexOf(m[1]) !== -1;
+    };
+
+    /** Attributes on this element that look like ARIA but are not. */
+    A.misspelledAria = function (el) {
+        var out = [];
+        // getAttributeNames rather than the attributes collection: it is a
+        // plain array of strings in both a browser and the test DOM.
+        var names = el.getAttributeNames ? el.getAttributeNames() : [];
+        for (var i = 0; i < names.length; i++) {
+            if (/^aria-/.test(names[i]) && !A.isKnownAriaAttribute(names[i])) out.push(names[i]);
+        }
+        return out;
     };
 
     /* -------------------------------------------------------------- findings
