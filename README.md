@@ -19,6 +19,7 @@ buttons that would otherwise reboot the DUT.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The four worlds, the run loop, the result model |
 | [docs/WRITING-TESTS.md](docs/WRITING-TESTS.md) | The short version of adding a test item |
 | [docs/TESTING.md](docs/TESTING.md) | What the self-test covers, and what it does not |
+| [docs/EAA-TEST-PLAN.md](docs/EAA-TEST-PLAN.md) | Proposal: eight generic EAA items derived from the 187 audit findings, with coverage |
 
 ## Install (unpacked)
 
