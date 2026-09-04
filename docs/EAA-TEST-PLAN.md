@@ -6,7 +6,9 @@ and the BT-8 58367 result sheet). De-duplicated by defect description:
 **187 unique findings** across **22 UI modules**, each tagged with the EN 301 549
 clause it violates.
 
-This document is a **proposal for review**. Nothing here is implemented yet.
+**Status: all eight groups are implemented** (`src/suites/page/eaa-*.js`), with
+415 offline checks behind them. Each ships `defaultOn: false` until it has
+produced a correct verdict against a real DUT — see §6.
 
 ## 1. What the findings actually are
 
@@ -233,7 +235,7 @@ Two honest qualifications:
 | Whether the tab order matches the *visual* reading order | We can flag clear divergences (positive `tabindex`, DOM order vs geometry), not aesthetics |
 | Reading a PDF or a chart's meaning | Out of scope for a DOM tool |
 
-## 5. Implementation notes, when approved
+## 5. Implementation notes
 
 - Eight new files under `src/suites/page/`, eight registry entries in the EAA
   group, `suite.<id>.name|desc` in three locales.
@@ -252,3 +254,44 @@ Two honest qualifications:
 - The 187 findings are a **regression corpus**. A sensible next step after the
   items exist: a checked list of "finding → page → expected item to catch it",
   so a firmware fix that regresses shows up as a specific item flipping.
+
+## 6. As built
+
+| Item | File | Default | Notes |
+|---|---|---|---|
+| `eaa.a11y-name` | `eaa-a11y-name.js` | off | names, alt text, redundant/mismatched names |
+| `eaa.form-labels` | `eaa-form-labels.js` | off | labels, placeholders, required/read-only, segmented inputs |
+| `eaa.control-state` | `eaa-control-state.js` | off | switch/tab/current state, ARIA typos and bad values, role nesting |
+| `eaa.keyboard` | `eaa-keyboard.js` | off | focusability, click/key equivalence, tab order, focus visibility, Space |
+| `eaa.dialog` | `eaa-dialog.js` | off | opens up to 4 dialogs per page and runs the full checklist |
+| `eaa.page-structure` | `eaa-page-structure.js` | off | lang, title, headings, landmarks, tables, frames, text spacing |
+| `eaa.contrast` | `eaa-contrast.js` | off | text, placeholder and boundary contrast, with uncertainty stated |
+| `eaa.feedback` | `eaa-feedback.js` | off | live regions, aria-invalid, assertive-on-continuous |
+
+Shared machinery added for them:
+
+- **`src/page/a11y.js`** — injected between `runtime.js` and the suite files.
+  Accessible-name computation that also reports *which mechanism* named an
+  element, focusability and tab-order rules, contrast with translucency
+  composited, focus-appearance measurement, the ARIA vocabulary, and
+  `findings()`: one report row per offending element, capped per check with a
+  summary row naming the rest.
+- **`tools/mini-dom.mjs`** — an HTML parser and a DOM subset (selectors,
+  `closest`, computed style with inheritance, geometry from `data-rect`, focus,
+  event bubbling) so these items are tested against fixtures rather than
+  against a stub that answers its own questions. No dependencies; it throws on
+  anything it does not implement.
+
+### Turning them on
+
+They are off because nobody has confirmed their verdicts against a router yet.
+That is one run away: tick the EAA group, run it against the BT8, and read the
+findings against these lists — the audit names the module and the control for
+every one of the 187, so a correct item should reproduce them. Each item that
+does gets `defaultOn: true`; anything whose verdict cannot be trusted gets
+`draft: true` and a comment saying what the DUT showed, like the four Page
+tests items.
+
+Cost, if all eight are on: about 5.4 s per page on top of the existing sweep,
+so roughly seven minutes across 76 pages — `eaa.dialog` is most of it, because
+it opens dialogs and waits for them.

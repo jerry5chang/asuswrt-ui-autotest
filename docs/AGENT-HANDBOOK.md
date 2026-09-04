@@ -83,6 +83,8 @@ src/page/                  Injected into the DUT's MAIN world.
   instrument.js            document_start hooks: JS errors, console, resources, httpApi.log,
                            the API recorder, Safe Mode, the tool-log buffer, AUT.drain().
   runtime.js               The `t` context, suite runner, synthetic keys, tool log.
+  a11y.js                  Accessibility primitives shared by the EAA suites: accessible-name
+                           computation, focusability, contrast, focus measurement, findings().
 
 src/background/            Service worker side.
   service-worker.js        Message handler map. Exported for the harness.
@@ -100,6 +102,8 @@ src/panel/                 The side panel: panel.html, panel.css, panel.js.
 
 tools/
   selftest.mjs             The whole test suite. Offline by default, --dut adds live checks.
+  mini-dom.mjs             HTML parser + DOM subset, so DOM-shaped suites are tested against
+                           fixtures rather than a stub that answers its own questions.
   chrome-stub.mjs          Minimal chrome.* for the harness.
   dut-session.mjs          Auth v2 session for live checks (Node fetch captured up front).
   package.py               Zip for the Web Store.
@@ -396,6 +400,17 @@ Promoting an item is deleting its `draft: true`, after it has produced a
 correct verdict against a real DUT. Demoting one is adding the flag plus a
 comment saying what the DUT showed.
 
+### 8.4 `defaultOn: false` is a different state from `draft`
+
+A newly written item ships selectable but **off**: nobody has confirmed its
+verdicts yet, and a report is a claim about the firmware. Turning it on is that
+confirmation. `draft` is the stronger statement -- tried, and the result cannot
+be trusted -- and it disables the item.
+
+So a new item's lifecycle is: `defaultOn: false` → run it against the DUT →
+either `defaultOn: true`, or `draft: true` with the evidence in a comment. The
+eight EAA items added from the audit lists are all at step one.
+
 ---
 
 ## 9. Writing a page suite
@@ -457,6 +472,15 @@ window.__AUT__.suite('group.item', async function (t) {
 - **Never mutate the DUT's settings.** Focus, scroll and clicks are fine (EAA
   items run last for that reason). Anything that writes nvram belongs behind
   Safe Mode with an assertion on what was sent.
+
+### 9.2a The a11y layer
+
+Anything asking "what is this element called", "can the keyboard reach it",
+"what colour is behind it" must use `window.__AUT__.a11y` rather than
+re-deriving it. `A.findings(t, {...})` is how an accessibility finding is
+reported: it names the element, says what it lacks, caps the rows per page and
+puts a pasteable selector in the detail. A report row that says only which
+suite failed is a bug -- the reader has 76 pages to search.
 
 ### 9.3 Registering and costing it
 
