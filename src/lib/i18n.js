@@ -66,7 +66,7 @@ const MESSAGES = {
         'dut.activeTab': 'Active tab',
         'dut.loggedIn': 'Logged in',
 
-        'login.title': 'Login (auth v2)',
+        'login.title': 'Login',
         'login.username': 'Username',
         'login.password': 'Password',
         'login.autoRelogin': 'Re-login automatically if the session expires mid-run',
@@ -279,7 +279,7 @@ const MESSAGES = {
         'dut.activeTab': '目前分頁',
         'dut.loggedIn': '已登入',
 
-        'login.title': '登入（auth v2）',
+        'login.title': '登入',
         'login.username': '帳號',
         'login.password': '密碼',
         'login.autoRelogin': '測試中 session 過期時自動重新登入',
@@ -486,7 +486,7 @@ const MESSAGES = {
         'dut.activeTab': '当前标签页',
         'dut.loggedIn': '已登录',
 
-        'login.title': '登录（auth v2）',
+        'login.title': '登录',
         'login.username': '账号',
         'login.password': '密码',
         'login.autoRelogin': '测试过程中会话过期时自动重新登录',
