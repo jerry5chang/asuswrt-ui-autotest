@@ -943,19 +943,6 @@ function initActions() {
         });
     }
 
-    $('#btnLogin').addEventListener('click', async () => {
-        await send(MSG.SAVE_SETTINGS, { settings: collectSettings() });
-        const res = await send(MSG.LOGIN, {});
-        if (!res || !res.ok) {
-            flash('#probeReason', t('login.failed', { reason: (res && res.reason) || '?' }));
-            return;
-        }
-        // Signing in is never the goal in itself; reading the inventory is.
-        flash('#probeReason', t('login.ok'), 'ok');
-        await send(MSG.PROBE_ENV);
-        await refresh();
-    });
-
     $('#btnStart').addEventListener('click', async () => {
         const res = await send(MSG.START_RUN, {
             settings: collectSettings(),

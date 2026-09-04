@@ -70,14 +70,10 @@ const MESSAGES = {
         'login.username': 'Username',
         'login.password': 'Password',
         'login.autoRelogin': 'Re-login automatically if the session expires mid-run',
-        'login.now': 'Log in now',
         'login.hint':
-            'Signs the active tab in, so you can start from the login page instead of ' +
-            'signing in by hand — and these credentials are what the re-login option above ' +
-            'uses when a session expires mid-run. Uses get_Nonce.cgi + login_v2.cgi; they ' +
-            'stay in this browser profile’s extension storage.',
-        'login.ok': 'Logged in — reading the page inventory…',
-        'login.failed': 'Login failed: {reason}',
+            'Used to sign in on its own: when Probe finds the tab sitting on the login page, ' +
+            'and when a session expires mid-run. Needs the option above. Uses get_Nonce.cgi ' +
+            '+ login_v2.cgi; credentials stay in this browser profile’s extension storage.',
 
         'suites.title': 'Test items',
         'preset.all': 'All',
@@ -269,13 +265,10 @@ const MESSAGES = {
         'login.username': '帳號',
         'login.password': '密碼',
         'login.autoRelogin': '測試中 session 過期時自動重新登入',
-        'login.now': '立即登入',
         'login.hint':
-            '直接把目前分頁登入，這樣就可以從登入頁開始、不用自己手動登入；' +
-            '上面那個「自動重新登入」在測試中 session 過期時用的也是這組帳密。' +
-            '走 get_Nonce.cgi + login_v2.cgi，帳密只存在這個瀏覽器設定檔的擴充套件儲存空間。',
-        'login.ok': '已登入 —— 正在讀取頁面清單…',
-        'login.failed': '登入失敗：{reason}',
+            '供自動登入使用：探測時分頁停在登入頁、以及測試中 session 過期時。' +
+            '需要開啟上面那個選項。走 get_Nonce.cgi + login_v2.cgi，' +
+            '帳密只存在這個瀏覽器設定檔的擴充套件儲存空間。',
 
         'suites.title': '測項',
         'preset.all': '全選',
@@ -463,13 +456,10 @@ const MESSAGES = {
         'login.username': '账号',
         'login.password': '密码',
         'login.autoRelogin': '测试过程中会话过期时自动重新登录',
-        'login.now': '立即登录',
         'login.hint':
-            '直接把当前标签页登录，这样就可以从登录页开始、不用手动登录；' +
-            '上面那个「自动重新登录」在测试过程中会话过期时用的也是这组账密。' +
-            '走 get_Nonce.cgi + login_v2.cgi，账号密码只保存在当前浏览器配置文件的扩展存储中。',
-        'login.ok': '已登录 —— 正在读取页面清单…',
-        'login.failed': '登录失败：{reason}',
+            '供自动登录使用：探测时标签页停在登录页、以及测试过程中会话过期时。' +
+            '需要开启上面那个选项。走 get_Nonce.cgi + login_v2.cgi，' +
+            '账号密码只保存在当前浏览器配置文件的扩展存储中。',
 
         'suites.title': '测试项',
         'preset.all': '全选',

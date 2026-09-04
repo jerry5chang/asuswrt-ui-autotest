@@ -50,7 +50,6 @@ export const MSG = {
     STOP_RUN: 'stopRun',
     CLEAR_RUN: 'clearRun',
     EXPORT_REPORT: 'exportReport',
-    LOGIN: 'login',
     // service worker -> side panel (broadcast)
     SNAPSHOT: 'snapshot',
 };

@@ -761,7 +761,8 @@ async function testI18n() {
     setLocale('zh-TW');
     check('a translated key returns the translation', t('tab.run') === '執行', t('tab.run'));
     check('interpolation fills placeholders',
-        t('login.failed', { reason: 'X' }) === '登入失敗：X', t('login.failed', { reason: 'X' }));
+        t('run.progress', { status: '執行中', percent: 27 }) === '執行中 — 27%',
+        t('run.progress', { status: '執行中', percent: 27 }));
 
     setLocale('zh-CN');
     check('Simplified is written as Simplified, not converted Traditional',

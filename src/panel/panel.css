@@ -659,19 +659,19 @@ body.on-report .estimate { display: none; }
    is correct in whichever theme it just switched to. */
 .iconbtn {
     flex: 0 0 auto;
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     padding: 0;
-    border: 1px solid var(--line);
+    border: 0;
     border-radius: var(--radius);
     background: transparent;
-    color: var(--fg);
+    color: var(--mut);
     cursor: pointer;
     display: grid;
     place-items: center;
 }
 
-.iconbtn:hover { border-color: var(--accent); color: var(--accent); }
+.iconbtn:hover { color: var(--fg); }
 .iconbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 .iconbtn svg {

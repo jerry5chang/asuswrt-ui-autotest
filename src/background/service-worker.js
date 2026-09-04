@@ -9,16 +9,7 @@ import { MSG, RUN } from '../lib/const.js';
 import { SUITES } from '../suites/registry.js';
 import * as state from './state.js';
 import { getSettings, saveSettings, getSelection, saveSelection } from './store.js';
-import {
-    startRun,
-    pauseRun,
-    resumeRun,
-    stopRun,
-    probe,
-    unregisterInstrument,
-    navigateAndWait,
-} from './runner.js';
-import { loginAuthV2 } from './auth.js';
+import { startRun, pauseRun, resumeRun, stopRun, probe, unregisterInstrument } from './runner.js';
 import { getTimings } from './timings.js';
 
 /* ------------------------------------------------------------- lifecycle */
@@ -169,26 +160,6 @@ export const handlers = {
         return { run: state.summary({ full: true }) };
     },
 
-    async [MSG.LOGIN](msg) {
-        const tab = await activeTab();
-        if (!tab) return { ok: false, reason: 'no active tab' };
-        const settings = msg.settings ? await saveSettings(msg.settings) : await getSettings();
-
-        const result = await loginAuthV2(tab.id, settings.username, settings.password);
-        if (!result.ok) return result;
-
-        /*
-         * A successful login sets the cookie but leaves the tab sitting on
-         * Main_Login.asp, and the probe refuses to read a page inventory from
-         * there -- so the button would report success and the next Probe would
-         * still say "not logged in". Move the tab off the login page.
-         */
-        if (/^https?:/.test(tab.url || '')) {
-            const origin = new URL(tab.url).origin;
-            await navigateAndWait(tab.id, `${origin}/${settings.returnPage}`, 20000);
-        }
-        return result;
-    },
 };
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
