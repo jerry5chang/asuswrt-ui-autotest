@@ -533,8 +533,14 @@ function updatePageCount() {
      */
     const visited = pagesInScope([...sel.suiteIds], [...sel.pages]).length;
     const note = $('#pageScope');
+    note.textContent = '';
     if (visited < sel.pages.size) {
-        note.textContent = t('pages.inScope', { visited, selected: sel.pages.size });
+        // Two parts, so the figure reads as a figure instead of being buried
+        // mid-sentence in a wall of muted text.
+        note.append(
+            el('b', 'n', `${visited}/${sel.pages.size}`),
+            el('span', null, t('pages.inScope'))
+        );
         note.hidden = false;
     } else {
         note.hidden = true;

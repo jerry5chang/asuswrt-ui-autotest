@@ -688,3 +688,28 @@ body.on-report .estimate { display: none; }
 @media (prefers-reduced-motion: reduce) {
     .iconbtn svg { transition: none; }
 }
+
+/* ------------------------------------------------------ in-scope notice */
+
+/* Separated from the row above and led by the figure, so it reads as a count
+   with an explanation rather than one long muted sentence. */
+.scope {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    margin: 9px 0 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+    font-size: var(--fs-tiny);
+    color: var(--mut);
+    line-height: 1.45;
+}
+
+.scope .n {
+    flex: 0 0 auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: var(--fs-small);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--warn);
+}

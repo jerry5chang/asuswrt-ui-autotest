@@ -41,10 +41,32 @@ window.__AUT__.suite('eaa.client-dialog', async function (t) {
 
     const isOpen = (el) => !!el && rendered(el);
 
-    const key = (target, name, extra = {}) =>
-        target.dispatchEvent(
-            new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, ...extra })
-        );
+    /*
+     * ASUSWRT's own trap (state.js setDialogFocusTrap) switches on
+     * `e.keyCode`, not `e.key` -- so an event carrying only `key` matches
+     * nothing and every keyboard assertion fails on a dialog that works
+     * perfectly by hand. A real keypress sets both, so this does too.
+     */
+    const KEY_CODES = { Tab: 9, Escape: 27, Enter: 13, ' ': 32 };
+
+    const key = (target, name, extra = {}) => {
+        const code = KEY_CODES[name] || 0;
+        const event = new KeyboardEvent('keydown', {
+            key: name,
+            keyCode: code,
+            which: code,
+            bubbles: true,
+            cancelable: true,
+            ...extra,
+        });
+        // The constructor does not reliably carry the legacy fields, and they
+        // are read-only accessors on the prototype, so shadow them.
+        if (event.keyCode !== code) {
+            Object.defineProperty(event, 'keyCode', { value: code, configurable: true });
+            Object.defineProperty(event, 'which', { value: code, configurable: true });
+        }
+        return target.dispatchEvent(event);
+    };
 
     if (!window.EAAPlugin) {
         return t.skip('this build has no EAA plugin (js/eaa-plugin.js is not loaded)');
@@ -193,10 +215,20 @@ window.__AUT__.suite('eaa.client-dialog', async function (t) {
 
     /* --- Tab must not escape the dialog --------------------------------- */
 
-    t.check(
-        dialog.getAttribute('data-eaa-focus-trapped') === '1',
-        'a focus trap is installed on the dialog'
-    );
+    /*
+     * Which implementation is in play is worth recording but is not the
+     * requirement. #edit_client_block carries data-eaa-skip-dialog="1", so the
+     * plugin's generic trap deliberately leaves it alone and index.asp calls
+     * state.js's setDialogFocusTrap instead -- asserting the plugin's marker
+     * failed a dialog that is in fact trapped. The behaviour below is the
+     * requirement; this line only says how it is met.
+     */
+    const mechanism = dialog.getAttribute('data-eaa-focus-trapped') === '1'
+        ? 'the EAA plugin'
+        : dialog.getAttribute('data-eaa-skip-dialog') === '1'
+          ? "the page's own setDialogFocusTrap"
+          : 'unknown';
+    t.info(`focus management provided by ${mechanism}`);
 
     const first = components[0];
     const last = components[components.length - 1];

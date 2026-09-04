@@ -1001,6 +1001,7 @@ function clientDialogDom(opts = {}) {
         ariaModal = 'true',
         ariaLabel = 'Client',
         trapped = '1',
+        skipDialog = false,
         componentCount = 3,
         unfocusableIndex = -1,
         positiveTabindex = false,
@@ -1032,7 +1033,7 @@ function clientDialogDom(opts = {}) {
 
     class FakeKeyboardEvent {
         constructor(type, init = {}) {
-            Object.assign(this, { type, key: '', shiftKey: false }, init);
+            Object.assign(this, { type, key: '', keyCode: 0, which: 0, shiftKey: false }, init);
             this.defaultPrevented = false;
         }
         preventDefault() { this.defaultPrevented = true; }
@@ -1095,6 +1096,7 @@ function clientDialogDom(opts = {}) {
             ...(ariaModal ? { 'aria-modal': ariaModal } : {}),
             ...(ariaLabel ? { 'aria-label': ariaLabel } : {}),
             ...(trapped ? { 'data-eaa-focus-trapped': trapped } : {}),
+            ...(skipDialog ? { 'data-eaa-skip-dialog': '1' } : {}),
         },
     });
     dialog.children = components;
@@ -1102,15 +1104,17 @@ function clientDialogDom(opts = {}) {
     for (const c of components) c.parentNode = dialog;
 
     // The plugin's trap: wrap at each end on Tab, click the close control on Esc.
+    // Reads keyCode, exactly as state.js's setDialogFocusTrap does, so a suite
+    // that sends only `key` fails here instead of only on real firmware.
     dialog.addEventListener('keydown', (e) => {
         const visibleOnes = components.filter((c) => c.visible);
-        if (e.key === 'Tab' && trapWraps && visibleOnes.length) {
+        if (e.keyCode === 9 && trapWraps && visibleOnes.length) {
             const first = visibleOnes[0];
             const last = visibleOnes[visibleOnes.length - 1];
             if (e.shiftKey && doc.activeElement === first) { e.preventDefault(); last.focus(); }
             else if (!e.shiftKey && doc.activeElement === last) { e.preventDefault(); first.focus(); }
         }
-        if (e.key === 'Escape' && escCloses) {
+        if (e.keyCode === 27 && escCloses) {
             dialog.visible = false;
             doc.activeElement = null;
         }
@@ -1254,12 +1258,23 @@ async function testEaaClientDialog() {
         ['role', { role: '' }, /role="dialog"/],
         ['aria-modal', { ariaModal: '' }, /aria-modal/],
         ['accessible name', { ariaLabel: '' }, /accessible name/],
-        ['focus trap', { trapped: '' }, /focus trap is installed/],
     ]) {
         const rows = await run(opts);
         check(`a dialog missing its ${label} fails`, failed(rows).some((m) => needle.test(m)),
             failed(rows).join(' | '));
     }
+
+    /*
+     * The trap marker is reported, not asserted: #edit_client_block carries
+     * data-eaa-skip-dialog and is trapped by the page's own code, so demanding
+     * the plugin's flag failed a working dialog. Behaviour is the requirement.
+     */
+    const ownTrap = await run({ trapped: '', skipDialog: true });
+    check('a dialog trapped by the page rather than the plugin still passes',
+        failed(ownTrap).length === 0, failed(ownTrap).join(' | '));
+    check('...and the mechanism is reported',
+        ownTrap.some((r) => r.severity === 'info' && /setDialogFocusTrap/.test(r.message)),
+        JSON.stringify(ownTrap.filter((r) => r.severity === 'info').map((r) => r.message)));
 
     const dead = await run({ unfocusableIndex: 1 });
     check('a component that refuses focus fails — Tab would skip it',
