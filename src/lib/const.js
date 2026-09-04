@@ -121,6 +121,8 @@ export const DEFAULT_KNOWN_ISSUES = [
 export const DEFAULT_SETTINGS = {
     /** '' follows the browser's UI language; see lib/i18n.js. */
     locale: '',
+    /** Suite groups the user has folded away in the panel. */
+    collapsedGroups: [],
     pageSettleMs: 2000,
     pageTimeoutMs: 20000,
     timeScale: 1.0,

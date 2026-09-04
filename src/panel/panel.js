@@ -36,6 +36,16 @@ let snap = null;
 const sel = { suiteIds: new Set(), pages: new Set(), langs: new Set() };
 let pagesTouched = false;
 let reportCache = null;
+/** Which suite groups are folded away. Remembered across sessions. */
+let collapsedGroups = new Set();
+
+let collapseTimer = null;
+function persistCollapsed() {
+    clearTimeout(collapseTimer);
+    collapseTimer = setTimeout(async () => {
+        snap = await send(MSG.SAVE_SETTINGS, { settings: { collapsedGroups: [...collapsedGroups] } });
+    }, 300);
+}
 
 function send(type, extra = {}) {
     return chrome.runtime.sendMessage({ type, ...extra });
@@ -118,6 +128,7 @@ async function refresh() {
     snap = await send(MSG.GET_SNAPSHOT);
     if (!snap) return;
     applyLocale(snap.settings.locale);
+    collapsedGroups = new Set(snap.settings.collapsedGroups || []);
     sel.suiteIds = new Set(snap.selection.suiteIds || []);
     sel.langs = new Set(snap.selection.langs || []);
     const pages = (snap.run.env && snap.run.env.pages) || [];
@@ -331,7 +342,27 @@ function renderSuites() {
 
         // The group heading is itself a checkbox: it ticks or clears the whole
         // group, and shows indeterminate while only part of it is selected.
-        const head = el('label', 'grouphead');
+        const head = el('div', 'grouphead');
+
+        // Collapsing and selecting are separate controls: a single element
+        // that did both would be a coin toss every time you clicked it.
+        const collapsed = collapsedGroups.has(group);
+        box.classList.toggle('is-collapsed', collapsed);
+
+        const toggle = el('button', 'gtoggle');
+        toggle.type = 'button';
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+        toggle.setAttribute('aria-label', groupLabel(group));
+        toggle.addEventListener('click', () => {
+            const nowCollapsed = !collapsedGroups.has(group);
+            if (nowCollapsed) collapsedGroups.add(group);
+            else collapsedGroups.delete(group);
+            box.classList.toggle('is-collapsed', nowCollapsed);
+            toggle.setAttribute('aria-expanded', String(!nowCollapsed));
+            persistCollapsed();
+        });
+
+        const label = el('label', 'glabel');
         const groupBox = el('input');
         groupBox.type = 'checkbox';
         const count = el('span', 'gcount');
@@ -352,7 +383,8 @@ function renderSuites() {
             persist();
         });
 
-        head.append(groupBox, el('span', 'gname', groupLabel(group)), count);
+        label.append(groupBox, el('span', 'gname', groupLabel(group)));
+        head.append(toggle, label, count);
         box.append(head);
 
         for (const suite of inGroup) {

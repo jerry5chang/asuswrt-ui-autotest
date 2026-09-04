@@ -17,6 +17,15 @@
     --pass: #177245;
     --skip: #6b7280;
     --radius: 2px;
+
+    /* Type scale, ~1.15 between steps. The panel used to hardcode 10-16px in
+       thirty places; changing size is now one edit. */
+    --fs-micro: 11px;
+    --fs-tiny: 12px;
+    --fs-small: 13px;
+    --fs-body: 14px;
+    --fs-group: 16px;
+    --fs-figure: 18px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -40,11 +49,22 @@
 
 * { box-sizing: border-box; }
 
+/* Header, tabs and the estimate travel together, so nothing has to know how
+   tall the others are -- which is what a type-scale change would have broken. */
+.stickytop {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    background: var(--panel);
+}
+
 body {
     margin: 0;
     background: var(--bg);
     color: var(--fg);
-    font: 13px/1.5 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: var(--fs-body);
+    line-height: 1.5;
 }
 
 /* ------------------------------------------------------------- top bar */
@@ -56,9 +76,6 @@ body {
     gap: 8px;
     padding: 10px 12px;
     background: var(--panel);
-    border-bottom: 1px solid var(--line);
-    position: sticky;
-    top: 0;
     z-index: 5;
 }
 
@@ -73,11 +90,11 @@ body {
     display: block;
 }
 
-.topbar h1 { font-size: 13px; margin: 0; font-weight: 650; }
+.topbar h1 { font-size: var(--fs-body); margin: 0; font-weight: 650; }
 
 .dut {
     margin: 0;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     color: var(--mut);
     white-space: nowrap;
     overflow: hidden;
@@ -90,9 +107,8 @@ body {
 .tabs {
     display: flex;
     background: var(--panel);
+    border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
-    position: sticky;
-    top: 47px;
     z-index: 4;
 }
 
@@ -137,7 +153,7 @@ body {
     content: '▸';
     color: var(--mut);
     transition: transform .12s;
-    font-size: 10px;
+    font-size: var(--fs-micro);
 }
 
 .group[open] > summary::before { transform: rotate(90deg); }
@@ -146,34 +162,70 @@ body {
 .group > *:not(summary):last-child { padding-bottom: 11px; }
 
 .subgroup { margin: 0 0 10px; }
-/* The group heading is a checkbox that ticks the whole group. */
+/* Group heading: a chevron that collapses the group, a checkbox that ticks
+   all of it, and the count. Two separate controls, because one element that
+   both selects and collapses is a coin toss for the user. */
 .grouphead {
     display: flex;
     align-items: center;
+    gap: 6px;
+    margin: 14px 0 6px;
+}
+
+.gtoggle {
+    flex: 0 0 auto;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--mut);
+    font: inherit;
+    font-size: var(--fs-micro);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+}
+
+.gtoggle::before {
+    content: '▸';
+    transition: transform .12s;
+}
+
+.gtoggle[aria-expanded="true"]::before { transform: rotate(90deg); }
+.gtoggle:hover { color: var(--fg); }
+
+.glabel {
+    display: flex;
+    align-items: center;
     gap: 7px;
-    margin: 12px 0 5px;
+    min-width: 0;
     cursor: pointer;
     user-select: none;
 }
 
-.grouphead input { margin: 0; flex: 0 0 auto; }
+.glabel input { margin: 0; flex: 0 0 auto; }
 
+/* One step above the items, which carry --fs-body. Size does the work here,
+   so the old uppercase + letter-spacing would just be shouting on top of it. */
 .grouphead .gname {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    color: var(--mut);
+    font-size: var(--fs-group);
+    font-weight: 650;
+    color: var(--fg);
+    line-height: 1.2;
 }
 
 .grouphead .gcount {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 10px;
+    font-size: var(--fs-tiny);
     color: var(--mut);
     margin-left: auto;
+    flex: 0 0 auto;
 }
 
-.subgroup > .check { padding-left: 4px; }
+.subgroup > .check { padding-left: 24px; }
+.subgroup.is-collapsed > .check { display: none; }
 
 /* ------------------------------------------------------------ controls */
 
@@ -190,8 +242,8 @@ body {
 
 .btn.ghost { background: transparent; color: var(--fg); border-color: var(--line); }
 .btn.danger { background: var(--error); color: #fff; }
-.btn.sm { padding: 5px 10px; font-size: 12px; }
-.btn.xs { padding: 3px 8px; font-size: 11px; }
+.btn.sm { padding: 5px 10px; font-size: var(--fs-small); }
+.btn.xs { padding: 3px 8px; font-size: var(--fs-tiny); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn.primary { flex: 1; }
 
@@ -201,7 +253,7 @@ body {
 
 .chip {
     font: inherit;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     font-weight: 600;
     padding: 4px 10px;
     border-radius: var(--radius);
@@ -228,7 +280,7 @@ input[type=text], input[type=password], input[type=number], input[type=search], 
 }
 
 .field { display: flex; align-items: center; gap: 8px; margin: 7px 0; }
-.field label { flex: 0 0 42%; color: var(--mut); font-size: 12px; }
+.field label { flex: 0 0 42%; color: var(--mut); font-size: var(--fs-small); }
 .field input { flex: 1; }
 
 .check {
@@ -242,12 +294,12 @@ input[type=text], input[type=password], input[type=number], input[type=search], 
 
 .check input { margin: 2px 0 0; flex: 0 0 auto; }
 .check .name { font-weight: 550; }
-.check .desc { display: block; color: var(--mut); font-size: 11px; }
+.check .desc { display: block; color: var(--mut); font-size: var(--fs-tiny); }
 
-.hint { color: var(--mut); font-size: 11px; margin: 6px 0 0; }
+.hint { color: var(--mut); font-size: var(--fs-tiny); margin: 6px 0 0; }
 
 .badge {
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     font-weight: 600;
     color: var(--mut);
     background: var(--bg);
@@ -257,8 +309,8 @@ input[type=text], input[type=password], input[type=number], input[type=search], 
     margin-left: auto;
 }
 
-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--fs-tiny); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--fs-tiny); }
 
 /* --------------------------------------------------------------- notes */
 
@@ -266,7 +318,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
     border-radius: var(--radius);
     padding: 9px 11px;
     margin-bottom: 10px;
-    font-size: 12px;
+    font-size: var(--fs-small);
     border: 1px solid var(--line);
     background: var(--panel);
     border-left: 3px solid var(--mut);
@@ -278,7 +330,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 
 /* ------------------------------------------------------------------ kv */
 
-.kv { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 12px; }
+.kv { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: var(--fs-small); }
 .kv dt { color: var(--mut); }
 .kv dd { margin: 0; word-break: break-all; }
 
@@ -300,15 +352,15 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
     display: flex;
     gap: 7px;
     align-items: flex-start;
-    font-size: 12px;
+    font-size: var(--fs-small);
 }
 
 .item:last-child { border-bottom: 0; }
 .item .grow { min-width: 0; flex: 1; }
-.item .path { display: block; color: var(--mut); font-size: 11px; word-break: break-all; }
+.item .path { display: block; color: var(--mut); font-size: var(--fs-tiny); word-break: break-all; }
 .item .msg { word-break: break-word; }
 
-.empty { padding: 12px; color: var(--mut); font-size: 12px; text-align: center; }
+.empty { padding: 12px; color: var(--mut); font-size: var(--fs-small); text-align: center; }
 
 /* ------------------------------------------------------------- progress */
 
@@ -335,7 +387,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
     inset: 0;
     display: grid;
     place-items: center;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     font-weight: 600;
     color: var(--fg);
     mix-blend-mode: normal;
@@ -362,8 +414,8 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
     padding: 6px 9px;
 }
 
-.card b { display: block; font-size: 16px; line-height: 1.25; }
-.card span { color: var(--mut); font-size: 11px; }
+.card b { display: block; font-size: var(--fs-figure); line-height: 1.25; }
+.card span { color: var(--mut); font-size: var(--fs-tiny); }
 
 .card.error { border-left-color: var(--error); }
 .card.fail { border-left-color: var(--fail); }
@@ -377,7 +429,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 
 .pill {
     flex: 0 0 auto;
-    font-size: 10px;
+    font-size: var(--fs-micro);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .03em;
@@ -405,7 +457,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
     border: 1px solid var(--line);
     border-radius: var(--radius);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     white-space: pre-wrap;
     word-break: break-word;
 }
@@ -415,7 +467,7 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 .lbl {
     display: block;
     margin: 10px 0 4px;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     text-transform: uppercase;
     letter-spacing: .05em;
     color: var(--mut);
@@ -425,7 +477,7 @@ textarea.json {
     width: 100%;
     resize: vertical;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     line-height: 1.45;
     padding: 7px 8px;
     border: 1px solid var(--line);
@@ -460,7 +512,7 @@ body:not(.is-empty) #emptyState { display: none; }
 
 .onboard h2 {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--fs-group);
     font-weight: 650;
 }
 
@@ -471,14 +523,14 @@ body:not(.is-empty) #emptyState { display: none; }
     flex-direction: column;
     gap: 7px;
     color: var(--mut);
-    font-size: 12px;
+    font-size: var(--fs-small);
     line-height: 1.5;
 }
 
 .onboard .steps li::marker { color: var(--accent); font-weight: 600; }
 .onboard .steps b { color: var(--fg); }
 .onboard .note { margin: 0; }
-.onboard .kv { font-size: 11px; }
+.onboard .kv { font-size: var(--fs-tiny); }
 .onboard > .btn { align-self: stretch; }
 
 /* A tab with nothing behind it yet. */
@@ -502,7 +554,7 @@ body:not(.is-empty) #emptyState { display: none; }
 .locale {
     width: auto;
     padding: 4px 6px;
-    font-size: 11px;
+    font-size: var(--fs-tiny);
 }
 
 /* ------------------------------------------------------------- estimate bar */
@@ -514,14 +566,12 @@ body:not(.is-empty) #emptyState { display: none; }
     padding: 7px 12px;
     background: var(--panel);
     border-bottom: 1px solid var(--line);
-    font-size: 12px;
-    position: sticky;
-    top: 76px;
+    font-size: var(--fs-small);
     z-index: 3;
 }
 
 .estimate .elabel {
-    font-size: 10px;
+    font-size: var(--fs-micro);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .07em;
@@ -538,7 +588,7 @@ body:not(.is-empty) #emptyState { display: none; }
 
 .estimate .edetail {
     color: var(--mut);
-    font-size: 11px;
+    font-size: var(--fs-tiny);
     margin-left: auto;
     text-align: right;
     white-space: nowrap;

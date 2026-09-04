@@ -607,6 +607,35 @@ async function testRegistry() {
     check('every asset panel.html references exists', brokenRefs.length === 0, brokenRefs.join(', '));
     check('the panel uses the extension icon rather than a letter placeholder',
         refs.includes('../../resource/icon.png'), refs.join(', '));
+
+    // Sizes and radii go through tokens, so "make it bigger" stays one edit
+    // rather than thirty, and nothing drifts out of the scale.
+    const css = fs.readFileSync('src/panel/panel.css', 'utf8');
+    const hardSizes = [...css.matchAll(/font-size:\s*(\d+px)/g)].map((m) => m[1]);
+    check('no hardcoded font size in the panel CSS', hardSizes.length === 0, hardSizes.join(', '));
+    // Capture the value and filter, rather than a lookahead after \s* -- which
+    // backtracks and tests at the space, matching everything.
+    const hardRadii = [...css.matchAll(/border-radius:([^;]+);/g)]
+        .map((m) => m[1].trim())
+        .filter((value) => !value.includes('var(--radius)'));
+    check('no hardcoded corner radius in the panel CSS', hardRadii.length === 0, hardRadii.join(', '));
+
+    const declared = new Set([...css.matchAll(/(--fs-[a-z]+):/g)].map((m) => m[1]));
+    const used = new Set([...css.matchAll(/var\((--fs-[a-z]+)\)/g)].map((m) => m[1]));
+    const undeclared = [...used].filter((token) => !declared.has(token));
+    check('every type token the CSS uses is defined', undeclared.length === 0, undeclared.join(', '));
+    check('every type token defined is used', [...declared].every((tok) => used.has(tok)),
+        [...declared].filter((tok) => !used.has(tok)).join(', '));
+
+    // A sticky header stack with hand-counted offsets breaks the moment the
+    // type scale changes, so there is exactly one sticky element and it pins
+    // to the top rather than below a measured header height.
+    const stickyRules = [...css.matchAll(/([^{}]+)\{([^}]*position:\s*sticky[^}]*)\}/g)];
+    check('exactly one element is sticky', stickyRules.length === 1,
+        stickyRules.map((m) => m[1].trim()).join(' | '));
+    check('...it is the header stack', stickyRules[0] && stickyRules[0][1].includes('.stickytop'));
+    check('...and it pins to 0, not to a counted offset',
+        stickyRules[0] && /top:\s*0\s*;/.test(stickyRules[0][2]), stickyRules[0] && stickyRules[0][2]);
 }
 
 /* ------------------------------------------------------ offline: hook list */
