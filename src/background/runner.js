@@ -92,6 +92,40 @@ export function navigateAndWait(tabId, url, timeoutMs) {
     });
 }
 
+/**
+ * What the run was made against, as log lines. Deliberately one fact per line
+ * and no nesting: this gets pasted into a chat window.
+ */
+function environmentHeader({ env, settings, selection, langs, sweptPages, estimate }) {
+    const version = (chrome.runtime.getManifest && chrome.runtime.getManifest().version) || '?';
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    const chromeVersion = (/Chrome\/([\d.]+)/.exec(ua) || [])[1] || 'unknown';
+    const platform = (/\(([^)]*)\)/.exec(ua) || [])[1] || 'unknown platform';
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    // getTimezoneOffset is minutes *behind* UTC, so the sign is inverted.
+    const offset = -now.getTimezoneOffset();
+    const tz = `UTC${offset < 0 ? '-' : '+'}${pad(Math.floor(Math.abs(offset) / 60))}:${pad(
+        Math.abs(offset) % 60
+    )}`;
+
+    return [
+        `tool v${version} · Chrome ${chromeVersion} · ${platform}`,
+        `local time ${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ` +
+            `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())} (${tz})`,
+        `DUT ${env.origin} · ${env.model || '?'} · ${env.firmware || '?'} · ${env.theme || '?'} · ` +
+            `territory ${env.territory || '?'} · UI language ${env.lang || '?'}`,
+        `pages: ${sweptPages.length} of ${(env.pages || []).length} probed` +
+            `; languages: ${langs.join(', ')}`,
+        `items: ${(selection.suiteIds || []).length} selected`,
+        `settings: safe mode ${settings.safeMode ? 'on' : 'OFF'}, settle ${settings.pageSettleMs}ms, ` +
+            `page timeout ${settings.pageTimeoutMs}ms, auto re-login ${settings.autoLogin ? 'on' : 'off'}, ` +
+            `detailed log ${settings.verboseConsole ? 'on' : 'off'}`,
+        `estimate: ${Math.round(estimate.totalMs / 1000)}s`,
+    ];
+}
+
 /* --------------------------------------------------------------- the run */
 
 /**
@@ -201,6 +235,15 @@ export async function startRun({ tabId, selection, settings, env }) {
         { flush: true }
     );
 
+    /*
+     * The environment header. Debugging someone else's run means answering
+     * "what was this actually running against?" first, and every one of these
+     * lines has been the answer at some point: a different firmware, a browser
+     * two majors behind, a DUT in another territory, a settle time someone
+     * turned down. It costs six lines at the top of the log.
+     */
+    state.noteAll(environmentHeader({ env, settings, selection, langs, sweptPages, estimate }));
+
     state.note(
         `run started: ${sweptPages.length} page(s) x ${langs.length} language pass(es); ` +
             `estimated ${Math.round(estimate.totalMs / 1000)}s`
@@ -245,9 +288,16 @@ export async function startRun({ tabId, selection, settings, env }) {
                 state.note(`switching UI language to ${lang}`);
                 const res = await clock.time('langSwitch', 1, () => setLanguage(tabId, lang));
                 if (!res || !res.ok) {
+                    state.note(`language switch to ${lang} failed: ${(res && res.reason) || 'unknown'}`);
                     record([{ suite: 'core.reachability', severity: SEV.ERROR, page: '', lang,
                         message: `could not switch language to ${lang}: ${(res && res.reason) || 'unknown'}` }]);
                     continue;
+                }
+                if (res.timedOut) {
+                    state.note(
+                        `language switch to ${lang}: nvramSet never called back within 8000ms; ` +
+                            'continuing, the value may not have taken'
+                    );
                 }
                 await sleep(1500);
             }
@@ -284,6 +334,8 @@ export async function startRun({ tabId, selection, settings, env }) {
                 pages,
                 shared,
                 aborted: isStopped,
+                /** Driver suites write to the run log through this. */
+                log: (text) => state.note(text),
             };
             for (const id of driverIds) {
                 if (!(await gate())) break;
@@ -298,6 +350,7 @@ export async function startRun({ tabId, selection, settings, env }) {
                         (await clock.time(`suite:${id}`, units, () => DRIVER_RUN_SUITES[id](ctx))) || [];
                     record(rows.map((r) => ({ lang, ...r })));
                 } catch (e) {
+                    state.note(`${id} threw: ${e.message}`);
                     record([{ suite: id, severity: SEV.ERROR, page: '', lang,
                         message: `driver suite threw: ${e.message}` }]);
                 }
@@ -309,9 +362,15 @@ export async function startRun({ tabId, selection, settings, env }) {
                 if (!(await gate())) break;
 
                 state.patch({ current: { lang, page: page.url } });
+                const pageStartedAt = Date.now();
+                const rowsBefore = state.get().results.length;
 
                 const reach = shared.reach && shared.reach[page.url];
                 if (reach && (reach.status === 404 || reach.status === 0)) {
+                    state.note(
+                        `${page.url}: not visited — reachability saw ` +
+                            `${reach.status === 404 ? 'HTTP 404' : reach.error || 'no response'}`
+                    );
                     state.patch({ cursor: state.get().cursor + 1 });
                     continue; // reachability already reported it; nothing to load
                 }
@@ -324,6 +383,9 @@ export async function startRun({ tabId, selection, settings, env }) {
                     navigateAndWait(tabId, `${origin}/${page.url}`, settings.pageTimeoutMs)
                 );
                 if (!nav.ok) {
+                    state.note(
+                        `${page.url}: navigation failed after ${settings.pageTimeoutMs}ms — ${nav.reason}`
+                    );
                     record([{ suite: 'core.reachability', severity: SEV.ERROR, page: page.url, lang,
                         message: `navigation failed: ${nav.reason}` }]);
                     state.patch({ cursor: state.get().cursor + 1 });
@@ -410,6 +472,7 @@ export async function startRun({ tabId, selection, settings, env }) {
                         checks += collapsed.checks;
                         record(collapsed.rows.map((r) => ({ ...r, page: page.url, lang })));
                     } catch (e) {
+                        state.note(`${page.url}: page suites failed to run — ${e.message}`);
                         record([{ suite: 'page', severity: SEV.ERROR, page: page.url, lang,
                             message: `page suites failed to run: ${e.message}` }]);
                     } finally {
@@ -428,9 +491,22 @@ export async function startRun({ tabId, selection, settings, env }) {
                 // The page suites' own log, folded into the run log so it
                 // ships with the report.
                 state.noteAll(drained.trace, `${page.url} · `);
+                const pageRows = state.get().results.length - rowsBefore;
                 if (drained.dropped) {
                     state.note(`${page.url}: ${drained.dropped} event(s) dropped (buffer full)`);
                 }
+                if (drained.error) {
+                    // Swallowed before this. A page whose instrumentation
+                    // cannot be harvested reports nothing, which reads as a
+                    // clean page rather than a missed one.
+                    state.note(`${page.url}: could not harvest instrumentation — ${drained.error}`);
+                }
+
+                state.note(
+                    `${page.url}: done in ${Date.now() - pageStartedAt}ms — ` +
+                        `${pageRows} row(s), ${drained.events.length} event(s), ` +
+                        `${drained.apis.length} API call(s)`
+                );
 
                 state.patch({ cursor: state.get().cursor + 1, checks });
 

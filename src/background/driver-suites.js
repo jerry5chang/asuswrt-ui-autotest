@@ -12,6 +12,15 @@ import { probeUrls, hookGet, hookGetOne } from './page-eval.js';
 const PROBE_BATCH = 12;
 const HOOK_BATCH = 15;
 
+/**
+ * How long one HTTP request may take. It follows the page timeout, because
+ * both answer the same question -- how long this DUT is allowed to be slow --
+ * and one setting is easier to reason about than two.
+ */
+function requestDeadline(ctx) {
+    return Math.max(Number(ctx.settings && ctx.settings.pageTimeoutMs) || 0, 5000);
+}
+
 function chunk(list, size) {
     const out = [];
     for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
@@ -26,15 +35,28 @@ async function reachability(ctx) {
 
     for (const batch of chunk(ctx.pages.map((p) => p.url), PROBE_BATCH)) {
         if (ctx.aborted()) break;
-        const probed = (await probeUrls(ctx.tabId, batch)) || [];
+        const probed = (await probeUrls(ctx.tabId, batch, requestDeadline(ctx))) || [];
         for (const r of probed) {
             reach[r.url] = r;
+            if (r.status === 0 || r.status >= 500) {
+                // Named in the log as well: when the same page answers on one
+                // desk and not on another, this line and its timing are what
+                // you compare.
+                ctx.log(
+                    `${r.url}: ${r.timedOut ? 'request timed out' : 'request failed'}` +
+                        ` after ${r.ms || 0}ms — ${r.error || `status ${r.status}`}`
+                );
+            }
             if (r.status === 404) {
                 results.push({ suite: 'core.reachability', page: r.url, severity: SEV.FAIL, message: 'page not found (404)' });
             } else if (r.status >= 500) {
                 results.push({ suite: 'core.reachability', page: r.url, severity: SEV.ERROR, message: `server error (${r.status})` });
             } else if (r.status === 0) {
-                results.push({ suite: 'core.reachability', page: r.url, severity: SEV.ERROR, message: `unreachable: ${r.error || 'network error'}` });
+                results.push({ suite: 'core.reachability', page: r.url, severity: SEV.ERROR,
+                    message: r.timedOut
+                        ? `request timed out (${r.error})`
+                        : `unreachable: ${r.error || 'network error'}`,
+                    detail: { ms: r.ms || 0, timedOut: !!r.timedOut } });
             } else if (r.login) {
                 results.push({ suite: 'core.reachability', page: r.url, severity: SEV.ERROR, message: 'session expired (redirected to login)' });
             } else if (!r.ok) {
@@ -61,7 +83,7 @@ async function specCheck(ctx) {
     }
     for (const batch of chunk([...new Set(unknown)], PROBE_BATCH)) {
         if (ctx.aborted()) break;
-        for (const r of (await probeUrls(ctx.tabId, batch)) || []) reach[r.url] = r;
+        for (const r of (await probeUrls(ctx.tabId, batch, requestDeadline(ctx))) || []) reach[r.url] = r;
     }
 
     for (const [feature, pages] of Object.entries(specMap)) {
@@ -148,8 +170,12 @@ async function apiHookSweep(ctx) {
 
     for (const batch of chunk(toSweep, HOOK_BATCH)) {
         if (ctx.aborted()) break;
-        const res = await hookGet(ctx.tabId, batch.map((h) => h.expr));
+        const res = await hookGet(ctx.tabId, batch.map((h) => h.expr), requestDeadline(ctx));
         if (!res || !res.ok) {
+            ctx.log(
+                `appGet.cgi batch of ${batch.length} failed after ${(res && res.ms) || 0}ms — ` +
+                    `${(res && res.error) || `HTTP ${res ? res.status : 'no response'}`}`
+            );
             // A dead session fails every remaining batch the same way, so say
             // so once and stop rather than emitting five identical errors.
             if (res && res.login) {
@@ -167,9 +193,11 @@ async function apiHookSweep(ctx) {
                 suite: 'api.hook-sweep',
                 page: 'appGet.cgi',
                 severity: SEV.ERROR,
-                message: `appGet.cgi batch failed (HTTP ${res ? res.status : 'no response'}${
-                    res && res.parseError ? ', response was not JSON' : ''
-                })`,
+                message: res && res.timedOut
+                    ? `appGet.cgi batch timed out (${res.error})`
+                    : `appGet.cgi batch failed (HTTP ${res ? res.status : 'no response'}${
+                          res && res.parseError ? ', response was not JSON' : ''
+                      })`,
                 detail: { hooks: batch.map((h) => h.expr) },
             });
             continue;

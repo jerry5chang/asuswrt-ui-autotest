@@ -125,7 +125,18 @@ function trimNotes() {
     run.notes.splice(0, run.notes.length - MAX_NOTES);
 }
 
-const stamp = () => `[${new Date().toISOString().slice(11, 19)}]`;
+/*
+ * The clock of the machine running the test, not UTC. A log stamped 14:15 for
+ * a run made at 22:15 is worse than no stamp: everything you correlate it
+ * with -- the DUT's syslog, a colleague's screen recording, your own memory --
+ * is in local time. Intl is avoided so this cannot differ between a service
+ * worker and a test harness.
+ */
+function stamp() {
+    const d = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `[${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}]`;
+}
 
 export function note(text) {
     run.notes.push(`${stamp()} ${text}`);

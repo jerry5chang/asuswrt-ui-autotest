@@ -365,6 +365,35 @@ async function testEvents() {
     // Every surface offers the same rule text, so what you copy from the panel
     // is byte-identical to what the export prints.
     const { ruleSource } = await import('../src/lib/report.js');
+    // A log stamped in UTC is worse than none: everything you correlate it
+    // with -- the DUT's syslog, a screen recording, your own memory -- is
+    // local. This was 8 hours out on a Taipei desk.
+    const stateSrc = fs.readFileSync('src/background/state.js', 'utf8');
+    check('run-log stamps use the local clock, not UTC',
+        !/toISOString\(\)\.slice\(11/.test(stateSrc) && /getHours\(\)/.test(stateSrc));
+
+    // Requests carry their own deadline; without one a hung page stalls the
+    // sweep behind the browser's timeout and the log says nothing for minutes.
+    const evalSrc = fs.readFileSync('src/background/page-eval.js', 'utf8');
+    check('page probes time out on their own', /AbortController/.test(evalSrc) &&
+        /no answer within \$\{deadline\}ms/.test(evalSrc));
+    check('...and so do appGet.cgi batches',
+        (evalSrc.match(/AbortController/g) || []).length >= 2);
+
+    const runnerSrc = fs.readFileSync('src/background/runner.js', 'utf8');
+    check('the run log opens with what the run was made against',
+        /function environmentHeader/.test(runnerSrc) &&
+            /Chrome \$\{chromeVersion\}/.test(runnerSrc) &&
+            /local time/.test(runnerSrc));
+    check('...including the timezone, so a pasted log is unambiguous',
+        /getTimezoneOffset/.test(runnerSrc));
+    check('driver suites can write to the run log',
+        /log: \(text\) => state\.note\(text\)/.test(runnerSrc));
+    check('a failed harvest is logged rather than swallowed',
+        /could not harvest instrumentation/.test(runnerSrc));
+    check('every page logs a one-line summary',
+        /done in \$\{Date\.now\(\) - pageStartedAt\}ms/.test(runnerSrc));
+
     check('a rule renders as a pasteable object literal',
         ruleSource({ where: 'a/b.css', match: 'failed' }) ===
             "{ where: 'a/b.css', match: 'failed' },", ruleSource({ where: 'a/b.css', match: 'failed' }));

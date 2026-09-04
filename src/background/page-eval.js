@@ -32,17 +32,32 @@ export async function evalInAllFrames(tabId, func, args = []) {
     return frames.map((f) => ({ frameId: f.frameId, result: f.result }));
 }
 
-/** GET a batch of URLs from inside the DUT origin. */
-export function probeUrls(tabId, urls) {
+/**
+ * GET a batch of URLs from inside the DUT origin.
+ *
+ * Each request gets its own deadline. Without one a single hung request --
+ * a page that opens a socket and never answers, an AiMesh node that has just
+ * gone away -- stalls the whole sweep behind the browser's own timeout, and
+ * the log shows nothing at all for minutes. A timeout is reported like any
+ * other failure: status 0 with a reason.
+ */
+export function probeUrls(tabId, urls, timeoutMs = 15000) {
     return evalInPage(
         tabId,
-        (list) =>
+        (list, deadline) =>
             (async () => {
                 const out = [];
                 for (const url of list) {
+                    const started = Date.now();
+                    const abort = new AbortController();
+                    const timer = setTimeout(() => abort.abort(), deadline);
                     try {
-                        const res = await fetch(url, { credentials: 'same-origin' });
+                        const res = await fetch(url, {
+                            credentials: 'same-origin',
+                            signal: abort.signal,
+                        });
                         const text = await res.text();
+                        clearTimeout(timer);
                         out.push({
                             url,
                             status: res.status,
@@ -51,14 +66,27 @@ export function probeUrls(tabId, urls) {
                             // httpd answers 200 with a tiny login redirect when the
                             // session has expired; that is not a healthy page.
                             login: text.length < 2048 && /Main_Login\.asp/i.test(text),
+                            ms: Date.now() - started,
                         });
                     } catch (e) {
-                        out.push({ url, status: 0, ok: false, length: 0, error: String(e.message || e) });
+                        clearTimeout(timer);
+                        const timedOut = e && e.name === 'AbortError';
+                        out.push({
+                            url,
+                            status: 0,
+                            ok: false,
+                            length: 0,
+                            timedOut: timedOut,
+                            ms: Date.now() - started,
+                            error: timedOut
+                                ? `no answer within ${deadline}ms`
+                                : String((e && e.message) || e),
+                        });
                     }
                 }
                 return out;
             })(),
-        [urls]
+        [urls, timeoutMs]
     );
 }
 
@@ -82,14 +110,18 @@ export function hookGetOne(tabId, expr, key) {
 }
 
 /** Call appGet.cgi with a batch of hook expressions. */
-export function hookGet(tabId, hookExprs) {
+export function hookGet(tabId, hookExprs, timeoutMs = 15000) {
     return evalInPage(
         tabId,
-        (exprs) =>
+        (exprs, deadline) =>
             (async () => {
+                const started = Date.now();
+                const abort = new AbortController();
+                const timer = setTimeout(() => abort.abort(), deadline);
                 try {
                     const res = await fetch('/appGet.cgi?hook=' + exprs.join('%3B'), {
                         credentials: 'same-origin',
+                        signal: abort.signal,
                     });
                     if (!res.ok) return { ok: false, status: res.status, keys: [] };
                     const text = await res.text();
@@ -103,12 +135,22 @@ export function hookGet(tabId, hookExprs) {
                         const login = /Main_Login\.asp/i.test(text);
                         return { ok: false, status: res.status, parseError: true, login, keys: [] };
                     }
-                    return { ok: true, status: res.status, keys: Object.keys(data) };
+                    return { ok: true, status: res.status, keys: Object.keys(data), ms: Date.now() - started };
                 } catch (e) {
-                    return { ok: false, status: 0, error: String(e.message || e), keys: [] };
+                    const timedOut = e && e.name === 'AbortError';
+                    return {
+                        ok: false,
+                        status: 0,
+                        timedOut: timedOut,
+                        ms: Date.now() - started,
+                        error: timedOut ? `no answer within ${deadline}ms` : String((e && e.message) || e),
+                        keys: [],
+                    };
+                } finally {
+                    clearTimeout(timer);
                 }
             })(),
-        [hookExprs]
+        [hookExprs, timeoutMs]
     );
 }
 
