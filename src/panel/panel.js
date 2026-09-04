@@ -11,7 +11,7 @@
 
 import { MSG, RISKY_ACTIONS, RUN, SEV_ORDER, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
 import { SUITES, GROUPS, RUNNABLE_SUITES, SUITE_BY_ID, pagesInScope } from '../suites/registry.js';
-import { BUILDERS, reportFilename, ruleSource, suggestedRules } from '../lib/report.js';
+import { BUILDERS, reportFilename, ruleSource, runLogLines, suggestedRules } from '../lib/report.js';
 import { estimateRemaining, estimateRun, formatDuration } from '../lib/estimate.js';
 import {
     LOCALES,
@@ -752,7 +752,7 @@ function renderRun() {
         (run.results || []).slice(-80).reverse(),
         busy || paused ? run.current : null
     );
-    $('#runLog').textContent = (run.notes || []).join('\n');
+    $('#runLog').textContent = runLogLines(run).join('\n');
 }
 
 function statusLabel(status) {

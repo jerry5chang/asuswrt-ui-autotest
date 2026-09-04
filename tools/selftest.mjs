@@ -267,7 +267,22 @@ async function testRuntime() {
     check('...and brackets the suite so a hang is visible',
         logged.some((l) => /t\.verbose — start/.test(l)) && logged.some((l) => /done in \d+ms/.test(l)),
         logged.join(' | '));
+
+    /*
+     * The same lines are buffered for the driver, which folds them into the
+     * run log and the report. Reading them used to require DevTools open on
+     * the router page at the moment a suite ran -- no use after the fact.
+     */
+    check('the log is buffered for the report, not just printed',
+        AUT.trace.some((line) => /^t\.verbose — pass: spoken/.test(line)), AUT.trace.join(' | '));
+    check('...without the console prefix, which the driver adds context to',
+        AUT.trace.every((line) => !line.startsWith('[AUT]')), AUT.trace.join(' | '));
+    const drained = AUT.drain();
+    check('draining hands the log over and starts fresh',
+        drained.trace.length > 0 && AUT.trace.length === 0);
     AUT.configure({ verbose: false });
+    await AUT.runSuites(['t.verbose'], 3000);
+    check('nothing is buffered with verbose off either', AUT.trace.length === 0);
 
     const hung = await AUT.runSuites(['t.hang'], 400);
     check('a hanging suite times out instead of stalling the run',
@@ -720,6 +735,19 @@ async function testReport() {
     fs.writeFileSync('.selftest/sample-report.html', html);
     fs.writeFileSync('.selftest/sample-report.txt', txt);
     console.log('  ->   wrote .selftest/sample-report.{html,txt}');
+    // "Do the formats differ?" -- the run log used to be in HTML and JSON only,
+    // so the two formats a person actually reads dropped it.
+    const withLog = {
+        ...run,
+        notes: ['[00:00:01] started', '[00:00:02] Advanced_LAN_Content.asp · core.dom-sanity — start'],
+        notesDropped: 7,
+    };
+    for (const [name, builder] of Object.entries(BUILDERS)) {
+        const text = builder.build(withLog);
+        check(`${name} carries the run log`, /core\.dom-sanity — start/.test(text));
+        check(`...and ${name} says it was truncated`, /7 earlier line\(s\) dropped/.test(text));
+    }
+
 }
 
 /* ------------------------------------------------------------ offline: misc */

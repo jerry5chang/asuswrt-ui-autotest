@@ -69,6 +69,18 @@ export function ruleSource(rule) {
     return `{ where: '${rule.where}', match: '${String(rule.match).replace(/'/g, "\\'")}' },`;
 }
 
+/**
+ * The run log, as lines, with the truncation stated rather than implied.
+ * Every format prints this: it is where the tool says what it did, and with
+ * verbose on it carries each suite's per-assertion trace.
+ */
+export function runLogLines(run) {
+    const notes = run.notes || [];
+    if (!notes.length) return [];
+    const dropped = run.notesDropped || 0;
+    return dropped ? [`… ${dropped} earlier line(s) dropped`, ...notes] : [...notes];
+}
+
 function timingRows(run) {
     const timings = run.timings || {};
     const rows = Object.entries(timings)
@@ -172,7 +184,8 @@ export function buildJson(run) {
                 ...rule,
                 wouldSuppress: { severity, pages },
             })),
-            notes: run.notes,
+            notes: runLogLines(run),
+            notesDropped: run.notesDropped || 0,
         },
         null,
         2
@@ -267,6 +280,11 @@ export function buildMarkdown(run) {
         lines.push('');
     }
 
+    const log = runLogLines(run);
+    if (log.length) {
+        lines.push(`## Run log (${log.length} lines)`, '', '```', ...log, '```', '');
+    }
+
     return lines.join('\n');
 }
 
@@ -335,6 +353,11 @@ export function buildTxt(run) {
     out.push('', `=== RISKY API CALLS (${risky.length}) ===`);
     for (const a of risky) {
         out.push(`[${a.blocked ? 'INTERCEPTED' : 'SENT'}] ${a.page} ${a.via} ${a.path} -> ${a.risk}`);
+    }
+
+    const log = runLogLines(run);
+    if (log.length) {
+        out.push('', `=== RUN LOG (${log.length} lines) ===`, ...log);
     }
 
     return out.join('\n');
@@ -514,8 +537,8 @@ ${(() => {
 </table></div>
 
 ${
-    (run.notes || []).length
-        ? `<h2>Run log</h2><div class="tablewrap"><pre>${esc(run.notes.join('\n'))}</pre></div>`
+    runLogLines(run).length
+        ? `<h2>Run log</h2><div class="tablewrap"><pre>${esc(runLogLines(run).join('\n'))}</pre></div>`
         : ''
 }
 

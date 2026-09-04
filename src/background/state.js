@@ -30,6 +30,8 @@ export function emptyRun() {
         results: [],
         apis: [],
         notes: [],
+        /** Log lines that fell off the front of `notes`. */
+        notesDropped: 0,
         /** Measured run costs, accumulated by background/timings.js. */
         timings: {},
         /** What the estimate said before the run started, for comparison. */
@@ -105,9 +107,38 @@ export function addApis(list) {
     schedulePersist();
 }
 
+/**
+ * The run log. Everything the tool wants to say about a run goes here -- the
+ * driver's own progress lines and, with verbose on, the per-assertion trace
+ * from the page suites -- and the whole thing ships in the report, because
+ * "open DevTools on the router page while it runs" is no way to read a log.
+ *
+ * The cap is generous for that reason, and the number of lines that fell off
+ * the front is kept, so a truncated log says it is truncated instead of
+ * quietly starting in the middle.
+ */
+const MAX_NOTES = 5000;
+
+function trimNotes() {
+    if (run.notes.length <= MAX_NOTES) return;
+    run.notesDropped = (run.notesDropped || 0) + (run.notes.length - MAX_NOTES);
+    run.notes.splice(0, run.notes.length - MAX_NOTES);
+}
+
+const stamp = () => `[${new Date().toISOString().slice(11, 19)}]`;
+
 export function note(text) {
-    run.notes.push(`[${new Date().toISOString().slice(11, 19)}] ${text}`);
-    if (run.notes.length > 300) run.notes.splice(0, run.notes.length - 300);
+    run.notes.push(`${stamp()} ${text}`);
+    trimNotes();
+    schedulePersist();
+}
+
+/** Many lines at once -- one persist, one timestamp, e.g. a page's trace. */
+export function noteAll(lines, prefix = '') {
+    if (!lines || !lines.length) return;
+    const at = stamp();
+    for (const line of lines) run.notes.push(`${at} ${prefix}${line}`);
+    trimNotes();
     schedulePersist();
 }
 
@@ -154,7 +185,8 @@ export function summary({ full = false } = {}) {
         apiCount: run.apis.length,
         results: full ? run.results : run.results.slice(-200),
         apis: full ? run.apis : run.apis.slice(-100),
-        notes: run.notes.slice(-40),
+        notes: full ? run.notes : run.notes.slice(-200),
+        notesDropped: run.notesDropped || 0,
     };
 }
 

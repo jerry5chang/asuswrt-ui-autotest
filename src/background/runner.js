@@ -191,6 +191,7 @@ export async function startRun({ tabId, selection, settings, env }) {
             results: [],
             apis: [],
             notes: [],
+            notesDropped: 0,
             checks: 0,
             // Live object: the collector mutates it, so later persists carry
             // the accumulating figures without extra bookkeeping.
@@ -424,6 +425,9 @@ export async function startRun({ tabId, selection, settings, env }) {
                 const drained = await clock.time('pageFixed', 0, () => drainInstrument(tabId));
                 record(mapEvents(drained.events, { page: page.url, lang, settings, enabledChannels }));
                 if (drained.apis.length) state.addApis(drained.apis.map((a) => ({ ...a, lang })));
+                // The page suites' own log, folded into the run log so it
+                // ships with the report.
+                state.noteAll(drained.trace, `${page.url} · `);
                 if (drained.dropped) {
                     state.note(`${page.url}: ${drained.dropped} event(s) dropped (buffer full)`);
                 }

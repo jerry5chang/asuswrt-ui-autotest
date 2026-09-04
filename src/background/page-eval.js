@@ -163,16 +163,18 @@ export async function drainInstrument(tabId) {
         });
         const events = [];
         const apis = [];
+        const trace = [];
         let dropped = 0;
         for (const f of frames) {
             if (!f.result) continue;
             events.push(...(f.result.events || []));
             apis.push(...(f.result.apis || []));
+            trace.push(...(f.result.trace || []));
             dropped += f.result.dropped || 0;
         }
-        return { events, apis, dropped };
+        return { events, apis, trace, dropped };
     } catch (e) {
-        return { events: [], apis: [], dropped: 0, error: String(e.message || e) };
+        return { events: [], apis: [], trace: [], dropped: 0, error: String(e.message || e) };
     }
 }
 

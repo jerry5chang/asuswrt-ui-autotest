@@ -51,6 +51,22 @@
         return target.dispatchEvent(event);
     }
 
+    /*
+     * One line of the tool's own log. It goes two places: the page console, so
+     * DevTools on the router page shows a suite's progress live, and AUT.trace,
+     * which the driver folds into the run log and the report -- the only way to
+     * read it after the run is over.
+     *
+     * console.info deliberately: instrument.js hooks console.error and .warn,
+     * so logging through those would feed our own capture.
+     */
+    function toolLog(text, detail) {
+        if (!(AUT.cfg && AUT.cfg.verbose)) return;
+        var buf = AUT.trace || (AUT.trace = []);
+        if (buf.length < (AUT.MAX_TRACE || 4000)) buf.push(text);
+        console.info('[AUT] ' + text, detail === undefined ? '' : detail);
+    }
+
     function makeContext(suiteId) {
         var results = [];
 
@@ -70,12 +86,8 @@
              * console.info deliberately: instrument.js hooks error and warn,
              * so logging through those would feed our own capture.
              */
-            if (AUT.cfg && AUT.cfg.verbose) {
-                console.info(
-                    '[AUT] ' + suiteId + ' — ' + severity + ': ' + message,
-                    detail === undefined || detail === null ? '' : detail
-                );
-            }
+            toolLog(suiteId + ' — ' + severity + ': ' + message,
+                detail === undefined || detail === null ? '' : detail);
         }
 
         var t = {
@@ -230,7 +242,7 @@
                     }
                     var ctx = makeContext(id);
                     var startedAt = Date.now();
-                    if (AUT.cfg && AUT.cfg.verbose) console.info('[AUT] ' + id + ' — start');
+                    toolLog(id + ' — start');
                     var guard = new Promise(function (resolve) {
                         setTimeout(function () { resolve('__timeout__'); }, timeout);
                     });
@@ -252,12 +264,10 @@
                         })
                         .then(function () {
                             AUT.suiteTimings[id] = Date.now() - startedAt;
-                            if (AUT.cfg && AUT.cfg.verbose) {
-                                console.info(
-                                    '[AUT] ' + id + ' — done in ' + (Date.now() - startedAt) + 'ms, ' +
-                                        ctx.results.length + ' check(s)'
-                                );
-                            }
+                            toolLog(
+                                id + ' — done in ' + (Date.now() - startedAt) + 'ms, ' +
+                                    ctx.results.length + ' check(s)'
+                            );
                             all = all.concat(ctx.results);
                         });
                 });

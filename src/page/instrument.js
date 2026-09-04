@@ -74,11 +74,27 @@
     }
     AUT.push = push;
 
+    /*
+     * The tool's own log. runtime.js writes a line per assertion here when
+     * verbose is on, and the driver folds them into the run log so they ship
+     * with the report -- reading them used to mean having DevTools open on the
+     * router page at the moment a suite ran, which is no help after the fact.
+     */
+    AUT.trace = [];
+    AUT.MAX_TRACE = 4000;
+
     /** Hand everything collected so far to the driver and start fresh. */
     AUT.drain = function () {
-        var out = { events: AUT.events, apis: AUT.apis, dropped: AUT.dropped, href: location.href };
+        var out = {
+            events: AUT.events,
+            apis: AUT.apis,
+            trace: AUT.trace,
+            dropped: AUT.dropped,
+            href: location.href,
+        };
         AUT.events = [];
         AUT.apis = [];
+        AUT.trace = [];
         AUT.dropped = 0;
         return out;
     };
