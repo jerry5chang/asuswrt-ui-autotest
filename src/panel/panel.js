@@ -303,6 +303,10 @@ async function saveList(patch) {
 /**
  * Every action_script Safe Mode knows how to hold back, grouped by what it
  * does to the DUT. Ticked means intercepted rather than sent.
+ *
+ * Same treatment as the test-item groups: a chevron that folds the group and a
+ * checkbox that ticks all of it, so there is one way groups behave in this
+ * panel rather than two.
  */
 function renderRiskyList() {
     const host = $('#riskyList');
@@ -311,9 +315,46 @@ function renderRiskyList() {
 
     for (const [group, actions] of Object.entries(RISKY_ACTIONS)) {
         const box = el('div', 'subgroup');
-        box.append(el('h3', null, t(`adv.risky.${group}`)));
+        const collapseKey = `risky:${group}`;
+        const collapsed = collapsedGroups.has(collapseKey);
+        box.classList.toggle('is-collapsed', collapsed);
+
+        const head = el('div', 'grouphead');
+
+        const toggle = el('button', 'gtoggle');
+        toggle.type = 'button';
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+        toggle.setAttribute('aria-label', t(`adv.risky.${group}`));
+        toggle.addEventListener('click', () => {
+            const nowCollapsed = !collapsedGroups.has(collapseKey);
+            if (nowCollapsed) collapsedGroups.add(collapseKey);
+            else collapsedGroups.delete(collapseKey);
+            box.classList.toggle('is-collapsed', nowCollapsed);
+            toggle.setAttribute('aria-expanded', String(!nowCollapsed));
+            persistCollapsed();
+        });
+
+        const label = el('label', 'glabel');
+        const groupBox = el('input');
+        groupBox.type = 'checkbox';
+        const ticked = actions.filter((a) => on.has(a)).length;
+        groupBox.checked = ticked === actions.length;
+        groupBox.indeterminate = ticked > 0 && ticked < actions.length;
+        groupBox.addEventListener('change', () => {
+            const next = new Set(snap.settings.riskyActions || []);
+            for (const action of actions) {
+                if (groupBox.checked) next.add(action);
+                else next.delete(action);
+            }
+            saveList({ riskyActions: [...next] });
+        });
+
+        label.append(groupBox, el('span', 'gname', t(`adv.risky.${group}`)));
+        head.append(toggle, label, el('span', 'gcount', `${ticked}/${actions.length}`));
+        box.append(head);
+
         for (const action of actions) {
-            const label = el('label', 'check');
+            const row = el('label', 'check');
             const input = el('input');
             input.type = 'checkbox';
             input.checked = on.has(action);
@@ -323,9 +364,10 @@ function renderRiskyList() {
                 else next.delete(action);
                 saveList({ riskyActions: [...next] });
             });
-            label.append(input, el('span', 'grow mono', action));
-            box.append(label);
+            row.append(input, el('span', 'grow mono', action));
+            box.append(row);
         }
+
         host.append(box);
     }
 }

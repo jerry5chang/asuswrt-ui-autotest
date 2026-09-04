@@ -267,8 +267,6 @@ main {
     user-select: none;
 }
 
-.glabel input { margin: 0; flex: 0 0 auto; }
-
 /* One step above the items, which carry --fs-body. Size does the work here,
    so the old uppercase + letter-spacing would just be shouting on top of it. */
 .grouphead .gname {
@@ -287,7 +285,8 @@ main {
 }
 
 .subgroup > .check { padding-left: 24px; }
-.subgroup.is-collapsed > .check { display: none; }
+/* Folding hides everything under the heading, whatever it is. */
+.subgroup.is-collapsed > *:not(.grouphead) { display: none; }
 
 /* ------------------------------------------------------------ controls */
 
@@ -370,16 +369,28 @@ input[type=text], input[type=password], input[type=number], input[type=search], 
 .field label { flex: 0 0 42%; color: var(--mut); font-size: var(--fs-small); }
 .field input { flex: 1; }
 
+/* One rule for every checkbox in the panel: centred against its own row,
+   whether the label is one line or two. */
+.check,
+label.item {
+    align-items: center;
+}
+
 .check {
     display: flex;
     gap: 8px;
-    align-items: flex-start;
     margin: 7px 0;
     cursor: pointer;
     line-height: 1.4;
 }
 
-.check input { margin: 2px 0 0; flex: 0 0 auto; }
+.check input,
+label.item > input,
+.glabel input {
+    margin: 0;
+    flex: 0 0 auto;
+    align-self: center;
+}
 .check .name { font-weight: 550; }
 .check .desc { display: block; color: var(--mut); font-size: var(--fs-tiny); }
 
