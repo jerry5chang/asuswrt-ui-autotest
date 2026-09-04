@@ -346,6 +346,16 @@ async function testEvents() {
         !/https?:/.test(rule.match), rule.match);
     check('...and the rule it derives actually suppresses that finding',
         knownIssue({ knownIssues: [rule] }, cssMiss));
+
+    // Every surface offers the same rule text, so what you copy from the panel
+    // is byte-identical to what the export prints.
+    const { ruleSource } = await import('../src/lib/report.js');
+    check('a rule renders as a pasteable object literal',
+        ruleSource({ where: 'a/b.css', match: 'failed' }) ===
+            "{ where: 'a/b.css', match: 'failed' },", ruleSource({ where: 'a/b.css', match: 'failed' }));
+    check('...with quotes in the message escaped',
+        ruleSource({ where: 'x', match: "it's null" }).includes("it\\'s null"),
+        ruleSource({ where: 'x', match: "it's null" }));
     check('...without suppressing a different asset',
         !knownIssue({ knownIssues: [rule] }, {
             ...cssMiss,
@@ -934,6 +944,15 @@ async function testI18n() {
     const unknownInHtml = [...new Set(htmlKeys)].filter((k) => !(k in dicts[FALLBACK_LOCALE]));
     check('every key in panel.html exists in the dictionary', unknownInHtml.length === 0,
         unknownInHtml.join(', '));
+
+    // Developer mode is the only thing that surfaces filter rules in the panel,
+    // and it is off by default: a colleague's report must never be quietly
+    // filtered by something they ticked here rather than by the shipped list.
+    const constSrc = fs.readFileSync('src/lib/const.js', 'utf8');
+    check('developer mode ships off', /devMode:\s*false/.test(constSrc));
+    check('the panel hides the rule block unless developer mode is on',
+        /if \(!snap\.settings\.devMode\) \{[^}]*hidden = true/.test(
+            fs.readFileSync('src/panel/panel.js', 'utf8')));
 
     // And keys nobody uses are dead weight.
     const js = fs.readFileSync('src/panel/panel.js', 'utf8');

@@ -137,6 +137,9 @@
             <label class="check"><input id="verboseConsole" type="checkbox">
                 <span class="grow"><span class="name" data-i18n="opts.verbose"></span>
                     <span class="desc" data-i18n="opts.verboseDesc"></span></span></label>
+            <label class="check"><input id="devMode" type="checkbox">
+                <span class="grow"><span class="name" data-i18n="opts.devMode"></span>
+                    <span class="desc" data-i18n="opts.devModeDesc"></span></span></label>
             <div class="field">
                 <label for="pageSettleMs" data-i18n="opts.settle"></label>
                 <input id="pageSettleMs" type="number" min="0" step="250">
@@ -213,6 +216,18 @@
         </div>
 
         <div id="reportRows" class="scroller tall"></div>
+
+        <!-- Developer mode only: the rules this run would need, ready to paste
+             into DEFAULT_KNOWN_ISSUES. -->
+        <details class="group" id="ruleGroup" hidden>
+            <summary><span data-i18n="report.filterRules">Filter rules</span>
+                <span id="ruleCount" class="badge"></span></summary>
+            <div class="row">
+                <button id="copyRules" class="btn ghost xs" data-i18n="report.copyRules">Copy</button>
+                <span id="copyRulesNote" class="hint grow"></span>
+            </div>
+            <pre id="ruleSource" class="rules mono"></pre>
+        </details>
 
         <details class="group">
             <summary><span data-i18n="estimate.measured">Measured time per item</span>

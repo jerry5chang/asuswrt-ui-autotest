@@ -264,7 +264,7 @@ main {
 .glabel {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 11px;
     min-width: 0;
     cursor: pointer;
     user-select: none;
@@ -406,7 +406,7 @@ label.item {
 
 .check {
     display: flex;
-    gap: 8px;
+    gap: 11px;
     margin: 7px 0;
     cursor: pointer;
     line-height: 1.4;
@@ -457,6 +457,13 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 /* ------------------------------------------------------------------ kv */
 
 .kv { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: var(--fs-small); }
+
+/* Device info is a read-only version of the same form as Login and Options
+   below it, so it uses their column: label 42%, then the 8px .field gap. */
+#envTable {
+    grid-template-columns: 42% 1fr;
+    gap: 6px 8px;
+}
 .kv dt { color: var(--mut); }
 .kv dd { margin: 0; word-break: break-all; }
 
@@ -804,6 +811,19 @@ body.on-report .estimate { display: none; }
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     color: var(--warn);
+}
+
+/* ------------------------------------------------------- filter rules */
+
+pre.rules {
+    margin: 0;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--fg);
 }
 
 /* --------------------------------------------------------- ignore action */

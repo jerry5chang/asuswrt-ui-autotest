@@ -105,6 +105,10 @@ const MESSAGES = {
         'opts.verboseDesc':
             'echo every assertion to the router page’s own console, prefixed [AUT] — open '
             + 'DevTools on that tab to see exactly where a suite stopped',
+        'opts.devMode': 'Developer mode',
+        'opts.devModeDesc':
+            'list, on the report tab, the filter rules this run’s findings would need, ready '
+            + 'to paste into the shipped list. Only useful to whoever maintains that list.',
         'opts.settle': 'Settle after load (ms)',
         'opts.timeout': 'Page timeout (ms)',
 
@@ -137,6 +141,11 @@ const MESSAGES = {
         'report.allSeverities': 'All severities',
         'report.allSuites': 'All suites',
         'report.filter': 'Filter message / page…',
+        'report.filterRules': 'Filter rules for these findings',
+        'report.copyRules': 'Copy',
+        'report.rulesCopied': 'copied — paste into DEFAULT_KNOWN_ISSUES in src/lib/const.js',
+        'report.copyFailed': 'could not reach the clipboard; select the text instead',
+        'report.noRules': 'Nothing in this run needs a filter rule.',
         'report.apiCalls': 'Recorded API calls',
         'report.noApis': 'No API calls recorded.',
         'report.nothingToExport': 'Nothing to export yet — run a test first.',
@@ -293,6 +302,8 @@ const MESSAGES = {
         'opts.verboseDesc':
             '把每一條斷言印到路由器頁面自己的 console，前綴 [AUT] —— 在那個分頁開 DevTools ' +
             '就能看到測項究竟停在哪一步',
+        'opts.devMode': '開發者模式',
+        'opts.devModeDesc': '在報告頁列出這次結果所需的過濾規則，可直接貼進工具原始碼的清單。',
         'opts.settle': '載入後等待（毫秒）',
         'opts.timeout': '單頁逾時（毫秒）',
 
@@ -325,6 +336,11 @@ const MESSAGES = {
         'report.allSeverities': '所有嚴重度',
         'report.allSuites': '所有測項',
         'report.filter': '篩選訊息／頁面…',
+        'report.filterRules': '這次結果對應的過濾規則',
+        'report.copyRules': '複製',
+        'report.rulesCopied': '已複製，貼到 src/lib/const.js 的 DEFAULT_KNOWN_ISSUES',
+        'report.copyFailed': '無法使用剪貼簿，請直接選取文字',
+        'report.noRules': '這次沒有需要過濾的項目。',
         'report.apiCalls': '已記錄的 API 呼叫',
         'report.noApis': '沒有記錄到 API 呼叫。',
         'report.nothingToExport': '還沒有可匯出的內容 —— 請先跑一次測試。',
@@ -480,6 +496,8 @@ const MESSAGES = {
         'opts.verboseDesc':
             '把每一条断言打印到路由器页面自身的 console，前缀 [AUT] —— 在那个标签页打开 DevTools ' +
             '就能看到测试项究竟停在哪一步',
+        'opts.devMode': '开发者模式',
+        'opts.devModeDesc': '在报告页列出本次结果所需的过滤规则，可直接粘贴进工具源码的清单。',
         'opts.settle': '加载后等待（毫秒）',
         'opts.timeout': '单页超时（毫秒）',
 
@@ -512,6 +530,11 @@ const MESSAGES = {
         'report.allSeverities': '所有严重程度',
         'report.allSuites': '所有测试项',
         'report.filter': '筛选消息／页面…',
+        'report.filterRules': '本次结果对应的过滤规则',
+        'report.copyRules': '复制',
+        'report.rulesCopied': '已复制，粘贴到 src/lib/const.js 的 DEFAULT_KNOWN_ISSUES',
+        'report.copyFailed': '无法使用剪贴板，请直接选取文字',
+        'report.noRules': '本次没有需要过滤的项目。',
         'report.apiCalls': '已记录的 API 调用',
         'report.noApis': '没有记录到 API 调用。',
         'report.nothingToExport': '还没有可导出的内容 —— 请先运行一次测试。',

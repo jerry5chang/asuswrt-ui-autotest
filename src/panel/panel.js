@@ -11,7 +11,7 @@
 
 import { MSG, RISKY_ACTIONS, RUN, SEV_ORDER, PRESETS, FALLBACK_LANGS } from '../lib/const.js';
 import { SUITES, GROUPS, SUITE_BY_ID, pagesInScope } from '../suites/registry.js';
-import { BUILDERS, reportFilename } from '../lib/report.js';
+import { BUILDERS, reportFilename, ruleSource, suggestedRules } from '../lib/report.js';
 import { estimateRemaining, estimateRun, formatDuration } from '../lib/estimate.js';
 import {
     LOCALES,
@@ -272,6 +272,7 @@ const SETTING_FIELDS = {
     stopOnError: 'checked',
     realKeys: 'checked',
     verboseConsole: 'checked',
+    devMode: 'checked',
     pageSettleMs: 'value',
     pageTimeoutMs: 'value',
 };
@@ -819,6 +820,7 @@ function renderReport() {
 
     applyReportFilter();
 
+    renderRuleSuggestions(run);
     renderTimings(run);
 
     const apis = run.apis || [];
@@ -847,6 +849,29 @@ function renderReport() {
             host.append(item);
         }
     }
+}
+
+/**
+ * The filter rules this run's findings would need, for whoever maintains the
+ * shipped list. Nothing here changes the report: the rules are pasted into
+ * src/lib/const.js and take effect in the next release, which is what keeps
+ * one person's report comparable with another's.
+ */
+function renderRuleSuggestions(run) {
+    const group = $('#ruleGroup');
+    if (!snap.settings.devMode) {
+        group.hidden = true;
+        return;
+    }
+    group.hidden = false;
+
+    const suggested = suggestedRules(run);
+    $('#ruleCount').textContent = String(suggested.length);
+    $('#ruleSource').textContent = suggested.length
+        ? suggested.map(({ rule, pages }) => `${ruleSource(rule)}  // ${pages.length} page(s)`).join('\n')
+        : t('report.noRules');
+    $('#copyRules').disabled = suggested.length === 0;
+    $('#copyRulesNote').textContent = '';
 }
 
 /**
@@ -1020,6 +1045,24 @@ function initActions() {
         const node = $('#' + id);
         if (node) node.addEventListener('change', persist);
     }
+
+    // Toggling developer mode has to show or hide its block now, not after the
+    // debounced save comes back.
+    $('#devMode').addEventListener('change', () => {
+        snap.settings.devMode = $('#devMode').checked;
+        if (reportCache) renderRuleSuggestions(reportCache);
+    });
+
+    $('#copyRules').addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText($('#ruleSource').textContent);
+            $('#copyRulesNote').textContent = t('report.rulesCopied');
+        } catch (e) {
+            // Clipboard denied: the text is selectable, so say so rather than
+            // pretending it worked.
+            $('#copyRulesNote').textContent = t('report.copyFailed');
+        }
+    });
 
     ['#filterSev', '#filterSuite'].forEach((s) => $(s).addEventListener('change', applyReportFilter));
     $('#filterQuery').addEventListener('input', applyReportFilter);

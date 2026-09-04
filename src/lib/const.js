@@ -137,6 +137,12 @@ export const DEFAULT_SETTINGS = {
     stopOnError: false,
     /** Echo every assertion to the DUT page's console, for diagnosis. */
     verboseConsole: false,
+    /*
+     * Mine, not my colleagues'. The filter list itself is shipped in source so
+     * that everyone's report is comparable; this only surfaces the rules a run
+     * would need, ready to paste, for whoever maintains that list.
+     */
+    devMode: false,
     /** Allow chrome.debugger attach for suites that need real key presses. */
     realKeys: true,
     autoLogin: false,

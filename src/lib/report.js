@@ -41,7 +41,7 @@ const COST_LABELS = {
  *
  * Deduplicated, because one cause repeated across pages is one rule.
  */
-function suggestedRules(run) {
+export function suggestedRules(run) {
     const SUPPRESSIBLE = new Set([SEV.ERROR, SEV.FAIL, SEV.WARN]);
     const seen = new Map();
 
@@ -58,6 +58,15 @@ function suggestedRules(run) {
         ...entry,
         pages: [...entry.pages],
     }));
+}
+
+/**
+ * One pasteable DEFAULT_KNOWN_ISSUES entry. Every surface that offers these
+ * rules -- the exports and the panel -- renders them from here, so what you
+ * copy out of one is byte-identical to the others.
+ */
+export function ruleSource(rule) {
+    return `{ where: '${rule.where}', match: '${String(rule.match).replace(/'/g, "\\'")}' },`;
 }
 
 function timingRows(run) {
@@ -226,8 +235,7 @@ export function buildMarkdown(run) {
             '```js',
             ...suggested.map(
                 ({ rule, pages }) =>
-                    `    { where: '${rule.where}', match: '${rule.match.replace(/'/g, "\\'")}' },` +
-                    `  // ${pages.length} page(s): ${pages.slice(0, 3).join(', ')}`
+                    `    ${ruleSource(rule)}  // ${pages.length} page(s): ${pages.slice(0, 3).join(', ')}`
             ),
             '```',
             ''
@@ -308,10 +316,7 @@ export function buildTxt(run) {
         out.push('', `=== FILTER RULES FOR THESE FINDINGS (${suggested.length}) ===`);
         out.push('Paste the false alarms into DEFAULT_KNOWN_ISSUES in src/lib/const.js.');
         for (const { rule, pages } of suggested) {
-            out.push(
-                `    { where: '${rule.where}', match: '${rule.match.replace(/'/g, "\\'")}' },` +
-                    `  // ${pages.length} page(s)`
-            );
+            out.push(`    ${ruleSource(rule)}  // ${pages.length} page(s)`);
         }
     }
 
