@@ -42,11 +42,14 @@ export function knownIssue(settings, event) {
  *   party chose to serve. A same-origin 404 is a firmware defect and stays a
  *   FAIL; a cross-origin one is a WARN, so the two do not sit in the report
  *   looking equally like a bug to fix.
+ * - An empty `src` is not a missing asset at all. Nothing is broken: the page
+ *   just spends one wasted request fetching itself. Worth surfacing, not worth
+ *   failing a build over.
  */
 export function severityFor(event, mapping) {
     const detail = event.detail || {};
     if (event.kind === 'console' && detail.level === 'warn') return SEV.INFO;
-    if (event.kind === 'resource' && detail.external) return SEV.WARN;
+    if (event.kind === 'resource' && (detail.emptySrc || detail.external)) return SEV.WARN;
     return mapping.severity;
 }
 

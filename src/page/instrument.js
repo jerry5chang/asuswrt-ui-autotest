@@ -46,6 +46,13 @@
         return AUT.cfg;
     };
 
+    /** `#id` or `.class` for an element, so a report row names what to go fix. */
+    function describeElement(el) {
+        if (el.id) return '#' + el.id;
+        var cls = typeof el.className === 'string' ? el.className.split(/\s+/)[0] : '';
+        return cls ? '.' + cls : '';
+    }
+
     function push(kind, message, detail) {
         if (AUT.events.length >= MAX_EVENTS) { AUT.dropped++; return; }
         AUT.events.push({
@@ -77,22 +84,48 @@
             if (event.target && event.target !== window && event.target.tagName) {
                 if (!AUT.cfg.channels.resource) return;
                 var el = event.target;
-                var src = el.src || el.href || '';
-                if (!src) return;
+                var tag = el.tagName.toLowerCase();
+                var resolved = el.src || el.href || '';
+                if (!resolved) return;
 
-                // Whose fault it is depends on where the resource lives. A
-                // same-origin miss is a firmware defect; a third-party one
-                // (asus.com FAQ probes, CDN assets) depends on the tester's
-                // internet access and on what that host chose to serve.
+                var raw = el.getAttribute ? el.getAttribute('src') || el.getAttribute('href') || '' : '';
+
+                /*
+                 * An empty src is not a missing asset. The DOM resolves src=""
+                 * against the document, so `el.src` hands back the page's own
+                 * address and the failure reads as "the page failed to load as
+                 * an image" -- true, useless, and identical for every such
+                 * element on the page, so they all collapse into one row.
+                 * Only the raw attribute reveals what actually happened.
+                 *
+                 * ASUSWRT uses this deliberately: QIS keeps <img src=""> as
+                 * placeholders and fills them in from JS per WAN type, and its
+                 * own handler.js reads attr("src") == "" as a sentinel. So the
+                 * cost is one wasted request for the page, not a broken UI.
+                 */
+                if (!raw.replace(/\s/g, '') || resolved.split('#')[0] === location.href.split('#')[0]) {
+                    push(
+                        'resource',
+                        tag + describeElement(el) + ' has an empty src, so the browser fetched the ' +
+                            'page itself instead of an image',
+                        { tag: el.tagName, src: resolved, emptySrc: true, element: describeElement(el) }
+                    );
+                    return;
+                }
+
+                // Otherwise: whose fault it is depends on where the resource
+                // lives. A same-origin miss is a firmware defect; a third-party
+                // one depends on the tester's internet access and on what that
+                // host chose to serve.
                 var external = false;
                 try {
-                    external = new URL(src, location.href).origin !== location.origin;
-                } catch (e) { /* unparseable src; treat as local */ }
+                    external = new URL(resolved, location.href).origin !== location.origin;
+                } catch (e) { /* unparseable; treat as local */ }
 
                 push(
                     'resource',
-                    (external ? 'external ' : '') + el.tagName.toLowerCase() + ' failed to load: ' + src,
-                    { tag: el.tagName, src: src, external: external }
+                    (external ? 'external ' : '') + tag + ' failed to load: ' + resolved,
+                    { tag: el.tagName, src: resolved, external: external }
                 );
                 return;
             }

@@ -176,8 +176,14 @@ function testInstrument() {
     // Resource failures: same-origin is the firmware's fault, cross-origin is
     // not. Real case that prompted this -- Advanced_Smart_Home_Alexa.asp probes
     // www.asus.com for a localised FAQ page.
-    fire('error', { target: { tagName: 'IMG', src: 'http://dut/images/missing.png' } });
-    fire('error', { target: { tagName: 'SCRIPT', src: 'https://www.asus.com/tw/support/FAQ/1033393?callback=jQuery1' } });
+    const asImg = (attrs, extra = {}) => ({
+        target: { tagName: 'IMG', getAttribute: (n) => attrs[n] ?? null, ...extra },
+    });
+    fire('error', asImg({ src: '/images/missing.png' }, { src: 'http://dut/images/missing.png' }));
+    fire('error', asImg(
+        { src: 'https://www.asus.com/tw/support/FAQ/1033393' },
+        { tagName: 'SCRIPT', src: 'https://www.asus.com/tw/support/FAQ/1033393?callback=jQuery1' }
+    ));
     const resources = AUT.events.filter((e) => e.kind === 'resource');
     check('same-origin resource failure is not marked external',
         resources[0] && resources[0].detail.external === false, JSON.stringify(resources[0]));
@@ -187,6 +193,20 @@ function testInstrument() {
         resources[1] && resources[1].message.startsWith('external script failed to load:'));
     check('resource failures keep the src for known-issue matching',
         resources[1] && resources[1].detail.src.includes('www.asus.com'));
+
+    // <img src=""> resolves to the document, so el.src reports the page's own
+    // address -- "img failed to load: <this page>", identical for every such
+    // element. The raw attribute is the only way to see what happened.
+    fire('error', asImg({ src: '' }, { id: 'noWanDsl', src: 'http://dut/Advanced_LAN_Content.asp' }));
+    fire('error', asImg({ src: '' }, { id: 'noWanUsb', src: 'http://dut/Advanced_LAN_Content.asp' }));
+    const empties = AUT.events.filter((e) => e.kind === 'resource' && e.detail.emptySrc);
+    check('an empty src is identified as such, not as a missing file',
+        empties[0] && empties[0].detail.emptySrc === true, JSON.stringify(empties[0]));
+    check('...and the message names the real cause',
+        empties[0] && /has an empty src/.test(empties[0].message), empties[0] && empties[0].message);
+    check('...and names the element, so two of them do not collapse into one row',
+        empties.length === 2 && empties[0].message.includes('#noWanDsl') && empties[1].message.includes('#noWanUsb'),
+        empties.map((e) => e.message).join(' | '));
 
     // drain() must hand everything over and reset.
     const drained = AUT.drain();
@@ -264,17 +284,19 @@ async function testEvents() {
         { kind: 'console', message: 'muttered', detail: { level: 'warn' } },
         { kind: 'resource', message: 'img failed to load: /images/x.png', detail: { external: false } },
         { kind: 'resource', message: 'external script failed to load: https://www.asus.com/x', detail: { external: true } },
+        { kind: 'resource', message: 'img#noWanDsl has an empty src', detail: { emptySrc: true } },
         { kind: 'apiBlocked', message: 'held reboot', detail: null },
         { kind: 'debug', message: 'instrumentation installed', detail: null },
     ], ctx);
 
-    check('unrecognised kinds are dropped', rows.length === 6, `got ${rows.length}`);
+    check('unrecognised kinds are dropped', rows.length === 7, `got ${rows.length}`);
     check('a JS error is an error', rows[0].severity === 'error');
     check('console.error is a warning', rows[1].severity === 'warn');
     check('console.warn is only info', rows[2].severity === 'info');
     check('a same-origin resource miss is a fail', rows[3].severity === 'fail');
     check('a cross-origin resource miss is only a warning', rows[4].severity === 'warn');
-    check('a held risky call is its own severity', rows[5].severity === 'blocked');
+    check('an empty src is only a warning — nothing is actually broken', rows[5].severity === 'warn');
+    check('a held risky call is its own severity', rows[6].severity === 'blocked');
     check('rows carry page and lang', rows[0].page === 'x.asp' && rows[0].lang === 'TW');
 
     // Known issues are demoted to skip, not dropped -- a suppression should be
