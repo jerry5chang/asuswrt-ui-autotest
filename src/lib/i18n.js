@@ -227,6 +227,10 @@ const MESSAGES = {
         'suite.eaa.keyboard.desc':
             'Anything clickable must be focusable and operable by keyboard, in a sane order, '
             + 'with visible focus.',
+        'suite.eaa.dialog.name': 'Dialog accessibility',
+        'suite.eaa.dialog.desc':
+            'Opens each dialog on the page: does it announce itself, take focus, keep it, and '
+            + 'give it back on Escape.',
         'suite.eaa.client-dialog.name': 'Client dialog keyboard operation',
         'suite.eaa.client-dialog.desc':
             'Network Map: opening a client must move focus into the dialog, Tab must reach ' +
@@ -426,6 +430,8 @@ const MESSAGES = {
         'suite.eaa.control-state.desc': '開關、頁籤、選單項目要宣告角色與狀態；開/關不能只存在 CSS class 裡。',
         'suite.eaa.keyboard.name': '鍵盤可操作性',
         'suite.eaa.keyboard.desc': '可點擊的都要能聚焦並用鍵盤操作，順序合理，而且看得出焦點在哪。',
+        'suite.eaa.dialog.name': '對話框無障礙',
+        'suite.eaa.dialog.desc': '逐一打開頁面上的對話框：有沒有宣告自己、焦點是否移入、底層是否還可聚焦、ESC 能否關閉並把焦點還回去。',
         'suite.eaa.client-dialog.name': 'Client 對話框鍵盤操作',
         'suite.eaa.client-dialog.desc':
             '網路地圖：點開某個 client 後，焦點要進到對話框內，Tab 要能依序走到每個元件' +
@@ -625,6 +631,8 @@ const MESSAGES = {
         'suite.eaa.control-state.desc': '开关、页签、菜单项要声明角色与状态；开/关不能只存在 CSS class 里。',
         'suite.eaa.keyboard.name': '键盘可操作性',
         'suite.eaa.keyboard.desc': '可点击的都要能聚焦并用键盘操作，顺序合理，而且看得出焦点在哪。',
+        'suite.eaa.dialog.name': '对话框无障碍',
+        'suite.eaa.dialog.desc': '逐一打开页面上的对话框：有没有声明自己、焦点是否移入、底层是否还可聚焦、ESC 能否关闭并把焦点还回去。',
         'suite.eaa.client-dialog.name': 'Client 对话框键盘操作',
         'suite.eaa.client-dialog.desc':
             '网络地图：点开某个 client 后，焦点要进到对话框内，Tab 要能依序走到每个元件' +

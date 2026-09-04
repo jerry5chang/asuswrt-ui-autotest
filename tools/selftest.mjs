@@ -136,12 +136,15 @@ function loadIntoSandbox(ctx, file) {
  * tab order" -- so a selector-keyed stub would only assert the answers written
  * into the fixture. tools/mini-dom.mjs parses the HTML instead.
  */
-function a11yPage(html, suiteFiles) {
+function a11yPage(html, suiteFiles, setup) {
     const { sandbox, ctx } = pageSandbox();
-    installDom(sandbox, html);
+    const doc = installDom(sandbox, html);
     loadIntoSandbox(ctx, 'src/page/instrument.js');
     loadIntoSandbox(ctx, 'src/page/runtime.js');
     loadIntoSandbox(ctx, 'src/page/a11y.js');
+    // Behaviour the fixture needs -- a click that opens a dialog, a driver
+    // servicing key presses -- is wired before the suites are injected.
+    if (setup) setup(doc, sandbox);
     for (const file of suiteFiles || []) loadIntoSandbox(ctx, file);
     return sandbox;
 }
@@ -1195,6 +1198,189 @@ function eaaDom({
     loadIntoSandbox(ctx, 'src/page/runtime.js');
     loadIntoSandbox(ctx, 'src/suites/page/eaa-skip-link.js');
     return sandbox;
+}
+
+/* ---------------------------------------------------- offline: EAA dialogs */
+
+/**
+ * A page with a help icon that opens a dialog, and a dialog that behaves as
+ * badly or as well as the options say. The behaviour is wired with real
+ * listeners, so the suite has to open the thing and observe it.
+ */
+function dialogPage(opts = {}) {
+    const {
+        role = 'dialog',
+        modal = true,
+        name = 'About this feature',
+        focusIn = true,
+        hideBackground = true,
+        closeName = 'Close',
+        escCloses = true,
+        closeWorks = true,
+        realKeys = true,
+        triggers = 1,
+        opens = true,
+    } = opts;
+
+    const triggerHtml = Array.from({ length: triggers }, (_, i) =>
+        `<img id="help${i}" class="helpicon" src="helpicon.png" alt="About" data-rect="10,${i * 30},16,16">`
+    ).join('');
+
+    const html = `
+        <div id="page">
+            <button id="bg_btn" data-rect="0,300,80,24">Apply</button>
+            <input id="bg_input" data-rect="0,340,120,24">
+            ${triggerHtml}
+            <div id="feature_desc" class="hint_div" style="display: none" data-rect="200,100,320,200"
+                 ${role ? `role="${role}"` : ''} ${modal ? 'aria-modal="true"' : ''}
+                 ${name ? `aria-label="${name}"` : ''}>
+                <button id="close_btn" class="icon_close" data-rect="480,110,20,20"
+                        ${closeName ? `aria-label="${closeName}"` : ''}></button>
+                <a href="#more" id="in_link" data-rect="210,150,100,20">Learn more</a>
+            </div>
+        </div>`;
+
+    let stop = null;
+    const sandbox = a11yPage(html, ['src/suites/page/eaa-dialog.js'], (doc, sb) => {
+        const dialog = doc.getElementById('feature_desc');
+        const background = [doc.getElementById('bg_btn'), doc.getElementById('bg_input')];
+        const closeBtn = doc.getElementById('close_btn');
+
+        const open = () => {
+            if (!opens) return;
+            dialog.setAttribute('style', 'display: block');
+            if (hideBackground) background.forEach((el) => el.setAttribute('aria-hidden', 'true'));
+            if (focusIn) doc.getElementById('close_btn').focus();
+        };
+        const close = () => {
+            dialog.setAttribute('style', 'display: none');
+            background.forEach((el) => el.removeAttribute('aria-hidden'));
+            doc.getElementById('help0').focus();
+        };
+
+        for (let i = 0; i < triggers; i++) doc.getElementById(`help${i}`).addEventListener('click', open);
+        if (closeWorks) closeBtn.addEventListener('click', close);
+
+        if (realKeys) {
+            sb.__AUT__.input.available = true;
+            const inside = () => [closeBtn, doc.getElementById('in_link')];
+            const timer = setInterval(() => {
+                for (const request of sb.__AUT__.input.queue) {
+                    if (request.done) continue;
+                    if (request.key === 'Tab') {
+                        // Trapped: from the last stop, wrap to the first.
+                        const list = inside();
+                        const at = list.indexOf(doc.activeElement);
+                        list[(at + (request.shift ? -1 : 1) + list.length) % list.length].focus();
+                    }
+                    if (request.key === 'Escape' && escCloses) close();
+                    request.done = true;
+                }
+            }, 0);
+            stop = () => clearInterval(timer);
+        }
+    });
+    sandbox.__stopInput = () => stop && stop();
+    return sandbox;
+}
+
+async function testEaaDialog() {
+    section('EAA dialog engine (src/suites/page/eaa-dialog.js)');
+
+    const run = async (opts) => {
+        const sandbox = dialogPage(opts);
+        try {
+            return await sandbox.__AUT__.runSuites(['eaa.dialog'], 30000);
+        } finally {
+            sandbox.__stopInput();
+        }
+    };
+    const pick = (rows, sev) => rows.filter((r) => r.severity === sev);
+    const msgs = (rows, sev) => pick(rows, sev).map((r) => r.message);
+    const bad = (rows) => [...msgs(rows, 'fail'), ...msgs(rows, 'error')];
+
+    const good = await run({});
+    check('a well-behaved dialog produces no failure', bad(good).length === 0, bad(good).join(' | '));
+    check('...and reports how many it checked',
+        msgs(good, 'info').some((m) => /checked 1 dialog/.test(m)), msgs(good, 'info').join(' | '));
+    check('...including that focus moved in',
+        msgs(good, 'pass').some((m) => /focus moved into/.test(m)), msgs(good, 'pass').join(' | '));
+    check('...that the background left the tab order',
+        msgs(good, 'pass').some((m) => /no longer in the tab order/.test(m)), msgs(good, 'pass').join(' | '));
+    check('...that Tab stays inside',
+        msgs(good, 'pass').some((m) => /stays inside it/.test(m)), msgs(good, 'pass').join(' | '));
+    check('...that Escape closes it and focus comes back',
+        msgs(good, 'pass').some((m) => /Escape closes/.test(m)) &&
+            msgs(good, 'pass').some((m) => /focus returns to/.test(m)),
+        msgs(good, 'pass').join(' | '));
+
+    // 「未設置對話框類型」
+    const noRole = await run({ role: '', modal: false });
+    const roleRow = pick(noRole, 'fail').find((r) => /declares role="dialog"/.test(r.message));
+    check('a dialog with no role fails', !!roleRow, bad(noRole).join(' | '));
+    check('...naming the container', /#feature_desc/.test(roleRow.message), roleRow.message);
+    check('...and saying which trigger opened it',
+        /help0/.test(JSON.stringify(roleRow.detail)), JSON.stringify(roleRow.detail));
+
+    // 「焦點仍停留在底層元素」
+    const noFocus = await run({ focusIn: false });
+    const focusRow = pick(noFocus, 'fail').find((r) => /focus moved into/.test(r.message));
+    check('a dialog that does not take focus fails', !!focusRow, bad(noFocus).join(' | '));
+    check('...and says where focus actually was',
+        /focusedNow/.test(JSON.stringify(focusRow.detail)), JSON.stringify(focusRow.detail));
+
+    // 「彈窗彈出後可瀏覽底層元素」
+    const leaky = await run({ hideBackground: false });
+    const leakRow = pick(leaky, 'fail').find((r) => /no longer in the tab order/.test(r.message));
+    check('a dialog that leaves the page behind reachable fails', !!leakRow, bad(leaky).join(' | '));
+    check('...listing what is still reachable',
+        (leakRow.detail.examples || []).some((e) => /bg_btn/.test(e)), JSON.stringify(leakRow.detail));
+    check('...and naming the fix', /inert/.test(leakRow.detail.fix || ''), JSON.stringify(leakRow.detail));
+
+    // 「close button 無標籤」
+    const namelessClose = await run({ closeName: '' });
+    check('a close button with no name fails',
+        bad(namelessClose).some((m) => /\(close\) has an accessible name/.test(m)),
+        bad(namelessClose).join(' | '));
+
+    const escStuck = await run({ escCloses: false });
+    check('a dialog Escape cannot close fails',
+        bad(escStuck).some((m) => /Escape closes/.test(m)), bad(escStuck).join(' | '));
+    check('...and the suite falls back to the close button to clean up',
+        !msgs(escStuck, 'warn').some((m) => /could not be closed/.test(m)),
+        msgs(escStuck, 'warn').join(' | '));
+
+    // Nothing closes it: the suite has to say the page was left dirty, because
+    // every later check on this page is now looking at a modal.
+    const stuck = await run({ escCloses: false, closeWorks: false });
+    check('a dialog nothing can close is reported as leaving the page open',
+        msgs(stuck, 'warn').some((m) => /could not be closed/.test(m)),
+        msgs(stuck, 'warn').join(' | '));
+
+    // Without trusted keys the keyboard half is skipped, not faked.
+    const synthetic = await run({ realKeys: false });
+    check('Tab containment is skipped without trusted keys',
+        msgs(synthetic, 'skip').some((m) => /Tab containment/.test(m)), msgs(synthetic, 'skip').join(' | '));
+    check('...and so is Escape',
+        msgs(synthetic, 'skip').some((m) => /Escape on/.test(m)), msgs(synthetic, 'skip').join(' | '));
+    check('...while the structural checks still run',
+        msgs(synthetic, 'pass').some((m) => /focus moved into/.test(m)), msgs(synthetic, 'pass').join(' | '));
+
+    // A trigger that opens nothing is information, not a defect.
+    const dead = await run({ opens: false });
+    check('a trigger that opens nothing is reported as info, not a failure',
+        bad(dead).length === 0 && msgs(dead, 'info').some((m) => /did not open a container/.test(m)),
+        [...bad(dead), ...msgs(dead, 'info')].join(' | '));
+
+    // Eight help icons on one page must not mean eight identical dialogs.
+    const many = await run({ triggers: 8 });
+    check('the per-page dialog budget is respected',
+        msgs(many, 'info').some((m) => /checked 4 dialog/.test(m)), msgs(many, 'info').join(' | '));
+
+    const none = await a11yPage('<div><p>No dialogs here</p></div>',
+        ['src/suites/page/eaa-dialog.js']).__AUT__.runSuites(['eaa.dialog'], 8000);
+    check('a page with no trigger is skipped',
+        pick(none, 'skip').length === 1, JSON.stringify(none));
 }
 
 /* ---------------------------------------------- offline: EAA control state */
@@ -2276,6 +2462,7 @@ await testEstimate();
 await testTimings();
 await testReport();
 await testEaaNames();
+await testEaaDialog();
 await testEaaControlState();
 await testEaaKeyboard();
 await testEaaFormLabels();

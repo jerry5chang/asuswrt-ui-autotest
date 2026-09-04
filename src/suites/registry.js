@@ -314,6 +314,22 @@ export const SUITES = [
         defaultOn: false,
     },
     {
+        id: 'eaa.dialog',
+        name: 'Dialog accessibility',
+        group: 'EAA',
+        description:
+            'Opens each dialog trigger on the page and checks one checklist: role, name, focus ' +
+            'moves in, the page behind is out of reach, Escape closes it, focus comes back.',
+        where: 'page',
+        scope: 'each-page',
+        file: 'src/suites/page/eaa-dialog.js',
+        /* Opens up to four dialogs, each with a wait for it to appear. */
+        timeoutMs: 30000,
+        needsRealKeys: true,
+        cost: { shape: 'perPage', ms: 2600 },
+        defaultOn: false,
+    },
+    {
         id: 'eaa.client-dialog',
         name: 'Client dialog keyboard operation',
         group: 'EAA',
