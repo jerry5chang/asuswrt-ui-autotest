@@ -293,9 +293,30 @@ main {
 .btn.sm { padding: 5px 10px; font-size: var(--fs-small); }
 .btn.xs { padding: 3px 8px; font-size: var(--fs-tiny); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
-.btn.primary { flex: 1; }
+/*
+ * The run controls must not jump when Start is replaced by Pause + Stop.
+ * Start used to be flex: 1 and filled the row, so pressing it resized and
+ * relocated everything. Instead the first slot has a fixed width shared by
+ * Start / Pause / Resume, Stop appears beside it, and Clear is pinned right
+ * so it never moves. The onboarding button still stretches, via align-self
+ * in its own column.
+ */
+.controls {
+    display: flex;
+    gap: 7px;
+    align-items: center;
+    margin-bottom: 10px;
+}
 
-.controls { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 10px; }
+#btnStart,
+#btnPause,
+#btnResume,
+#btnStop {
+    min-width: 88px;
+    justify-content: center;
+}
+
+#btnClear { margin-left: auto; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 2px; }
 
