@@ -49,6 +49,7 @@ feature set rather than a hard-coded list.
 | WebAPI | Record outgoing API calls | every XHR / fetch / `nvramSet` the UI sends |
 | Page tests | QIS wizard, VLAN switch, Traffic monitor, Apply button | per-page assertions |
 | EAA | Skip to main content link | the bypass link is the first Tab stop, reveals itself, and lands focus past the navigation (WCAG 2.4.1) |
+| EAA | Client dialog keyboard operation | Network Map: focus enters the dialog, Tab reaches every component without escaping, Escape closes it (WCAG 2.1.2 / 2.4.3) |
 
 Adding one is a two-file change and needs no manifest edit — see
 [docs/WRITING-TESTS.md](docs/WRITING-TESTS.md).
