@@ -6,7 +6,7 @@
  */
 
 import { SEV } from '../lib/const.js';
-import { NORMALIZED_HOOKS, API_HOOKS_NEEDING_ARGS } from '../suites/data/api-hooks.js';
+import { NORMALIZED_HOOKS, API_HOOKS_NEEDING_ARGS, bandsFrom } from '../suites/data/api-hooks.js';
 import { probeUrls, hookGet, hookGetOne } from './page-eval.js';
 
 const PROBE_BATCH = 12;
@@ -88,18 +88,38 @@ async function specCheck(ctx) {
  */
 async function detectPlatform(tabId) {
     const support = await hookGetOne(tabId, 'get_ui_support()', 'get_ui_support');
-    if (!support || typeof support !== 'object') return { known: false, support: {} };
-    return { known: true, support, broadcom: !support.mtk };
+
+    /*
+     * Which radios exist, from the same nvram the UI reads to build its own
+     * band list (state.js wl_nband_title). get_ui_support() is not usable for
+     * this: it reports "5G-2": 1 on a router whose wlnband_list is
+     * 2g1<5g1<6g1, so gating on it would sweep a radio that is not there --
+     * which is how channel_list_5g_2 came to be reported as a defect.
+     */
+    const wlnbandList = await hookGetOne(tabId, 'nvram_get(wlnband_list)', 'wlnband_list');
+    const bands = bandsFrom(wlnbandList);
+
+    if (!support || typeof support !== 'object') {
+        return { known: false, support: {}, bands };
+    }
+    return { known: true, support, broadcom: !support.mtk, bands };
 }
 
+/** The first requirement this build does not meet, or null. */
 function unmetNeed(hook, platform) {
-    if (!hook.needs || !platform.known) return null;
-    if (hook.needs === 'broadcom') {
-        return platform.broadcom ? null : 'this is not a Broadcom build';
+    // A band is knowable on its own, even when get_ui_support() was not.
+    if (hook.band && platform.bands && platform.bands.size && !platform.bands.has(hook.band)) {
+        return `this router has no ${hook.band.replace('_', '-')} radio`;
     }
-    if (hook.needs.startsWith('support:')) {
-        const key = hook.needs.slice('support:'.length);
-        return platform.support[key] ? null : `get_ui_support() does not report ${key}`;
+
+    if (!platform.known) return null;
+
+    for (const need of hook.needs) {
+        if (need === 'broadcom' && !platform.broadcom) return 'this is not a Broadcom build';
+        if (need.startsWith('support:')) {
+            const key = need.slice('support:'.length);
+            if (!platform.support[key]) return `get_ui_support() does not report ${key}`;
+        }
     }
     return null;
 }

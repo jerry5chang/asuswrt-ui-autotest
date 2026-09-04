@@ -834,9 +834,35 @@ async function testHookList() {
         !NORMALIZED_HOOKS.some((h) => h.name.includes('-')),
         NORMALIZED_HOOKS.filter((h) => h.name.includes('-')).map((h) => h.name).join(', '));
 
-    const gated = NORMALIZED_HOOKS.filter((h) => h.needs);
-    check('the Broadcom-only wl_cap_* family is gated', gated.length === 5 && gated.every((h) => h.needs === 'broadcom'),
+    const gated = NORMALIZED_HOOKS.filter((h) => h.needs.length);
+    check('the Broadcom-only wl_cap_* family is gated',
+        gated.length === 5 && gated.every((h) => h.needs.includes('broadcom')),
         gated.map((h) => h.name).join(', '));
+
+    /*
+     * A radio a router does not have is not a defect. Derived from the hook
+     * name rather than annotated, so one added later is gated without anyone
+     * remembering to.
+     */
+    const { bandOf, bandsFrom } = await import('../src/suites/data/api-hooks.js');
+    check('a band suffix is read off the hook name',
+        bandOf('channel_list_5g_2') === '5g_2' && bandOf('wl_cap_6g') === '6g');
+    check('...longest first, so 5g_2 is not read as 5g', bandOf('chanspecs_5g_2') === '5g_2');
+    check('a hook with no band is not gated on one', bandOf('uptime') === null);
+    check('every band-suffixed hook in the list is gated',
+        NORMALIZED_HOOKS.filter((h) => h.band).length === 20,
+        String(NORMALIZED_HOOKS.filter((h) => h.band).length));
+
+    // The DUT's own value, separator still HTML-escaped as httpd hands it over.
+    const triband = bandsFrom('2g1&#605g1&#606g1');
+    check('wlnband_list maps to the bands that exist',
+        [...triband].sort().join() === '2g,5g,6g', [...triband].join());
+    check('...and the second of a band takes the _2 suffix',
+        bandsFrom('2g1<5g1<5g2<6g1').has('5g_2'));
+    check('...so a triband router has no 5g_2 or 6g_2',
+        !triband.has('5g_2') && !triband.has('6g_2'));
+    check('an unreadable value gates nothing, rather than gating everything',
+        bandsFrom('') === null && bandsFrom(undefined) === null);
 }
 
 /* ------------------------------------------------------ offline: i18n */
@@ -1720,7 +1746,15 @@ async function testAgainstDut() {
     check('WebAPI sweep had no transport errors', !api.some((r) => r.severity === 'error'));
     check('a silent hook is a warning, not a failure — it may be #ifdef\'d out',
         !api.some((r) => r.severity === 'fail'));
-    check('Broadcom-only hooks are skipped on this MTK build', gated.length === 5, `${gated.length} gated`);
+    check('platform- and band-specific hooks are skipped, not reported as defects',
+        gated.length >= 5, `${gated.length} gated`);
+    check('...including the radios this router does not have',
+        gated.some((r) => /no 5g-2 radio/.test(r.message)) &&
+            gated.some((r) => /no 6g-2 radio/.test(r.message)),
+        gated.map((r) => r.message).join(' | '));
+    check('...and a band it does have is still swept',
+        !gated.some((r) => /channel_list_5g\(/.test(r.message)),
+        gated.map((r) => r.message).join(' | '));
 
     // Regression: app_call() answers with "<func>-<arg0>" when an argument was
     // given, so keying this by the bare name reported a healthy hook as broken.

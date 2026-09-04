@@ -14,9 +14,13 @@
  * hook is simply absent from the response. Without the annotation, sweeping a
  * platform-specific hook on the wrong platform reports a defect that isn't one.
  *
- * Supported `needs` values:
+ * Supported `needs` values (a string, or an array of them):
  *   'broadcom'      the hook is implemented in httpd/sysdeps/web-broadcom.c
  *   'support:<key>' get_ui_support() must report <key> as truthy
+ *
+ * A radio band is *derived* rather than annotated: any hook whose name ends in
+ * a band suffix needs that radio to exist. Deriving it means a hook added later
+ * is gated without anyone remembering to say so.
  */
 export const API_HOOKS = [
     'get_clientlist',
@@ -100,13 +104,48 @@ export const API_HOOKS = [
 /** Hooks whose argument depends on runtime state; reported as skipped. */
 export const API_HOOKS_NEEDING_ARGS = ['get_customized_attribute'];
 
+/**
+ * Radios a hook name can be specific to, longest first so `_5g_2` is not read
+ * as `_5g`.
+ */
+const BAND_SUFFIXES = ['5g_2', '6g_2', '2g', '5g', '6g'];
+
+/** `channel_list_5g_2` -> `5g_2`; `uptime` -> null. */
+export function bandOf(name) {
+    return BAND_SUFFIXES.find((band) => String(name).endsWith(`_${band}`)) || null;
+}
+
+/**
+ * `wlnband_list` entries -> the band suffixes that exist on this router.
+ * The nvram value is `2g1<5g1<6g1`, and httpd hands it over with the
+ * separator still HTML-escaped as `&#60`.
+ */
+export function bandsFrom(wlnbandList) {
+    if (!wlnbandList) return null;
+    return new Set(
+        String(wlnbandList)
+            .split(/&#60|</)
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+            .map((entry) => {
+                const parsed = /^(\d+g)(\d+)$/.exec(entry);
+                if (!parsed) return null;
+                const [, type, index] = parsed;
+                // The first of a band carries no suffix: 5g1 -> _5g, 5g2 -> _5g_2.
+                return index === '1' ? type : `${type}_${index}`;
+            })
+            .filter(Boolean)
+    );
+}
+
 /** `'uptime'` or `{name, arg, needs}` -> a uniform shape. */
 export function normalizeHook(entry) {
     const hook = typeof entry === 'string' ? { name: entry } : { ...entry };
     return {
         name: hook.name,
         arg: hook.arg || '',
-        needs: hook.needs || null,
+        needs: hook.needs ? [].concat(hook.needs) : [],
+        band: bandOf(hook.name),
         /** What appGet.cgi asks for. */
         expr: `${hook.name}(${hook.arg || ''})`,
         /**
