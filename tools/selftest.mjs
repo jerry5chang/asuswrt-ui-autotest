@@ -387,6 +387,8 @@ async function testEvents() {
             /local time/.test(runnerSrc));
     check('...including the timezone, so a pasted log is unambiguous',
         /getTimezoneOffset/.test(runnerSrc));
+    check('the panel shows the run log newest first',
+        /runLogLines\(run\)\.reverse\(\)/.test(fs.readFileSync('src/panel/panel.js', 'utf8')));
     check('driver suites can write to the run log',
         /log: \(text\) => state\.note\(text\)/.test(runnerSrc));
     check('a failed harvest is logged rather than swallowed',

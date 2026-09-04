@@ -752,7 +752,11 @@ function renderRun() {
         (run.results || []).slice(-80).reverse(),
         busy || paused ? run.current : null
     );
-    $('#runLog').textContent = runLogLines(run).join('\n');
+    // Newest first, like the results list: during a run the interesting line
+    // is the one that just arrived, and the box is not tall enough to chase.
+    // The report keeps chronological order -- it opens with the environment
+    // header, and two runs are meant to be diffable.
+    $('#runLog').textContent = runLogLines(run).reverse().join('\n');
 }
 
 function statusLabel(status) {
